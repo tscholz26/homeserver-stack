@@ -1,0 +1,22 @@
+services:
+  website-weather-api:
+    build: ./frontend
+    container_name: website-weather-api
+    restart: unless-stopped
+    networks:
+      - caddy-network
+    depends_on:
+      - weather-backend
+
+  weather-backend:
+    build: ./backend
+    container_name: weather-backend
+    restart: unless-stopped
+    environment:
+      - OWM_API_KEY=${OWM_API_KEY}
+    networks:
+      - caddy-network
+
+networks:
+  caddy-network:
+    external: true

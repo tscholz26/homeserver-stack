@@ -1,0 +1,21 @@
+# Use Zerossl for now to avoid certificate generation limit
+# to go back to lets encrypt, just remove this block
+{
+    acme_ca https://acme.zerossl.com/v2/DV90
+    email tristan.scholz2000@gmail.com
+}
+
+tshomeserv.duckdns.org {
+    handle /home/weather* {
+        reverse_proxy weather-backend:3000
+    }
+
+    handle /home/* {
+        reverse_proxy website-weather-api:80
+    }
+
+    handle /nextcloud/* {
+        reverse_proxy nextcloud:80
+    }    
+}
+

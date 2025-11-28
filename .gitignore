@@ -1,0 +1,8 @@
+# Secrets
+*.env
+
+# Nextcloud Daten
+nextcloud/data/
+
+# Logs
+*.log
