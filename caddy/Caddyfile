@@ -14,8 +14,7 @@ tshomeserv.duckdns.org {
         reverse_proxy website-weather-api:80
     }
 
-    handle /nextcloud/* {
-        reverse_proxy nextcloud:80
-    }    
+    handle /* {
+        reverse_proxy 127.0.0.1:11000
+    }
 }
-

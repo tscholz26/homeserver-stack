@@ -1,29 +1,23 @@
 services:
-  db:
-    image: mariadb:12
-    container_name: nextcloud-db
+  nextcloud-aio-mastercontainer:
+    image: ghcr.io/nextcloud-releases/all-in-one:latest
+    init: true
     restart: always
-    command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    container_name: nextcloud-aio-mastercontainer
     volumes:
-      - /home/tristans/data/nextcloud-db:/var/lib/mysql   # DB storage
-
-  nextcloud:
-    image: nextcloud:32
-    container_name: nextcloud
-    restart: always
+      - nextcloud_aio_mastercontainer:/mnt/docker-aio-config
+      - /home/tristans/data/nextcloud:/mnt/ncdata
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      NEXTCLOUD_DATADIR: /mnt/ncdata
+      APACHE_PORT: 11000
+      APACHE_IP_BINDING: 127.0.0.1
+      SKIP_DOMAIN_VALIDATION: "true"
+    network_mode: bridge
+    # No need to expose 80/443 publicly; Caddy handles HTTPS
     ports:
-      - 8080:80
-    environment:
-      MYSQL_HOST: db
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-    depends_on:
-      - db
-    volumes:
-      - /home/tristans/data/nextcloud:/var/www/html/data   # Nextcloud files
+      - 8080:8080
+
+volumes:
+  nextcloud_aio_mastercontainer:
+    name: nextcloud_aio_mastercontainer
