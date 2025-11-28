@@ -1,35 +1,29 @@
 services:
   db:
-    image: mariadb:latest
+    image: mariadb:12
     container_name: nextcloud-db
-    restart: unless-stopped
+    restart: always
+    command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW
     environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - MYSQL_DATABASE=${MYSQL_DATABASE}
-      - MYSQL_USER=${MYSQL_USER}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
-      - /home/tristans/data/nextcloud:/var/lib/mysql
+      - /home/tristans/data/nextcloud-db:/var/lib/mysql   # DB storage
 
   nextcloud:
-    image: nextcloud:latest
+    image: nextcloud:32
     container_name: nextcloud
-    restart: unless-stopped
+    restart: always
+    ports:
+      - 8080:80
     environment:
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
-      - MYSQL_DATABASE=${MYSQL_DATABASE}
-      - MYSQL_USER=${MYSQL_USER}
-      - MYSQL_HOST=db
-      - NEXTCLOUD_ADMIN_USER=${NEXTCLOUD_ADMIN_USER}
-      - NEXTCLOUD_ADMIN_PASSWORD=${NEXTCLOUD_ADMIN_PASSWORD}
-      - NEXTCLOUD_DATA_DIR=${NEXTCLOUD_DATA_DIR}
-    volumes:
-      - /home/tristans/data/nextcloud:/var/www/html/data
-    networks:
-      - caddy-network  
+      MYSQL_HOST: db
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     depends_on:
       - db
-
-networks:
-  caddy-network:
-    external: true
+    volumes:
+      - /home/tristans/data/nextcloud:/var/www/html/data   # Nextcloud files
