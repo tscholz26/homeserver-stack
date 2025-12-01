@@ -7,7 +7,11 @@
 
 tshomeserv.duckdns.org {
     # Nextcloud (all requests except /home/)
-    handle_path /home/* {
+    handle /home/weather* {
+        reverse_proxy weather-backend:3000
+    }
+
+    handle /home/* {
         reverse_proxy website-weather-api:80
     }
 
