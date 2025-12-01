@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   db:
     image: mariadb:lts
@@ -8,11 +6,13 @@ services:
     volumes:
       - /home/tristans/data/db:/var/lib/mysql:Z
     environment:
-      - MYSQL_ROOT_PASSWORD=Root_12345
+    # Secrets are stored in .env (hidden by .gitignore)
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - MARIADB_AUTO_UPGRADE=1
       - MARIADB_DISABLE_UPGRADE_BACKUP=1
-    env_file:
-      - db.env
     networks:
       - internal
       - caddy-network
@@ -31,14 +31,15 @@ services:
       - /home/tristans/data/nextcloud:/var/www/html:z
       - /home/tristans/nextcloud-data:/var/www/html/data:z
     environment:
+    # Secrets are stored in .env (hidden by .gitignore)
       - MYSQL_HOST=db
       - REDIS_HOST=redis
-      - TRUSTED_PROXIES=172.22.0.0/16
-      - OVERWRITEHOST=tshomeserv.duckdns.org
-      - OVERWRITEPROTOCOL=https
-      - FORWARDED_FOR_HEADERS=HTTP_X_FORWARDED_FOR,HTTP_X_FORWARDED_PROTO,HTTP_X_FORWARDED_HOST,HTTP_X_FORWARDED_PORT
-    env_file:
-      - db.env
+      - TRUSTED_PROXIES=${NEXTCLOUD_TRUSTED_PROXIES}
+      - OVERWRITEHOST=${NEXTCLOUD_OVERWRITEHOST}
+      - OVERWRITEPROTOCOL=${NEXTCLOUD_OVERWRITEPROTOCOL}
+      - FORWARDED_FOR_HEADERS=${NEXTCLOUD_FORWARDED_FOR_HEADERS}
+      - NEXTCLOUD_ADMIN_USER=${NEXTCLOUD_ADMIN_USER}
+      - NEXTCLOUD_ADMIN_PASSWORD=${NEXTCLOUD_ADMIN_PASSWORD}
     depends_on:
       - db
       - redis
