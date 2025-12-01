@@ -4,7 +4,7 @@ services:
     command: --transaction-isolation=READ-COMMITTED
     restart: always
     volumes:
-      - /home/tristans/data/db:/var/lib/mysql:Z
+      - /home/tristans/dev/nextcloud-dev/db:/var/lib/mysql:Z
     environment:
     # Secrets are stored in .env (hidden by .gitignore)
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
@@ -13,6 +13,8 @@ services:
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - MARIADB_AUTO_UPGRADE=1
       - MARIADB_DISABLE_UPGRADE_BACKUP=1
+    env_file:
+      - db.env
     networks:
       - internal
       - caddy-network
@@ -28,8 +30,10 @@ services:
     image: nextcloud:fpm-alpine
     restart: always
     volumes:
-      - /home/tristans/data/nextcloud:/var/www/html:z
-      - /home/tristans/nextcloud-data:/var/www/html/data:z
+      - /home/tristans/dev/nextcloud-dev/nextcloud:/var/www/html:z
+      - /home/tristans/data/nextcloud-data:/var/www/html/data:z
+    env_file:
+      - db.env
     environment:
     # Secrets are stored in .env (hidden by .gitignore)
       - MYSQL_HOST=db
@@ -51,8 +55,8 @@ services:
     image: nextcloud:fpm-alpine
     restart: always
     volumes:
-      - /home/tristans/data/nextcloud:/var/www/html:z
-      - /home/tristans/nextcloud-data:/var/www/html/data:z
+      - /home/tristans/dev/nextcloud-dev/nextcloud:/var/www/html:z
+      - /home/tristans/data/nextcloud-data:/var/www/html/data:z
       # must match with volume config of app container
     entrypoint: /cron.sh
     depends_on:

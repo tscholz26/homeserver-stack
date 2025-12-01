@@ -7,7 +7,7 @@ services:
       - 443:443
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
-      - /home/tristans/data/nextcloud:/var/www/html:z
+      - /home/tristans/dev/nextcloud-dev/nextcloud:/var/www/html:z
       - caddy_data:/data
       - caddy_config:/config
     networks:
