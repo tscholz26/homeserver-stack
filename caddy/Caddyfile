@@ -12,8 +12,8 @@ tshomeserv.duckdns.org {
     }
 
     handle {
-        reverse_proxy nextcloud_app:80
+        root * /var/www/html
+        php_fastcgi app:9000
+        file_server
     }
-
-    tls tristan.scholz2000@gmail.com
 }
