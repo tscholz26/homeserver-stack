@@ -30,6 +30,10 @@ services:
     environment:
       - MYSQL_HOST=db
       - REDIS_HOST=redis
+      - TRUSTED_PROXIES=proxy,172.22.0.0/16
+      - OVERWRITEHOST=tshomeserv.duckdns.org
+      - OVERWRITEPROTOCOL=https
+      - FORWARDED_FOR_HEADERS=HTTP_X_FORWARDED_FOR,HTTP_X_FORWARDED_PROTO,HTTP_X_FORWARDED_HOST,HTTP_X_FORWARDED_PORT
     env_file:
       - db.env
     depends_on:
