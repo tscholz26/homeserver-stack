@@ -29,6 +29,7 @@ services:
     restart: always
     volumes:
       - /home/tristans/data/nextcloud:/var/www/html:z
+      - /home/tristans/nextcloud-data:/var/www/html/data:z
     environment:
       - MYSQL_HOST=db
       - REDIS_HOST=redis
@@ -50,6 +51,7 @@ services:
     restart: always
     volumes:
       - /home/tristans/data/nextcloud:/var/www/html:z
+      - /home/tristans/nextcloud-data:/var/www/html/data:z
       # must match with volume config of app container
     entrypoint: /cron.sh
     depends_on:
