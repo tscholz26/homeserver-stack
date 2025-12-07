@@ -1,0 +1,16 @@
+services:
+  adguardhome:
+    image: adguard/adguardhome
+    ports:
+      - 53:53 # plain dns over tcp
+      - 81:81/tcp # http web interface (80: bereits caddy)
+      - 3000:3000/tcp # initial setup web interface
+    volumes:
+      - config:/opt/adguardhome/conf # app configuration
+      - work:/opt/adguardhome/work # app working directory
+
+volumes:
+  config:
+    driver: local
+  work:
+    driver: local
