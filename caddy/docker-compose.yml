@@ -1,13 +1,13 @@
 services:
   caddy:
     image: caddy:latest
-    container_name: caddy
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      - 80:80
+      - 443:443
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
+      - /home/tristans/dev/nextcloud-dev/nextcloud:/var/www/html:z
       - caddy_data:/data
       - caddy_config:/config
     networks:
@@ -19,4 +19,4 @@ volumes:
 
 networks:
   caddy-network:
-    external: true  
+    external: true

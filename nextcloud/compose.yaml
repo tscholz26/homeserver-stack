@@ -1,0 +1,74 @@
+services:
+  db:
+    image: mariadb:lts
+    command: --transaction-isolation=READ-COMMITTED
+    restart: always
+    volumes:
+      - /home/tristans/dev/nextcloud-dev/db:/var/lib/mysql:Z
+    environment:
+    # Secrets are stored in .env (hidden by .gitignore)
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MARIADB_AUTO_UPGRADE=1
+      - MARIADB_DISABLE_UPGRADE_BACKUP=1
+    env_file:
+      - db.env
+    networks:
+      - internal
+      - caddy-network
+
+  redis:
+    image: redis:alpine
+    restart: always
+    networks:
+      - internal
+      - caddy-network
+
+  app:
+    image: nextcloud:fpm-alpine
+    restart: always
+    volumes:
+      - /home/tristans/dev/nextcloud-dev/nextcloud:/var/www/html:z
+      - /home/tristans/data/nextcloud-data:/var/www/html/data:z
+    env_file:
+      - db.env
+    environment:
+    # Secrets are stored in .env (hidden by .gitignore)
+      - MYSQL_HOST=db
+      - REDIS_HOST=redis
+      - TRUSTED_PROXIES=${NEXTCLOUD_TRUSTED_PROXIES}
+      - OVERWRITEHOST=${NEXTCLOUD_OVERWRITEHOST}
+      - OVERWRITEPROTOCOL=${NEXTCLOUD_OVERWRITEPROTOCOL}
+      - FORWARDED_FOR_HEADERS=${NEXTCLOUD_FORWARDED_FOR_HEADERS}
+      - NEXTCLOUD_ADMIN_USER=${NEXTCLOUD_ADMIN_USER}
+      - NEXTCLOUD_ADMIN_PASSWORD=${NEXTCLOUD_ADMIN_PASSWORD}
+    depends_on:
+      - db
+      - redis
+    networks:
+      - internal
+      - caddy-network
+
+  cron:
+    image: nextcloud:fpm-alpine
+    restart: always
+    volumes:
+      - /home/tristans/dev/nextcloud-dev/nextcloud:/var/www/html:z
+      - /home/tristans/data/nextcloud-data:/var/www/html/data:z
+      # must match with volume config of app container
+    entrypoint: /cron.sh
+    depends_on:
+      - app
+      - redis
+      - db
+    networks:
+      - internal
+      - caddy-network
+
+networks:
+  internal:
+    driver: bridge
+  caddy-network:
+    external: true
