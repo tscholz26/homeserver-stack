@@ -1,0 +1,17 @@
+services:
+  adguardhome:
+    image: adguard/adguardhome
+    ports:
+      - 53:53/tcp # plain dns over tcp
+      - 53:53/udp # plain dns over udp
+      - 81:81/tcp # http web interface (80: used by caddy)
+      - 3001:3000/tcp # initial setup web interface (3000: used by weather api service)
+    volumes:
+      - config:/opt/adguardhome/conf # app configuration
+      - work:/opt/adguardhome/work # app working directory
+
+volumes:
+  config:
+    driver: local
+  work:
+    driver: local
