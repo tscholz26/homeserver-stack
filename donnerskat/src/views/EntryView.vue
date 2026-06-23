@@ -237,8 +237,8 @@ function saveHand() {
 
 <template>
   <section class="card">
-    <h2>Eintragung</h2>
-    <p class="hint">Trage jede gespielte Partie mit genau drei Spielern ein. Die Seeger-Fabian-Punkte werden automatisch verbucht.</p>
+    <h2>Spiele Eintragen</h2>
+    <p class="hint">Trage hier gespielte Partien ein. Die Punkte werden nach Seeger-Fabian-System berechnet. Das bedeutet, dass ein gewonnenes Spiel dem Alleinspieler 50 Punkte zusätzlich zum Spielwert einbringt. Verlorene Spiele werden für den Alleinspieler zusätzlich mit -50 Punkten, und für die Gegenspieler mit +40 Punkten berechnet. Für die Gesamtwertung qualifiziert man sich ab 60 gespielten Partien, Gewinner(in) ist, wer am Ende den höchsten Schnitt hat.</p>
 
     <div v-if="sortedPlayers.length < 3" class="warning">
       Bitte zuerst mindestens drei Spieler in der Spielerverwaltung anlegen.

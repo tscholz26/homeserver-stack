@@ -2,12 +2,12 @@
   <div class="shell">
     <header class="top">
       <div>
-        <p class="brand-sub">Donnerskat Turnierserie</p>
-        <h1>Skatlisten</h1>
+        <p class="brand-sub">Skatturnier Verwaltungssoftware</p>
+        <h1>Donnerskat</h1>
       </div>
       <nav class="menu">
         <RouterLink to="/eintragung">Eintragung</RouterLink>
-        <RouterLink to="/uebersicht">Uebersicht</RouterLink>
+        <RouterLink to="/uebersicht">Ergebnisse</RouterLink>
         <RouterLink to="/spieler">Spielerverwaltung</RouterLink>
       </nav>
     </header>

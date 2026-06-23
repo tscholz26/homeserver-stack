@@ -4,7 +4,7 @@
 export const SEASONS = [
   {
     id: 'sommer_2026',
-    name: 'Sommermeisterschaft',
+    name: 'Sommermeisterschaft (bis 22.09.)',
     from: '2026-06-21',
     to: '2026-09-22',
   },

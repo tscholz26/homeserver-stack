@@ -1,4 +1,4 @@
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, reactive, ref } from 'vue'
 
 const BASE_VALUES = {
   clubs: 12,
@@ -154,10 +154,9 @@ function createStore() {
   const loading = ref(true)
   const state = reactive({ players: [], hands: [] })
 
-  // Sync flag: prevents saving while the initial load is writing into state
-  let isLoadingData = true
+  const API_URL = `${import.meta.env.BASE_URL}api/state`
 
-  fetch('/api/state')
+  fetch(API_URL)
     .then((r) => r.json())
     .then((data) => {
       if (Array.isArray(data.players)) state.players = data.players
@@ -165,27 +164,16 @@ function createStore() {
     })
     .catch(() => {})
     .finally(() => {
-      isLoadingData = false
       loading.value = false
     })
 
-  // Debounced save: fires synchronously so isLoadingData check is reliable
-  let saveTimer = null
-  watch(
-    state,
-    () => {
-      if (isLoadingData) return
-      clearTimeout(saveTimer)
-      saveTimer = setTimeout(() => {
-        fetch('/api/state', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ players: state.players, hands: state.hands }),
-        }).catch((err) => console.error('[donnerskat] save failed:', err))
-      }, 400)
-    },
-    { deep: true, flush: 'sync' },
-  )
+  function saveState() {
+    fetch(API_URL, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ players: state.players, hands: state.hands }),
+    }).catch((err) => console.error('[donnerskat] save failed:', err))
+  }
 
   const playersById = computed(() =>
     Object.fromEntries(state.players.map((p) => [p.id, p])),
@@ -213,6 +201,7 @@ function createStore() {
       throw new Error('Dieser Spieler ist bereits vorhanden.')
     }
     state.players.push({ id: createId(), name: clean, createdAt: new Date().toISOString() })
+    saveState()
   }
 
   function removePlayer(playerId) {
@@ -220,6 +209,7 @@ function createStore() {
       throw new Error('Dieser Spieler kann nicht entfernt werden, da bereits Partien eingetragen wurden.')
     }
     state.players = state.players.filter((p) => p.id !== playerId)
+    saveState()
   }
 
   function addHand(payload) {
@@ -256,11 +246,13 @@ function createStore() {
       createdAt: new Date().toISOString(),
     })
 
+    saveState()
     return scoring
   }
 
   function removeHand(handId) {
     state.hands = state.hands.filter((h) => h.id !== handId)
+    saveState()
   }
 
   return {
