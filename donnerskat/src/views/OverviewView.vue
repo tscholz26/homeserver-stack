@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { computeStandings, useTournamentStore } from '../composables/useTournamentStore'
 import { SEASONS } from '../seasons.js'
 import Podium from '../components/Podium.vue'
@@ -91,6 +91,39 @@ function formatDate(hand) {
 function pct(value) {
   return `${value.toFixed(1)} %`
 }
+
+const sortKey = ref('avg')
+const sortDir = ref('desc')
+
+watch(selectedSeason, () => {
+  sortKey.value = 'avg'
+  sortDir.value = 'desc'
+})
+
+function toggleSort(key) {
+  if (sortKey.value === key) {
+    sortDir.value = sortDir.value === 'desc' ? 'asc' : 'desc'
+  } else {
+    sortKey.value = key
+    sortDir.value = 'desc'
+  }
+}
+
+function sortArrow(key) {
+  if (sortKey.value !== key) return ''
+  return sortDir.value === 'desc' ? ' ▼' : ' ▲'
+}
+
+function applySort(rows) {
+  return [...rows].sort((a, b) => {
+    const av = a[sortKey.value] ?? 0
+    const bv = b[sortKey.value] ?? 0
+    return sortDir.value === 'desc' ? bv - av : av - bv
+  })
+}
+
+const sortedFruehlingStandings = computed(() => applySort(FRUEHLING_STANDINGS))
+const sortedActiveStandings = computed(() => applySort(activeStandings.value))
 </script>
 
 <template>
@@ -121,15 +154,15 @@ function pct(value) {
               <tr>
                 <th>#</th>
                 <th>Spieler</th>
-                <th>Schnitt</th>
-                <th>Punkte</th>
-                <th>Partien</th>
-                <th>% Solos</th>
+                <th class="sortable" :class="{ 'is-sorted': sortKey === 'avg' }" @click="toggleSort('avg')">Schnitt{{ sortArrow('avg') }}</th>
+                <th class="sortable" :class="{ 'is-sorted': sortKey === 'total' }" @click="toggleSort('total')">Punkte{{ sortArrow('total') }}</th>
+                <th class="sortable" :class="{ 'is-sorted': sortKey === 'dealtHands' }" @click="toggleSort('dealtHands')">Partien{{ sortArrow('dealtHands') }}</th>
+                <th class="sortable" :class="{ 'is-sorted': sortKey === 'soloPercent' }" @click="toggleSort('soloPercent')">% Solos{{ sortArrow('soloPercent') }}</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in FRUEHLING_STANDINGS" :key="row.name">
-                <td>{{ row.rank }}</td>
+              <tr v-for="(row, i) in sortedFruehlingStandings" :key="row.name">
+                <td>{{ i + 1 }}</td>
                 <td>{{ row.name }}</td>
                 <td>{{ row.avg }}</td>
                 <td>{{ row.total }}</td>
@@ -149,19 +182,19 @@ function pct(value) {
               <tr>
                 <th>#</th>
                 <th>Spieler</th>
-                <th>Schnitt</th>
-                <th>Punkte</th>
-                <th>Partien</th>
-                <th>Solos gew.</th>
-                <th>Solos verl.</th>
-                <th>Gegensp. gew.</th>
-                <th>% Solos</th>
-                <th>% Grand</th>
+                <th class="sortable" :class="{ 'is-sorted': sortKey === 'avg' }" @click="toggleSort('avg')">Schnitt{{ sortArrow('avg') }}</th>
+                <th class="sortable" :class="{ 'is-sorted': sortKey === 'total' }" @click="toggleSort('total')">Punkte{{ sortArrow('total') }}</th>
+                <th class="sortable" :class="{ 'is-sorted': sortKey === 'dealtHands' }" @click="toggleSort('dealtHands')">Partien{{ sortArrow('dealtHands') }}</th>
+                <th class="sortable" :class="{ 'is-sorted': sortKey === 'declarerWon' }" @click="toggleSort('declarerWon')">Solos gew.{{ sortArrow('declarerWon') }}</th>
+                <th class="sortable" :class="{ 'is-sorted': sortKey === 'declarerLost' }" @click="toggleSort('declarerLost')">Solos verl.{{ sortArrow('declarerLost') }}</th>
+                <th class="sortable" :class="{ 'is-sorted': sortKey === 'defenseWon' }" @click="toggleSort('defenseWon')">Gegensp. gew.{{ sortArrow('defenseWon') }}</th>
+                <th class="sortable" :class="{ 'is-sorted': sortKey === 'soloPercent' }" @click="toggleSort('soloPercent')">% Solos{{ sortArrow('soloPercent') }}</th>
+                <th class="sortable" :class="{ 'is-sorted': sortKey === 'grandPercent' }" @click="toggleSort('grandPercent')">% Grand{{ sortArrow('grandPercent') }}</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in activeStandings" :key="row.playerId">
-                <td>{{ row.rank }}</td>
+              <tr v-for="(row, i) in sortedActiveStandings" :key="row.playerId">
+                <td>{{ i + 1 }}</td>
                 <td>{{ row.name }}</td>
                 <td>{{ row.avg }}</td>
                 <td>{{ row.total }}</td>
@@ -268,6 +301,19 @@ td {
   padding: 0.45rem 0.5rem;
   text-align: left;
   white-space: nowrap;
+}
+
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+th.sortable:hover {
+  color: #e0cfa0;
+}
+
+th.is-sorted {
+  color: #cfb26a;
 }
 
 .hands {
