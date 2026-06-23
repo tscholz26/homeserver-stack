@@ -1,0 +1,15 @@
+services:
+  donnerskat:
+    build: .
+    container_name: donnerskat
+    restart: unless-stopped
+
+    volumes:
+      - ./data:/app/data
+
+    networks:
+      - caddy-network
+
+networks:
+  caddy-network:
+    external: true
