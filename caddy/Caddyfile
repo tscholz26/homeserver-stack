@@ -11,6 +11,10 @@ tshomeserv.duckdns.org {
         reverse_proxy weather-backend:3000
     }
 
+    handle_path /skat/* {
+        reverse_proxy donnerskat:2605
+    }
+
     handle /home/* {
         reverse_proxy website-weather-api:80
     }
