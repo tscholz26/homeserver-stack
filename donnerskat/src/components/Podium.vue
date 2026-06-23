@@ -176,4 +176,16 @@ function onImgError(e) {
   .rank-num { font-size: 1.7rem; }
   .player-name { max-width: 100px; }
 }
+
+@media (max-width: 340px) {
+  .podium { gap: 3px; }
+  .avatar-ring { width: 56px; height: 56px; }
+  .rank-1 .avatar-ring { width: 64px; height: 64px; }
+  .platform { width: 88px; }
+  .platform-1 { height: 58px; }
+  .platform-2 { height: 42px; }
+  .platform-3 { height: 32px; }
+  .rank-num { font-size: 1.4rem; }
+  .player-name { max-width: 88px; font-size: 0.78rem; }
+}
 </style>

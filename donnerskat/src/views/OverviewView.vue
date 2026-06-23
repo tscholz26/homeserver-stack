@@ -278,6 +278,7 @@ const sortedActiveStandings = computed(() => applySort(activeStandings.value))
   border: 1px solid rgba(207, 178, 106, 0.35);
   border-radius: 1rem;
   padding: 1rem;
+  min-width: 0; /* grid items default to min-width:auto which expands past viewport */
 }
 
 h2 {

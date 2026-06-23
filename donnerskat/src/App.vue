@@ -2,13 +2,13 @@
   <div class="shell">
     <header class="top">
       <div>
-        <p class="brand-sub">Skatturnier Verwaltungssoftware</p>
+        <p class="brand-sub">Skatturnier Verwaltungsapp</p>
         <h1>Donnerskat</h1>
       </div>
       <nav class="menu">
-        <RouterLink to="/eintragung">Eintragung</RouterLink>
+        <RouterLink to="/eintragung">Eintragen</RouterLink>
         <RouterLink to="/uebersicht">Ergebnisse</RouterLink>
-        <RouterLink to="/spieler">Spielerverwaltung</RouterLink>
+        <RouterLink to="/spieler">Verwaltung</RouterLink>
       </nav>
     </header>
 
@@ -20,6 +20,10 @@
 
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@500;700&family=Source+Sans+3:wght@400;600;700&display=swap');
+
+:global(*, *::before, *::after) {
+  box-sizing: border-box;
+}
 
 :global(body) {
   margin: 0;
@@ -91,6 +95,12 @@ h1 {
 @media (max-width: 640px) {
   .top {
     align-items: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .shell {
+    padding: 0.5rem;
   }
 }
 
