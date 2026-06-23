@@ -335,7 +335,11 @@ function saveHand() {
 
       <label v-if="!isNullGame && draft.gameType">
         Mit / Ohne
-        <input v-model.number="draft.matadors" type="number" min="1" :max="maxMatadors" />
+        <div class="stepper">
+          <button type="button" class="step-btn" :disabled="draft.matadors <= 1" @click="draft.matadors--">−</button>
+          <span class="step-val">{{ draft.matadors }}</span>
+          <button type="button" class="step-btn" :disabled="draft.matadors >= maxMatadors" @click="draft.matadors++">+</button>
+        </div>
       </label>
 
       <label>
@@ -445,6 +449,43 @@ input {
   border-radius: 0.55rem;
   padding: 0.5rem 0.65rem;
   background: #123f2e;
+  color: #f4f6f5;
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border: 1px solid #5c876f;
+  border-radius: 0.55rem;
+  overflow: hidden;
+  background: #123f2e;
+}
+
+.step-btn {
+  border: none;
+  background: #1e5c41;
+  color: #f4f6f5;
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1;
+  width: 2.6rem;
+  padding: 0.45rem 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  border-radius: 0;
+}
+
+.step-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.step-val {
+  flex: 1;
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 700;
   color: #f4f6f5;
 }
 

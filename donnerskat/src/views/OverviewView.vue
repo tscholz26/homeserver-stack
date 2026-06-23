@@ -144,7 +144,7 @@ const sortedActiveStandings = computed(() => applySort(activeStandings.value))
     <Podium :standings="podiumStandings" />
 
     <article class="card">
-      <h2>{{ selectedSeason === 'all' ? 'Gesamtübersicht (seit 21.06.)' : 'Gesamtübersicht' }}</h2>
+      <h2>{{ selectedSeason === 'all' ? 'Gesamtübersicht (seit 22.06.)' : 'Gesamtübersicht' }}</h2>
 
       <!-- Legacy: Frühlingsmeisterschaft (hardcoded, no individual game records) -->
       <template v-if="isLegacySeason">
