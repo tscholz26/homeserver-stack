@@ -6,9 +6,11 @@ import { fileURLToPath } from 'node:url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const DATA_DIR = join(__dirname, 'data')
 const STATE_FILE = join(DATA_DIR, 'state.json')
+const AVATARS_DIR = join(__dirname, 'avatars')
 const PORT = Number(process.env.PORT) || 2605
 
 mkdirSync(DATA_DIR, { recursive: true })
+mkdirSync(AVATARS_DIR, { recursive: true })
 
 function readState() {
   try {
@@ -29,6 +31,7 @@ function writeState(data) {
 const app = express()
 app.use(express.json({ limit: '10mb' }))
 app.use(express.static(join(__dirname, 'dist')))
+app.use('/avatars', express.static(AVATARS_DIR))
 
 app.get('/api/state', (_req, res) => {
   res.json(readState())

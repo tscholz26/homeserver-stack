@@ -6,6 +6,7 @@ services:
 
     volumes:
       - ./data:/app/data
+      - ./avatars:/app/avatars
 
     networks:
       - caddy-network

@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { computeStandings, useTournamentStore } from '../composables/useTournamentStore'
 import { SEASONS } from '../seasons.js'
+import Podium from '../components/Podium.vue'
 
 const { state, playersById, removeHand } = useTournamentStore()
 
@@ -20,7 +21,27 @@ const gameTypeLabel = {
 const selectedSeason = ref('sommer_2026')
 // ─────────────────────────────────────────────────────────────────────────────
 
-const seasonOptions = [{ id: 'all', name: 'Alle Partien' }, ...SEASONS]
+const FRUEHLING_SEASON = { id: 'fruehling_2026', name: 'Frühlingsmeisterschaft (bis 21.06.)' }
+
+const FRUEHLING_STANDINGS = [
+  { rank: 1, name: 'Marvin',    avg: 17.47, total: 1013, dealtHands: 58, soloPercent: 36.21 },
+  { rank: 2, name: 'Tristan',   avg: 13.26, total:  981, dealtHands: 74, soloPercent: 41.89 },
+  { rank: 3, name: 'Paul',      avg:  8.25, total:  668, dealtHands: 81, soloPercent: 33.33 },
+  { rank: 4, name: 'Alexander', avg:  7.52, total:  639, dealtHands: 85, soloPercent: 37.65 },
+  { rank: 5, name: 'Maxi',      avg:  7.33, total:  286, dealtHands: 39, soloPercent: 25.64 },
+  { rank: 6, name: 'Sophie',    avg:  6.94, total:  354, dealtHands: 51, soloPercent: 25.49 },
+  { rank: 7, name: 'Erik',      avg:  5.83, total:  134, dealtHands: 23, soloPercent: 26.09 },
+  { rank: 8, name: 'Marlon',    avg: -0.50, total:  -20, dealtHands: 40, soloPercent: 27.50 },
+  { rank: 9, name: 'Louis',     avg: -5.31, total: -425, dealtHands: 80, soloPercent: 31.25 },
+]
+
+const seasonOptions = [{ id: 'all', name: 'Alle Partien' }, FRUEHLING_SEASON, ...SEASONS]
+
+const isLegacySeason = computed(() => selectedSeason.value === 'fruehling_2026')
+
+const podiumStandings = computed(() =>
+  isLegacySeason.value ? FRUEHLING_STANDINGS : activeStandings.value,
+)
 
 function handDate(hand) {
   return hand.playedOn || hand.createdAt?.slice(0, 10) || ''
@@ -87,44 +108,78 @@ function pct(value) {
       </button>
     </div>
 
-    <article class="card">
-      <h2>Gesamtübersicht</h2>
-      <div class="table-wrap">
-        <table v-if="activeStandings.length > 0">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Spieler</th>
-              <th>Schnitt</th>
-              <th>Punkte</th>
-              <th>Partien</th>
-              <th>Solos gew.</th>
-              <th>Solos verl.</th>
-              <th>Gegensp. gew.</th>
-              <th>% Solos</th>
-              <th>% Grand</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in activeStandings" :key="row.playerId">
-              <td>{{ row.rank }}</td>
-              <td>{{ row.name }}</td>
-              <td>{{ row.avg }}</td>
-              <td>{{ row.total }}</td>
-              <td>{{ row.dealtHands }}</td>
-              <td>{{ row.declarerWon }}</td>
-              <td>{{ row.declarerLost }}</td>
-              <td>{{ row.defenseWon }}</td>
-              <td>{{ row.dealtHands > 0 ? pct(row.soloPercent) : '–' }}</td>
-              <td>{{ row.declarerWon + row.declarerLost > 0 ? pct(row.grandPercent) : '–' }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <p v-if="activeStandings.length === 0" class="hint">Noch keine Wertungen vorhanden.</p>
-    </article>
+    <Podium v-if="selectedSeason !== 'all'" :standings="podiumStandings" />
 
     <article class="card">
+      <h2>Gesamtübersicht</h2>
+
+      <!-- Legacy: Frühlingsmeisterschaft (hardcoded, no individual game records) -->
+      <template v-if="isLegacySeason">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Spieler</th>
+                <th>Schnitt</th>
+                <th>Punkte</th>
+                <th>Partien</th>
+                <th>% Solos</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in FRUEHLING_STANDINGS" :key="row.name">
+                <td>{{ row.rank }}</td>
+                <td>{{ row.name }}</td>
+                <td>{{ row.avg }}</td>
+                <td>{{ row.total }}</td>
+                <td>{{ row.dealtHands }}</td>
+                <td>{{ pct(row.soloPercent) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </template>
+
+      <!-- Live seasons -->
+      <template v-else>
+        <div class="table-wrap">
+          <table v-if="activeStandings.length > 0">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Spieler</th>
+                <th>Schnitt</th>
+                <th>Punkte</th>
+                <th>Partien</th>
+                <th>Solos gew.</th>
+                <th>Solos verl.</th>
+                <th>Gegensp. gew.</th>
+                <th>% Solos</th>
+                <th>% Grand</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in activeStandings" :key="row.playerId">
+                <td>{{ row.rank }}</td>
+                <td>{{ row.name }}</td>
+                <td>{{ row.avg }}</td>
+                <td>{{ row.total }}</td>
+                <td>{{ row.dealtHands }}</td>
+                <td>{{ row.declarerWon }}</td>
+                <td>{{ row.declarerLost }}</td>
+                <td>{{ row.defenseWon }}</td>
+                <td>{{ row.dealtHands > 0 ? pct(row.soloPercent) : '–' }}</td>
+                <td>{{ row.declarerWon + row.declarerLost > 0 ? pct(row.grandPercent) : '–' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p v-if="activeStandings.length === 0" class="hint">Noch keine Wertungen vorhanden.</p>
+      </template>
+    </article>
+
+    <article v-if="!isLegacySeason" class="card">
       <h2>Letzte Partien</h2>
       <ul v-if="activeHands.length > 0" class="hands">
         <li v-for="hand in activeHands" :key="hand.id">
