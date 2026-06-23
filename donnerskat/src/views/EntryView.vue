@@ -65,6 +65,18 @@ const isNullGame = computed(() => draft.gameType === 'null')
 
 const maxMatadors = computed(() => (draft.gameType === 'grand' ? 4 : 11))
 
+const playersForSeat1 = computed(() =>
+  sortedPlayers.value.filter((p) => p.id !== draft.seat2 && p.id !== draft.seat3),
+)
+
+const playersForSeat2 = computed(() =>
+  sortedPlayers.value.filter((p) => p.id !== draft.seat1 && p.id !== draft.seat3),
+)
+
+const playersForSeat3 = computed(() =>
+  sortedPlayers.value.filter((p) => p.id !== draft.seat1 && p.id !== draft.seat2),
+)
+
 const canPreview = computed(
   () =>
     selectedPlayers.value.length === 3 &&
@@ -109,6 +121,20 @@ watch(
     }
   },
 )
+
+// Clear conflicting seats whenever any seat changes
+watch(() => draft.seat1, (val) => {
+  if (val && draft.seat2 === val) draft.seat2 = ''
+  if (val && draft.seat3 === val) draft.seat3 = ''
+})
+watch(() => draft.seat2, (val) => {
+  if (val && draft.seat1 === val) draft.seat1 = ''
+  if (val && draft.seat3 === val) draft.seat3 = ''
+})
+watch(() => draft.seat3, (val) => {
+  if (val && draft.seat1 === val) draft.seat1 = ''
+  if (val && draft.seat2 === val) draft.seat2 = ''
+})
 
 // Null game: Schneider/Schwarz/announced levels don't exist for Null
 watch(isNullGame, (nullGame) => {
@@ -249,7 +275,7 @@ function saveHand() {
         Spieler 1
         <select v-model="draft.seat1">
           <option value="">Auswählen</option>
-          <option v-for="player in sortedPlayers" :key="`s1-${player.id}`" :value="player.id">
+          <option v-for="player in playersForSeat1" :key="`s1-${player.id}`" :value="player.id">
             {{ player.name }}
           </option>
         </select>
@@ -259,7 +285,7 @@ function saveHand() {
         Spieler 2
         <select v-model="draft.seat2">
           <option value="">Auswählen</option>
-          <option v-for="player in sortedPlayers" :key="`s2-${player.id}`" :value="player.id">
+          <option v-for="player in playersForSeat2" :key="`s2-${player.id}`" :value="player.id">
             {{ player.name }}
           </option>
         </select>
@@ -269,7 +295,7 @@ function saveHand() {
         Spieler 3
         <select v-model="draft.seat3">
           <option value="">Auswählen</option>
-          <option v-for="player in sortedPlayers" :key="`s3-${player.id}`" :value="player.id">
+          <option v-for="player in playersForSeat3" :key="`s3-${player.id}`" :value="player.id">
             {{ player.name }}
           </option>
         </select>
