@@ -66,7 +66,7 @@ function onRemove(playerId) {
         <div class="player-info">
           <div class="avatar">
             <span class="initial">{{ player.name[0] }}</span>
-            <img :src="avatarSrc(player.name)" :alt="player.name" @error="onImgError" />
+            <img v-if="handCountByPlayer[player.id]" :src="avatarSrc(player.name)" :alt="player.name" @error="onImgError" />
           </div>
           <span>{{ player.name }}</span>
         </div>

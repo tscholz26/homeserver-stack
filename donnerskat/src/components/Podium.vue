@@ -33,7 +33,7 @@ function onImgError(e) {
       >
         <div :class="['avatar-ring', `ring-${entry.rank}`]">
           <span class="initial">{{ entry.name[0] }}</span>
-          <img :src="avatarSrc(entry.name)" :alt="entry.name" @error="onImgError" />
+          <img v-if="entry.dealtHands > 0" :src="avatarSrc(entry.name)" :alt="entry.name" @error="onImgError" />
         </div>
         <div class="player-name">{{ entry.name }}</div>
         <div class="player-avg">Ø {{ entry.avg }}</div>
