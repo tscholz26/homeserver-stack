@@ -4,6 +4,16 @@ import { useTournamentStore } from '../composables/useTournamentStore'
 
 const { sortedPlayers, state, addPlayer, removePlayer } = useTournamentStore()
 
+const BASE_URL = import.meta.env.BASE_URL
+
+function avatarSrc(name) {
+  return `${BASE_URL}avatars/${encodeURIComponent(name)}.jpg`
+}
+
+function onImgError(e) {
+  e.target.style.display = 'none'
+}
+
 const name = ref('')
 const error = ref('')
 const removeError = ref('')
@@ -53,7 +63,13 @@ function onRemove(playerId) {
 
     <ul v-if="sortedPlayers.length > 0" class="players">
       <li v-for="player in sortedPlayers" :key="player.id">
-        <span>{{ player.name }}</span>
+        <div class="player-info">
+          <div class="avatar">
+            <span class="initial">{{ player.name[0] }}</span>
+            <img :src="avatarSrc(player.name)" :alt="player.name" @error="onImgError" />
+          </div>
+          <span>{{ player.name }}</span>
+        </div>
         <button
           v-if="!handCountByPlayer[player.id]"
           type="button"
@@ -140,6 +156,43 @@ button {
   background: rgba(8, 28, 21, 0.8);
   border-radius: 0.7rem;
   padding: 0.5rem 0.6rem;
+}
+
+.player-info {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.avatar {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #0e2e21;
+  border: 2px solid rgba(207, 178, 106, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.initial {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #cfd9d4;
+  user-select: none;
+  line-height: 1;
+}
+
+.avatar img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .hint {
