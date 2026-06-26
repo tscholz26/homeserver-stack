@@ -9,9 +9,9 @@ function todayISO() {
 }
 
 const draft = reactive({
-  seat1: '',
-  seat2: '',
-  seat3: '',
+  seat1: localStorage.getItem('dk_seat1') || '',
+  seat2: localStorage.getItem('dk_seat2') || '',
+  seat3: localStorage.getItem('dk_seat3') || '',
   declarerId: '',
   gameType: '',
   matadors: 1,
@@ -142,6 +142,11 @@ watch(
 
 // Re requires Kontra
 watch(() => draft.kontra, (val) => { if (!val) draft.re = false })
+
+// Persist seat selections across route changes
+watch(() => draft.seat1, (val) => localStorage.setItem('dk_seat1', val))
+watch(() => draft.seat2, (val) => localStorage.setItem('dk_seat2', val))
+watch(() => draft.seat3, (val) => localStorage.setItem('dk_seat3', val))
 
 // Clear conflicting seats whenever any seat changes
 watch(() => draft.seat1, (val) => {
