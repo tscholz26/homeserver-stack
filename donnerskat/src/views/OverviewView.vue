@@ -48,7 +48,8 @@ function handDate(hand) {
   return hand.playedOn || hand.createdAt?.slice(0, 10) || ''
 }
 
-const filteredHands = computed(() => {
+// All hands in the current season window (including deleted)
+const seasonHands = computed(() => {
   if (selectedSeason.value === 'all') return state.hands
   const season = SEASONS.find((s) => s.id === selectedSeason.value)
   if (!season) return state.hands
@@ -58,18 +59,31 @@ const filteredHands = computed(() => {
   })
 })
 
+// Non-deleted hands only — used for standings
+const filteredHands = computed(() => seasonHands.value.filter((h) => !h.deleted))
+
 const activeStandings = computed(() =>
   computeStandings(state.players, filteredHands.value),
 )
 
-const activeHands = computed(() =>
-  [...filteredHands.value].sort((a, b) => {
+// Display list: includes deleted hands, limited to max(10, today's game count)
+const displayHands = computed(() => {
+  const today = new Date().toISOString().slice(0, 10)
+  const sorted = [...seasonHands.value].sort((a, b) => {
     const dA = handDate(a)
     const dB = handDate(b)
     if (dB !== dA) return dB.localeCompare(dA)
     return b.createdAt.localeCompare(a.createdAt)
-  }),
-)
+  })
+  const todayCount = sorted.filter((h) => handDate(h) === today).length
+  return sorted.slice(0, Math.max(10, todayCount))
+})
+
+// Only the 5 most recent non-deleted hands get a delete button
+const deletableIds = computed(() => {
+  const nonDeleted = displayHands.value.filter((h) => !h.deleted)
+  return new Set(nonDeleted.slice(0, 5).map((h) => h.id))
+})
 
 function playerName(playerId) {
   return playersById.value[playerId]?.name || 'Unbekannt'
@@ -215,12 +229,13 @@ const sortedActiveStandings = computed(() => applySort(activeStandings.value))
 
     <article v-if="!isLegacySeason" class="card">
       <h2>Letzte Partien</h2>
-      <ul v-if="activeHands.length > 0" class="hands">
-        <li v-for="hand in activeHands" :key="hand.id">
+      <ul v-if="displayHands.length > 0" class="hands">
+        <li v-for="hand in displayHands" :key="hand.id" :class="{ 'deleted-hand': hand.deleted }">
           <div>
             <p class="headline">
               {{ gameTypeLabel[hand.gameType] }} | {{ hand.outcome === 'won' ? 'gewonnen' : 'verloren' }}
               <span class="date">{{ formatDate(hand) }}</span>
+              <span v-if="hand.deleted" class="deleted-label">Gelöscht</span>
             </p>
             <p>{{ hand.players.map((id) => playerName(id)).join(' – ') }}</p>
             <p>Alleinspieler: {{ playerName(hand.declarerId) }}</p>
@@ -232,7 +247,7 @@ const sortedActiveStandings = computed(() => applySort(activeStandings.value))
               </span>
             </p>
           </div>
-          <button type="button" class="danger" @click="removeHand(hand.id)">Löschen</button>
+          <button v-if="deletableIds.has(hand.id)" type="button" class="danger" @click="removeHand(hand.id)">Löschen</button>
         </li>
       </ul>
       <p v-else class="hint">
@@ -366,6 +381,20 @@ button.danger {
   cursor: pointer;
   white-space: nowrap;
   align-self: flex-start;
+}
+
+.deleted-hand {
+  opacity: 0.45;
+  filter: grayscale(1);
+  pointer-events: none;
+}
+
+.deleted-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9ab8a8;
 }
 
 .hint {

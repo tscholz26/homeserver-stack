@@ -280,7 +280,8 @@ function createStore() {
   }
 
   function removeHand(handId) {
-    state.hands = state.hands.filter((h) => h.id !== handId)
+    const hand = state.hands.find((h) => h.id === handId)
+    if (hand) hand.deleted = true
     saveState()
   }
 
