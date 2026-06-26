@@ -1,0 +1,707 @@
+{
+  "players": [
+    {
+      "id": "72ecbe3e-ddcb-48d2-adb4-217e2d4b7f1a",
+      "name": "Tristan",
+      "createdAt": "2026-06-23T16:39:17.024Z"
+    },
+    {
+      "id": "fc56c6af-0b7d-4d44-9d5f-f500747f355d",
+      "name": "Alexander",
+      "createdAt": "2026-06-23T16:39:18.282Z"
+    },
+    {
+      "id": "30e1c400-497f-4a52-a903-d009f608b1d1",
+      "name": "Paul",
+      "createdAt": "2026-06-23T16:39:19.767Z"
+    },
+    {
+      "id": "4b13a5fe-001b-45b8-821a-eb179273fd88",
+      "name": "Marlon",
+      "createdAt": "2026-06-23T16:39:21.957Z"
+    },
+    {
+      "id": "85d89846-e68a-4b49-b6ef-f3a0de5c5d6e",
+      "name": "Erik",
+      "createdAt": "2026-06-23T16:40:16.683Z"
+    },
+    {
+      "id": "6abf8e06-f9a0-4715-82fa-1aebcbc47b80",
+      "name": "Louis",
+      "createdAt": "2026-06-23T16:40:19.937Z"
+    },
+    {
+      "id": "c99a25cc-ea64-476c-84f0-67ee2e72cbb0",
+      "name": "Marvin",
+      "createdAt": "2026-06-23T16:40:23.496Z"
+    },
+    {
+      "id": "b74c4f5d-77ff-4632-a471-f671d6423df0",
+      "name": "Maxi",
+      "createdAt": "2026-06-23T16:40:24.518Z"
+    },
+    {
+      "id": "3cbd64fa-fc28-4a1b-b2f2-53e654c0aaa3",
+      "name": "Sophie",
+      "createdAt": "2026-06-23T16:40:27.595Z"
+    },
+    {
+      "id": "866e11ab-0bc5-430a-bcb0-3a34eb3348d5",
+      "name": "Niki",
+      "createdAt": "2026-06-25T18:58:44.293Z"
+    }
+  ],
+  "hands": [
+    {
+      "id": "a4427835-78ef-4b10-8cc2-c51724918e40",
+      "playedOn": "2026-06-25",
+      "players": [
+        "30e1c400-497f-4a52-a903-d009f608b1d1",
+        "fc56c6af-0b7d-4d44-9d5f-f500747f355d",
+        "72ecbe3e-ddcb-48d2-adb4-217e2d4b7f1a"
+      ],
+      "declarerId": "30e1c400-497f-4a52-a903-d009f608b1d1",
+      "gameType": "spades",
+      "matadors": 1,
+      "levels": {
+        "hand": false,
+        "schneider": true,
+        "schneider_announced": false,
+        "schwarz": false,
+        "schwarz_announced": false,
+        "ouvert": false
+      },
+      "outcome": "won",
+      "gameValue": 33,
+      "valueExpression": "1 Spitzen, Stufe 2, 3 × 11",
+      "scores": [
+        {
+          "playerId": "30e1c400-497f-4a52-a903-d009f608b1d1",
+          "delta": 83
+        },
+        {
+          "playerId": "fc56c6af-0b7d-4d44-9d5f-f500747f355d",
+          "delta": 0
+        },
+        {
+          "playerId": "72ecbe3e-ddcb-48d2-adb4-217e2d4b7f1a",
+          "delta": 0
+        }
+      ],
+      "createdAt": "2026-06-25T18:26:02.906Z"
+    },
+    {
+      "id": "3d93d4c6-f19d-40a9-8432-fd846c21779e",
+      "playedOn": "2026-06-25",
+      "players": [
+        "72ecbe3e-ddcb-48d2-adb4-217e2d4b7f1a",
+        "30e1c400-497f-4a52-a903-d009f608b1d1",
+        "85d89846-e68a-4b49-b6ef-f3a0de5c5d6e"
+      ],
+      "declarerId": "72ecbe3e-ddcb-48d2-adb4-217e2d4b7f1a",
+      "gameType": "diamonds",
+      "matadors": 1,
+      "levels": {
+        "hand": true,
+        "schneider": false,
+        "schneider_announced": false,
+        "schwarz": false,
+        "schwarz_announced": false,
+        "ouvert": false
+      },
+      "outcome": "won",
+      "gameValue": 27,
+      "valueExpression": "1 Spitzen, Stufe 2, 3 × 9",
+      "scores": [
+        {
+          "playerId": "72ecbe3e-ddcb-48d2-adb4-217e2d4b7f1a",
+          "delta": 77
+        },
+        {
+          "playerId": "30e1c400-497f-4a52-a903-d009f608b1d1",
+          "delta": 0
+        },
+        {
+          "playerId": "85d89846-e68a-4b49-b6ef-f3a0de5c5d6e",
+          "delta": 0
+        }
+      ],
+      "createdAt": "2026-06-25T18:31:58.392Z"
+    },
+    {
+      "id": "c6142342-eed5-4059-ab8e-d7fed82cb626",
+      "playedOn": "2026-06-25",
+      "players": [
+        "72ecbe3e-ddcb-48d2-adb4-217e2d4b7f1a",
+        "b74c4f5d-77ff-4632-a471-f671d6423df0",
+        "85d89846-e68a-4b49-b6ef-f3a0de5c5d6e"
+      ],
+      "declarerId": "72ecbe3e-ddcb-48d2-adb4-217e2d4b7f1a",
+      "gameType": "clubs",
+      "matadors": 1,
+      "levels": {
+        "hand": false,
+        "schneider": false,
+        "schneider_announced": false,
+        "schwarz": false,
+        "schwarz_announced": false,
+        "ouvert": false
+      },
+      "outcome": "won",
+      "gameValue": 24,
+      "valueExpression": "1 Spitzen, Stufe 1, 2 × 12",
+      "scores": [
+        {
+          "playerId": "72ecbe3e-ddcb-48d2-adb4-217e2d4b7f1a",
+          "delta": 74
+        },
+        {
+          "playerId": "b74c4f5d-77ff-4632-a471-f671d6423df0",
+          "delta": 0
+        },
+        {
+          "playerId": "85d89846-e68a-4b49-b6ef-f3a0de5c5d6e",
+          "delta": 0
+        }
+      ],
+      "createdAt": "2026-06-25T18:37:37.643Z"
+    },
+    {
+      "id": "e7e639ee-8511-41b1-9ee2-9583a5937de1",
+      "playedOn": "2026-06-25",
+      "players": [
+        "b74c4f5d-77ff-4632-a471-f671d6423df0",
+        "85d89846-e68a-4b49-b6ef-f3a0de5c5d6e",
+        "fc56c6af-0b7d-4d44-9d5f-f500747f355d"
+      ],
+      "declarerId": "b74c4f5d-77ff-4632-a471-f671d6423df0",
+      "gameType": "clubs",
+      "matadors": 1,
+      "levels": {
+        "hand": false,
+        "schneider": false,
+        "schneider_announced": false,
+        "schwarz": false,
+        "schwarz_announced": false,
+        "ouvert": false
+      },
+      "outcome": "won",
+      "gameValue": 24,
+      "valueExpression": "1 Spitzen, Stufe 1, 2 × 12",
+      "scores": [
+        {
+          "playerId": "b74c4f5d-77ff-4632-a471-f671d6423df0",
+          "delta": 74
+        },
+        {
+          "playerId": "85d89846-e68a-4b49-b6ef-f3a0de5c5d6e",
+          "delta": 0
+        },
+        {
+          "playerId": "fc56c6af-0b7d-4d44-9d5f-f500747f355d",
+          "delta": 0
+        }
+      ],
+      "createdAt": "2026-06-25T18:44:59.158Z"
+    },
+    {
+      "id": "1c1c8c0e-0aed-491d-bd0d-dd311c8692ea",
+      "playedOn": "2026-06-25",
+      "players": [
+        "85d89846-e68a-4b49-b6ef-f3a0de5c5d6e",
+        "b74c4f5d-77ff-4632-a471-f671d6423df0",
+        "30e1c400-497f-4a52-a903-d009f608b1d1"
+      ],
+      "declarerId": "85d89846-e68a-4b49-b6ef-f3a0de5c5d6e",
+      "gameType": "grand",
+      "matadors": 2,
+      "levels": {
+        "hand": false,
+        "schneider": true,
+        "schneider_announced": false,
+        "schwarz": false,
+        "schwarz_announced": false,
+        "ouvert": false
+      },
+      "outcome": "won",
+      "gameValue": 96,
+      "valueExpression": "2 Spitzen, Stufe 2, 4 × 24",
+      "scores": [
+        {
+          "playerId": "85d89846-e68a-4b49-b6ef-f3a0de5c5d6e",
+          "delta": 146
+        },
+        {
+          "playerId": "b74c4f5d-77ff-4632-a471-f671d6423df0",
+          "delta": 0
+        },
+        {
+          "playerId": "30e1c400-497f-4a52-a903-d009f608b1d1",
+          "delta": 0
+        }
+      ],
+      "createdAt": "2026-06-25T18:50:27.428Z"
+    },
+    {
+      "id": "649d794d-87e2-4adf-bafb-f611320deb9c",
+      "playedOn": "2026-06-25",
+      "players": [
+        "72ecbe3e-ddcb-48d2-adb4-217e2d4b7f1a",
+        "fc56c6af-0b7d-4d44-9d5f-f500747f355d",
+        "30e1c400-497f-4a52-a903-d009f608b1d1"
+      ],
+      "declarerId": "30e1c400-497f-4a52-a903-d009f608b1d1",
+      "gameType": "spades",
+      "matadors": 1,
+      "levels": {
+        "hand": false,
+        "schneider": true,
+        "schneider_announced": false,
+        "schwarz": false,
+        "schwarz_announced": false,
+        "ouvert": false
+      },
+      "outcome": "won",
+      "gameValue": 33,
+      "valueExpression": "1 Spitzen, Stufe 2, 3 × 11",
+      "scores": [
+        {
+          "playerId": "72ecbe3e-ddcb-48d2-adb4-217e2d4b7f1a",
+          "delta": 0
+        },
+        {
+          "playerId": "fc56c6af-0b7d-4d44-9d5f-f500747f355d",
+          "delta": 0
+        },
+        {
+          "playerId": "30e1c400-497f-4a52-a903-d009f608b1d1",
+          "delta": 83
+        }
+      ],
+      "createdAt": "2026-06-25T18:57:41.566Z"
+    },
+    {
+      "id": "ee91115c-35e8-454f-8316-b63aba817bab",
+      "playedOn": "2026-06-25",
+      "players": [
+        "b74c4f5d-77ff-4632-a471-f671d6423df0",
+        "866e11ab-0bc5-430a-bcb0-3a34eb3348d5",
+        "3cbd64fa-fc28-4a1b-b2f2-53e654c0aaa3"
+      ],
+      "declarerId": "b74c4f5d-77ff-4632-a471-f671d6423df0",
+      "gameType": "grand",
+      "matadors": 3,
+      "levels": {
+        "hand": false,
+        "schneider": true,
+        "schneider_announced": false,
+        "schwarz": false,
+        "schwarz_announced": false,
+        "ouvert": false
+      },
+      "outcome": "won",
+      "gameValue": 120,
+      "valueExpression": "3 Spitzen, Stufe 2, 5 × 24",
+      "scores": [
+        {
+          "playerId": "b74c4f5d-77ff-4632-a471-f671d6423df0",
+          "delta": 170
+        },
+        {
+          "playerId": "866e11ab-0bc5-430a-bcb0-3a34eb3348d5",
+          "delta": 0
+        },
+        {
+          "playerId": "3cbd64fa-fc28-4a1b-b2f2-53e654c0aaa3",
+          "delta": 0
+        }
+      ],
+      "createdAt": "2026-06-25T19:07:26.382Z"
+    },
+    {
+      "id": "802f750b-74b2-4101-a11c-82e31bd97065",
+      "playedOn": "2026-06-25",
+      "players": [
+        "85d89846-e68a-4b49-b6ef-f3a0de5c5d6e",
+        "fc56c6af-0b7d-4d44-9d5f-f500747f355d",
+        "72ecbe3e-ddcb-48d2-adb4-217e2d4b7f1a"
+      ],
+      "declarerId": "85d89846-e68a-4b49-b6ef-f3a0de5c5d6e",
+      "gameType": "grand",
+      "matadors": 1,
+      "levels": {
+        "hand": true,
+        "schneider": false,
+        "schneider_announced": false,
+        "schwarz": false,
+        "schwarz_announced": false,
+        "ouvert": false
+      },
+      "outcome": "won",
+      "gameValue": 72,
+      "valueExpression": "1 Spitzen, Stufe 2, 3 × 24",
+      "scores": [
+        {
+          "playerId": "85d89846-e68a-4b49-b6ef-f3a0de5c5d6e",
+          "delta": 122
+        },
+        {
+          "playerId": "fc56c6af-0b7d-4d44-9d5f-f500747f355d",
+          "delta": 0
+        },
+        {
+          "playerId": "72ecbe3e-ddcb-48d2-adb4-217e2d4b7f1a",
+          "delta": 0
+        }
+      ],
+      "createdAt": "2026-06-25T19:17:49.884Z"
+    },
+    {
+      "id": "773289e3-4a17-4b5d-9875-0a46bf3114f5",
+      "playedOn": "2026-06-25",
+      "players": [
+        "fc56c6af-0b7d-4d44-9d5f-f500747f355d",
+        "85d89846-e68a-4b49-b6ef-f3a0de5c5d6e",
+        "30e1c400-497f-4a52-a903-d009f608b1d1"
+      ],
+      "declarerId": "85d89846-e68a-4b49-b6ef-f3a0de5c5d6e",
+      "gameType": "grand",
+      "matadors": 3,
+      "levels": {
+        "hand": false,
+        "schneider": true,
+        "schneider_announced": false,
+        "schwarz": false,
+        "schwarz_announced": false,
+        "ouvert": false
+      },
+      "outcome": "won",
+      "gameValue": 120,
+      "valueExpression": "3 Spitzen, Stufe 2, 5 × 24",
+      "scores": [
+        {
+          "playerId": "fc56c6af-0b7d-4d44-9d5f-f500747f355d",
+          "delta": 0
+        },
+        {
+          "playerId": "85d89846-e68a-4b49-b6ef-f3a0de5c5d6e",
+          "delta": 170
+        },
+        {
+          "playerId": "30e1c400-497f-4a52-a903-d009f608b1d1",
+          "delta": 0
+        }
+      ],
+      "createdAt": "2026-06-25T19:23:51.869Z"
+    },
+    {
+      "id": "6deeae66-90c5-4674-80c5-da4f286e6ac4",
+      "playedOn": "2026-06-25",
+      "players": [
+        "fc56c6af-0b7d-4d44-9d5f-f500747f355d",
+        "30e1c400-497f-4a52-a903-d009f608b1d1",
+        "72ecbe3e-ddcb-48d2-adb4-217e2d4b7f1a"
+      ],
+      "declarerId": "fc56c6af-0b7d-4d44-9d5f-f500747f355d",
+      "gameType": "spades",
+      "matadors": 2,
+      "levels": {
+        "hand": false,
+        "schneider": false,
+        "schneider_announced": false,
+        "schwarz": false,
+        "schwarz_announced": false,
+        "ouvert": false
+      },
+      "outcome": "lost",
+      "gameValue": 33,
+      "valueExpression": "2 Spitzen, Stufe 1, 3 × 11",
+      "scores": [
+        {
+          "playerId": "fc56c6af-0b7d-4d44-9d5f-f500747f355d",
+          "delta": -116
+        },
+        {
+          "playerId": "30e1c400-497f-4a52-a903-d009f608b1d1",
+          "delta": 40
+        },
+        {
+          "playerId": "72ecbe3e-ddcb-48d2-adb4-217e2d4b7f1a",
+          "delta": 40
+        }
+      ],
+      "createdAt": "2026-06-25T19:32:05.979Z"
+    },
+    {
+      "id": "73793914-0727-411c-b944-174a2c047b3d",
+      "playedOn": "2026-06-25",
+      "players": [
+        "85d89846-e68a-4b49-b6ef-f3a0de5c5d6e",
+        "72ecbe3e-ddcb-48d2-adb4-217e2d4b7f1a",
+        "30e1c400-497f-4a52-a903-d009f608b1d1"
+      ],
+      "declarerId": "85d89846-e68a-4b49-b6ef-f3a0de5c5d6e",
+      "gameType": "diamonds",
+      "matadors": 1,
+      "levels": {
+        "hand": false,
+        "schneider": false,
+        "schneider_announced": false,
+        "schwarz": false,
+        "schwarz_announced": false,
+        "ouvert": false
+      },
+      "outcome": "won",
+      "gameValue": 18,
+      "valueExpression": "1 Spitzen, Stufe 1, 2 × 9",
+      "scores": [
+        {
+          "playerId": "85d89846-e68a-4b49-b6ef-f3a0de5c5d6e",
+          "delta": 68
+        },
+        {
+          "playerId": "72ecbe3e-ddcb-48d2-adb4-217e2d4b7f1a",
+          "delta": 0
+        },
+        {
+          "playerId": "30e1c400-497f-4a52-a903-d009f608b1d1",
+          "delta": 0
+        }
+      ],
+      "createdAt": "2026-06-25T19:38:07.592Z"
+    },
+    {
+      "id": "71490f46-1194-45c2-be68-93493b938e88",
+      "playedOn": "2026-06-25",
+      "players": [
+        "fc56c6af-0b7d-4d44-9d5f-f500747f355d",
+        "85d89846-e68a-4b49-b6ef-f3a0de5c5d6e",
+        "72ecbe3e-ddcb-48d2-adb4-217e2d4b7f1a"
+      ],
+      "declarerId": "72ecbe3e-ddcb-48d2-adb4-217e2d4b7f1a",
+      "gameType": "diamonds",
+      "matadors": 1,
+      "levels": {
+        "hand": false,
+        "schneider": false,
+        "schneider_announced": false,
+        "schwarz": false,
+        "schwarz_announced": false,
+        "ouvert": false
+      },
+      "outcome": "won",
+      "gameValue": 18,
+      "valueExpression": "1 Spitzen, Stufe 1, 2 × 9",
+      "scores": [
+        {
+          "playerId": "fc56c6af-0b7d-4d44-9d5f-f500747f355d",
+          "delta": 0
+        },
+        {
+          "playerId": "85d89846-e68a-4b49-b6ef-f3a0de5c5d6e",
+          "delta": 0
+        },
+        {
+          "playerId": "72ecbe3e-ddcb-48d2-adb4-217e2d4b7f1a",
+          "delta": 68
+        }
+      ],
+      "createdAt": "2026-06-25T19:46:18.834Z"
+    },
+    {
+      "id": "c104f0d9-b6a3-4f44-a04b-67678492c6c8",
+      "playedOn": "2026-06-25",
+      "players": [
+        "b74c4f5d-77ff-4632-a471-f671d6423df0",
+        "3cbd64fa-fc28-4a1b-b2f2-53e654c0aaa3",
+        "866e11ab-0bc5-430a-bcb0-3a34eb3348d5"
+      ],
+      "declarerId": "866e11ab-0bc5-430a-bcb0-3a34eb3348d5",
+      "gameType": "spades",
+      "matadors": 3,
+      "levels": {
+        "hand": true,
+        "schneider": false,
+        "schneider_announced": false,
+        "schwarz": false,
+        "schwarz_announced": false,
+        "ouvert": false
+      },
+      "outcome": "lost",
+      "gameValue": 55,
+      "valueExpression": "3 Spitzen, Stufe 2, 5 × 11",
+      "scores": [
+        {
+          "playerId": "b74c4f5d-77ff-4632-a471-f671d6423df0",
+          "delta": 40
+        },
+        {
+          "playerId": "3cbd64fa-fc28-4a1b-b2f2-53e654c0aaa3",
+          "delta": 40
+        },
+        {
+          "playerId": "866e11ab-0bc5-430a-bcb0-3a34eb3348d5",
+          "delta": -160
+        }
+      ],
+      "createdAt": "2026-06-25T19:53:46.388Z"
+    },
+    {
+      "id": "958c44ae-bd45-4a70-92ce-64916c3d4d9c",
+      "playedOn": "2026-06-25",
+      "players": [
+        "b74c4f5d-77ff-4632-a471-f671d6423df0",
+        "866e11ab-0bc5-430a-bcb0-3a34eb3348d5",
+        "3cbd64fa-fc28-4a1b-b2f2-53e654c0aaa3"
+      ],
+      "declarerId": "3cbd64fa-fc28-4a1b-b2f2-53e654c0aaa3",
+      "gameType": "hearts",
+      "matadors": 3,
+      "levels": {
+        "hand": false,
+        "schneider": false,
+        "schneider_announced": false,
+        "schwarz": false,
+        "schwarz_announced": false,
+        "ouvert": false
+      },
+      "outcome": "won",
+      "gameValue": 40,
+      "valueExpression": "3 Spitzen, Stufe 1, 4 × 10",
+      "scores": [
+        {
+          "playerId": "b74c4f5d-77ff-4632-a471-f671d6423df0",
+          "delta": 0
+        },
+        {
+          "playerId": "866e11ab-0bc5-430a-bcb0-3a34eb3348d5",
+          "delta": 0
+        },
+        {
+          "playerId": "3cbd64fa-fc28-4a1b-b2f2-53e654c0aaa3",
+          "delta": 90
+        }
+      ],
+      "createdAt": "2026-06-25T20:02:03.793Z"
+    },
+    {
+      "id": "78cbab9d-d435-4b7b-80d0-556c3f3d75c1",
+      "playedOn": "2026-06-25",
+      "players": [
+        "866e11ab-0bc5-430a-bcb0-3a34eb3348d5",
+        "b74c4f5d-77ff-4632-a471-f671d6423df0",
+        "3cbd64fa-fc28-4a1b-b2f2-53e654c0aaa3"
+      ],
+      "declarerId": "b74c4f5d-77ff-4632-a471-f671d6423df0",
+      "gameType": "hearts",
+      "matadors": 1,
+      "levels": {
+        "hand": false,
+        "schneider": false,
+        "schneider_announced": false,
+        "schwarz": false,
+        "schwarz_announced": false,
+        "ouvert": false
+      },
+      "outcome": "lost",
+      "gameValue": 20,
+      "valueExpression": "1 Spitzen, Stufe 1, 2 × 10",
+      "scores": [
+        {
+          "playerId": "866e11ab-0bc5-430a-bcb0-3a34eb3348d5",
+          "delta": 40
+        },
+        {
+          "playerId": "b74c4f5d-77ff-4632-a471-f671d6423df0",
+          "delta": -90
+        },
+        {
+          "playerId": "3cbd64fa-fc28-4a1b-b2f2-53e654c0aaa3",
+          "delta": 40
+        }
+      ],
+      "createdAt": "2026-06-25T20:12:00.662Z"
+    },
+    {
+      "id": "e349afde-8691-46f4-a672-3e0814e0c145",
+      "playedOn": "2026-06-25",
+      "players": [
+        "3cbd64fa-fc28-4a1b-b2f2-53e654c0aaa3",
+        "b74c4f5d-77ff-4632-a471-f671d6423df0",
+        "866e11ab-0bc5-430a-bcb0-3a34eb3348d5"
+      ],
+      "declarerId": "3cbd64fa-fc28-4a1b-b2f2-53e654c0aaa3",
+      "gameType": "ramsch",
+      "matadors": 1,
+      "levels": {
+        "hand": false,
+        "schneider": false,
+        "schneider_announced": false,
+        "schwarz": false,
+        "schwarz_announced": false,
+        "ouvert": false
+      },
+      "kontra": false,
+      "re": false,
+      "outcome": "lost",
+      "gameValue": 90,
+      "valueExpression": "Ramsch: 90 Punkte",
+      "scores": [
+        {
+          "playerId": "3cbd64fa-fc28-4a1b-b2f2-53e654c0aaa3",
+          "delta": -90
+        },
+        {
+          "playerId": "b74c4f5d-77ff-4632-a471-f671d6423df0",
+          "delta": 0
+        },
+        {
+          "playerId": "866e11ab-0bc5-430a-bcb0-3a34eb3348d5",
+          "delta": 0
+        }
+      ],
+      "createdAt": "2026-06-26T06:35:25.117Z",
+      "deleted": true
+    },
+    {
+      "id": "89fcd69c-f0e5-4cbd-9471-57f5e65d7de1",
+      "playedOn": "2026-06-25",
+      "players": [
+        "3cbd64fa-fc28-4a1b-b2f2-53e654c0aaa3",
+        "b74c4f5d-77ff-4632-a471-f671d6423df0",
+        "866e11ab-0bc5-430a-bcb0-3a34eb3348d5"
+      ],
+      "declarerId": "3cbd64fa-fc28-4a1b-b2f2-53e654c0aaa3",
+      "gameType": "ramsch",
+      "matadors": 1,
+      "levels": {
+        "hand": false,
+        "schneider": false,
+        "schneider_announced": false,
+        "schwarz": false,
+        "schwarz_announced": false,
+        "ouvert": false
+      },
+      "kontra": false,
+      "re": false,
+      "outcome": "lost",
+      "gameValue": 90,
+      "valueExpression": "Ramsch: 90 Punkte",
+      "scores": [
+        {
+          "playerId": "3cbd64fa-fc28-4a1b-b2f2-53e654c0aaa3",
+          "delta": -90
+        },
+        {
+          "playerId": "b74c4f5d-77ff-4632-a471-f671d6423df0",
+          "delta": 0
+        },
+        {
+          "playerId": "866e11ab-0bc5-430a-bcb0-3a34eb3348d5",
+          "delta": 0
+        }
+      ],
+      "createdAt": "2026-06-26T06:52:34.840Z"
+    }
+  ]
+}

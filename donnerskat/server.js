@@ -1,16 +1,38 @@
 import express from 'express'
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
+import { copyFileSync, existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const DATA_DIR = join(__dirname, 'data')
-const STATE_FILE = join(DATA_DIR, 'state.json')
+const DATA_DIR    = join(__dirname, 'data')
+const STATE_FILE  = join(DATA_DIR, 'state.json')
 const AVATARS_DIR = join(__dirname, 'avatars')
+const BACKUPS_DIR = join(__dirname, 'backups')
 const PORT = Number(process.env.PORT) || 2605
 
-mkdirSync(DATA_DIR, { recursive: true })
+mkdirSync(DATA_DIR,    { recursive: true })
 mkdirSync(AVATARS_DIR, { recursive: true })
+mkdirSync(BACKUPS_DIR, { recursive: true })
+
+// ── Daily backup ──────────────────────────────────────────────────────────────
+function runBackup() {
+  if (!existsSync(STATE_FILE)) return
+  try {
+    const now = new Date()
+    const pad = n => String(n).padStart(2, '0')
+    const ts  = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`
+    const dest = join(BACKUPS_DIR, `state_${ts}.json`)
+    copyFileSync(STATE_FILE, dest)
+    console.log(`[donnerskat] backup saved: ${dest}`)
+  } catch (err) {
+    console.error('[donnerskat] backup failed:', err.message)
+  }
+}
+
+// Run once on startup, then every 24 h
+runBackup()
+setInterval(runBackup, 24 * 60 * 60 * 1000)
+// ─────────────────────────────────────────────────────────────────────────────
 
 function readState() {
   try {
