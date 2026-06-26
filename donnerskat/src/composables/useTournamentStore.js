@@ -26,6 +26,7 @@ function createId() {
 
 export function calculateSkatHand(payload) {
   const isNullGame = payload.gameType === 'null'
+  const isRamschGame = payload.gameType === 'ramsch'
   const matadors = Number(payload.matadors)
 
   if (payload.players.length !== 3) {
@@ -35,6 +36,26 @@ export function calculateSkatHand(payload) {
     throw new Error('Der Alleinspieler muss aus den drei gewählten Spielern kommen.')
   }
 
+  // ── Ramsch ────────────────────────────────────────────────────────────────
+  if (isRamschGame) {
+    const points = Number(payload.ramschPoints ?? 0)
+    const isWin = points >= 120
+    const baseDelta = isWin ? 120 : -points
+    const declarerDelta = !isWin && payload.jungfrau ? baseDelta * 2 : baseDelta
+    return {
+      gameValue: points,
+      declarerDelta,
+      defenderDelta: 0,
+      valueExpression: isWin
+        ? 'Durchmarsch (120 Punkte)'
+        : `Ramsch: ${points} Punkte${payload.jungfrau ? ', Jungfrau' : ''}`,
+    }
+  }
+
+  // ── Kontra / Re multiplier ────────────────────────────────────────────────
+  const kontraMultiplier = payload.re ? 4 : payload.kontra ? 2 : 1
+
+  // ── Null ──────────────────────────────────────────────────────────────────
   if (isNullGame) {
     const isHand = Boolean(payload.levels?.hand)
     const isOuvert = Boolean(payload.levels?.ouvert)
@@ -43,22 +64,25 @@ export function calculateSkatHand(payload) {
     else if (isHand) mode = 'hand'
     else if (isOuvert) mode = 'ouvert'
 
-    const gameValue = NULL_VALUES[mode]
+    const baseValue = NULL_VALUES[mode]
+    const gameValue = baseValue * kontraMultiplier
     const declarerDelta = payload.outcome === 'won' ? 50 + gameValue : -(50 + gameValue * 2)
     const defenderDelta = payload.outcome === 'lost' ? 40 : 0
 
     const parts = ['Null']
     if (isOuvert) parts.push('Ouvert')
     if (isHand) parts.push('Hand')
+    const kontraSuffix = payload.re ? ', Re' : payload.kontra ? ', Kontra' : ''
 
     return {
       gameValue,
       declarerDelta,
       defenderDelta,
-      valueExpression: `${parts.join(' ')} = ${gameValue}`,
+      valueExpression: `${parts.join(' ')} = ${baseValue}${kontraMultiplier > 1 ? ` × ${kontraMultiplier}` : ''}${kontraSuffix}`,
     }
   }
 
+  // ── Suit / Grand ──────────────────────────────────────────────────────────
   if (!BASE_VALUES[payload.gameType]) {
     throw new Error('Ungültige Spielart für die Berechnung.')
   }
@@ -80,15 +104,18 @@ export function calculateSkatHand(payload) {
     (lvl.ouvert ? 1 : 0)
 
   const multiplier = matadors + gameLevel
-  const gameValue = BASE_VALUES[payload.gameType] * multiplier
+  const baseValue = BASE_VALUES[payload.gameType] * multiplier
+  const gameValue = baseValue * kontraMultiplier
   const declarerDelta = payload.outcome === 'won' ? 50 + gameValue : -(50 + gameValue * 2)
   const defenderDelta = payload.outcome === 'lost' ? 40 : 0
+
+  const kontraSuffix = payload.re ? ', Re' : payload.kontra ? ', Kontra' : ''
 
   return {
     gameValue,
     declarerDelta,
     defenderDelta,
-    valueExpression: `${matadors} Spitzen, Stufe ${gameLevel}, ${multiplier} × ${BASE_VALUES[payload.gameType]}`,
+    valueExpression: `${matadors} Spitzen, Stufe ${gameLevel}, ${multiplier} × ${BASE_VALUES[payload.gameType]}${kontraMultiplier > 1 ? ` × ${kontraMultiplier}` : ''}${kontraSuffix}`,
   }
 }
 
@@ -239,6 +266,8 @@ function createStore() {
         schwarz_announced: Boolean(lvl.schwarz_announced),
         ouvert: Boolean(lvl.ouvert),
       },
+      kontra: Boolean(payload.kontra),
+      re: Boolean(payload.re),
       outcome: payload.outcome,
       gameValue: scoring.gameValue,
       valueExpression: scoring.valueExpression,

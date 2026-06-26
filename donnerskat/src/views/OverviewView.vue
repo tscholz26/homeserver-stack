@@ -13,6 +13,7 @@ const gameTypeLabel = {
   diamonds: 'Schellen',
   grand: 'Grand',
   null: 'Null',
+  ramsch: 'Ramsch',
 }
 
 // ── Default season ────────────────────────────────────────────────────────────

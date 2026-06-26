@@ -17,6 +17,10 @@ const draft = reactive({
   matadors: 1,
   outcome: '',
   playedOn: todayISO(),
+  kontra: false,
+  re: false,
+  ramschPoints: '',
+  jungfrau: false,
   levels: {
     hand: false,
     schneider: false,
@@ -62,6 +66,7 @@ const selectedPlayers = computed(() =>
 )
 
 const isNullGame = computed(() => draft.gameType === 'null')
+const isRamschGame = computed(() => draft.gameType === 'ramsch')
 
 const maxMatadors = computed(() => (draft.gameType === 'grand' ? 4 : 11))
 
@@ -77,14 +82,15 @@ const playersForSeat3 = computed(() =>
   sortedPlayers.value.filter((p) => p.id !== draft.seat1 && p.id !== draft.seat2),
 )
 
-const canPreview = computed(
-  () =>
+const canPreview = computed(() => {
+  const baseMet =
     selectedPlayers.value.length === 3 &&
     new Set(selectedPlayers.value).size === 3 &&
     draft.declarerId &&
-    draft.gameType &&
-    draft.outcome,
-)
+    draft.gameType
+  if (isRamschGame.value) return baseMet && draft.ramschPoints !== ''
+  return baseMet && draft.outcome
+})
 
 const preview = computed(() => {
   if (!canPreview.value) return null
@@ -93,10 +99,15 @@ const preview = computed(() => {
       players: selectedPlayers.value,
       declarerId: draft.declarerId,
       gameType: draft.gameType,
-      without: draft.without,
       matadors: Number(draft.matadors),
       levels: draft.levels,
-      outcome: draft.outcome,
+      outcome: isRamschGame.value
+        ? (Number(draft.ramschPoints) >= 120 ? 'won' : 'lost')
+        : draft.outcome,
+      kontra: draft.kontra,
+      re: draft.re,
+      ramschPoints: draft.ramschPoints,
+      jungfrau: draft.jungfrau,
     })
   } catch {
     return null
@@ -112,15 +123,25 @@ watch(selectedPlayers, (players) => {
   }
 })
 
-// Grand only has 4 Jacks, so cap matadors
+// Grand only has 4 Jacks, so cap matadors; clear ramsch/kontra fields on type change
 watch(
   () => draft.gameType,
-  () => {
-    if (draft.gameType === 'grand' && draft.matadors > 4) {
-      draft.matadors = 4
+  (newType, oldType) => {
+    if (newType === 'grand' && draft.matadors > 4) draft.matadors = 4
+    if (newType === 'ramsch') {
+      draft.outcome = ''
+      draft.kontra = false
+      draft.re = false
+    }
+    if (oldType === 'ramsch') {
+      draft.ramschPoints = ''
+      draft.jungfrau = false
     }
   },
 )
+
+// Re requires Kontra
+watch(() => draft.kontra, (val) => { if (!val) draft.re = false })
 
 // Clear conflicting seats whenever any seat changes
 watch(() => draft.seat1, (val) => {
@@ -225,9 +246,16 @@ function saveHand() {
     if (!draft.gameType) {
       throw new Error('Bitte eine Spielart auswählen.')
     }
-    if (!draft.outcome) {
+    if (!isRamschGame.value && !draft.outcome) {
       throw new Error('Bitte ein Ergebnis auswählen.')
     }
+    if (isRamschGame.value && draft.ramschPoints === '') {
+      throw new Error('Bitte die Punkte des Alleinspielers eintragen.')
+    }
+
+    const outcome = isRamschGame.value
+      ? (Number(draft.ramschPoints) >= 120 ? 'won' : 'lost')
+      : draft.outcome
 
     addHand({
       players: selectedPlayers.value,
@@ -235,7 +263,11 @@ function saveHand() {
       gameType: draft.gameType,
       matadors: Number(draft.matadors),
       levels: { ...draft.levels },
-      outcome: draft.outcome,
+      outcome,
+      kontra: draft.kontra,
+      re: draft.re,
+      ramschPoints: isRamschGame.value ? Number(draft.ramschPoints) : 0,
+      jungfrau: draft.jungfrau,
       playedOn: draft.playedOn,
     })
 
@@ -245,6 +277,10 @@ function saveHand() {
     draft.matadors = 1
     draft.outcome = ''
     draft.playedOn = todayISO()
+    draft.kontra = false
+    draft.re = false
+    draft.ramschPoints = ''
+    draft.jungfrau = false
     draft.levels.hand = false
     draft.levels.schneider = false
     draft.levels.schneider_announced = false
@@ -321,10 +357,11 @@ function saveHand() {
           <option value="diamonds">Schellen</option>
           <option value="grand">Grand</option>
           <option value="null">Null</option>
+          <option value="ramsch">Ramsch</option>
         </select>
       </label>
 
-      <label>
+      <label v-if="!isRamschGame">
         Ergebnis
         <select v-model="draft.outcome">
           <option value="">Ergebnis wählen</option>
@@ -333,7 +370,19 @@ function saveHand() {
         </select>
       </label>
 
-      <label v-if="!isNullGame && draft.gameType">
+      <!-- Ramsch: point total for the Alleinspieler -->
+      <label v-if="isRamschGame">
+        Punkte (Alleinspieler)
+        <input
+          v-model.number="draft.ramschPoints"
+          type="number"
+          min="0"
+          max="120"
+          placeholder="0–120"
+        />
+      </label>
+
+      <label v-if="!isNullGame && !isRamschGame && draft.gameType">
         Mit / Ohne
         <div class="stepper">
           <button type="button" class="step-btn" :disabled="draft.matadors <= 1" @click="draft.matadors--">−</button>
@@ -353,7 +402,7 @@ function saveHand() {
         />
       </label>
 
-      <fieldset class="levels">
+      <fieldset v-if="!isRamschGame" class="levels">
         <legend>Gewinnstufen</legend>
 
         <label class="inline-toggle">
@@ -390,6 +439,28 @@ function saveHand() {
             Ouvert
           </label>
         </template>
+      </fieldset>
+
+      <!-- Kontra / Re (non-Ramsch only) -->
+      <fieldset v-if="draft.gameType && !isRamschGame" class="levels">
+        <legend>Kontra / Re</legend>
+        <label class="inline-toggle">
+          <input v-model="draft.kontra" type="checkbox" />
+          Kontra
+        </label>
+        <label v-if="draft.kontra" class="inline-toggle">
+          <input v-model="draft.re" type="checkbox" />
+          Re
+        </label>
+      </fieldset>
+
+      <!-- Jungfrau (Ramsch only) -->
+      <fieldset v-if="isRamschGame" class="levels">
+        <legend>Ramsch</legend>
+        <label class="inline-toggle">
+          <input v-model="draft.jungfrau" type="checkbox" />
+          Jungfrau (verdoppelt Minuspunkte)
+        </label>
       </fieldset>
 
       <button type="submit">Partie eintragen</button>
