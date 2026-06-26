@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { computeStandings, useTournamentStore } from '../composables/useTournamentStore'
 import { SEASONS } from '../seasons.js'
 import Podium from '../components/Podium.vue'
+import PlacementChart from '../components/PlacementChart.vue'
 
 const { state, playersById, removeHand } = useTournamentStore()
 
@@ -226,6 +227,13 @@ const sortedActiveStandings = computed(() => applySort(activeStandings.value))
         <p v-if="activeStandings.length === 0" class="hint">Noch keine Wertungen vorhanden.</p>
       </template>
     </article>
+
+    <!-- Placement history chart – between standings and last games -->
+    <PlacementChart
+      v-if="!isLegacySeason && selectedSeason !== 'all'"
+      :players="state.players"
+      :hands="filteredHands"
+    />
 
     <article v-if="!isLegacySeason" class="card">
       <h2>Letzte Partien</h2>
