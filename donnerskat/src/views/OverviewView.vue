@@ -77,7 +77,7 @@ const displayHands = computed(() => {
     return b.createdAt.localeCompare(a.createdAt)
   })
   const todayCount = sorted.filter((h) => handDate(h) === today).length
-  return sorted.slice(0, Math.max(10, todayCount))
+  return sorted.slice(0, Math.max(15, todayCount))
 })
 
 // Only the 5 most recent non-deleted hands get a delete button
