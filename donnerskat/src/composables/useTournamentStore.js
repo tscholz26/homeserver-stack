@@ -142,7 +142,7 @@ export function computeStandings(players, hands) {
     }
 
     const declarerIdx = indexByPlayerId[hand.declarerId]
-    if (declarerIdx !== undefined) {
+    if (declarerIdx !== undefined && hand.gameType !== 'ramsch') {
       if (hand.outcome === 'won') rows[declarerIdx].declarerWon += 1
       else rows[declarerIdx].declarerLost += 1
       if (hand.gameType === 'grand') rows[declarerIdx].grandGames += 1
