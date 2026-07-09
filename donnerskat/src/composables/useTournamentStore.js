@@ -181,25 +181,51 @@ function createStore() {
   const loading = ref(true)
   const state = reactive({ players: [], hands: [] })
 
-  const API_URL = `${import.meta.env.BASE_URL}api/state`
+  const API_BASE = `${import.meta.env.BASE_URL}api`
 
-  fetch(API_URL)
-    .then((r) => r.json())
-    .then((data) => {
-      if (Array.isArray(data.players)) state.players = data.players
-      if (Array.isArray(data.hands)) state.hands = data.hands
-    })
-    .catch(() => {})
-    .finally(() => {
-      loading.value = false
-    })
+  function applyServerState(data) {
+    if (data && Array.isArray(data.players)) state.players = data.players
+    if (data && Array.isArray(data.hands)) state.hands = data.hands
+  }
 
-  function saveState() {
-    fetch(API_URL, {
-      method: 'PUT',
+  async function refresh() {
+    try {
+      const r = await fetch(`${API_BASE}/state`)
+      if (r.ok) applyServerState(await r.json())
+    } catch {
+      /* offline – keep whatever we have */
+    }
+  }
+
+  refresh().finally(() => {
+    loading.value = false
+  })
+
+  // Pick up games entered on other devices whenever this tab comes back
+  if (typeof window !== 'undefined') {
+    window.addEventListener('focus', refresh)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') refresh()
+    })
+  }
+
+  // Sends a single change; the server applies it to its copy and answers with
+  // the authoritative state, so this tab can never overwrite other tabs.
+  function sendChange(path, method, body) {
+    fetch(`${API_BASE}${path}`, {
+      method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ players: state.players, hands: state.hands }),
-    }).catch((err) => console.error('[donnerskat] save failed:', err))
+      body: body === undefined ? undefined : JSON.stringify(body),
+    })
+      .then(async (r) => {
+        const data = await r.json().catch(() => null)
+        if (!r.ok) {
+          console.error('[donnerskat] save failed:', data?.error || r.status)
+          return refresh()
+        }
+        applyServerState(data)
+      })
+      .catch((err) => console.error('[donnerskat] save failed:', err))
   }
 
   const playersById = computed(() =>
@@ -227,8 +253,9 @@ function createStore() {
     if (state.players.some((p) => p.name.toLowerCase() === clean.toLowerCase())) {
       throw new Error('Dieser Spieler ist bereits vorhanden.')
     }
-    state.players.push({ id: createId(), name: clean, createdAt: new Date().toISOString() })
-    saveState()
+    const player = { id: createId(), name: clean, createdAt: new Date().toISOString() }
+    state.players.push(player)
+    sendChange('/players', 'POST', player)
   }
 
   function removePlayer(playerId) {
@@ -236,7 +263,7 @@ function createStore() {
       throw new Error('Dieser Spieler kann nicht entfernt werden, da bereits Partien eingetragen wurden.')
     }
     state.players = state.players.filter((p) => p.id !== playerId)
-    saveState()
+    sendChange(`/players/${playerId}`, 'DELETE')
   }
 
   function addHand(payload) {
@@ -251,7 +278,7 @@ function createStore() {
     }))
 
     const lvl = payload.levels || {}
-    state.hands.push({
+    const hand = {
       id: createId(),
       playedOn: payload.playedOn || new Date().toISOString().slice(0, 10),
       players: [...payload.players],
@@ -273,16 +300,18 @@ function createStore() {
       valueExpression: scoring.valueExpression,
       scores,
       createdAt: new Date().toISOString(),
-    })
+    }
 
-    saveState()
+    state.hands.push(hand)
+    sendChange('/hands', 'POST', hand)
     return scoring
   }
 
   function removeHand(handId) {
     const hand = state.hands.find((h) => h.id === handId)
-    if (hand) hand.deleted = true
-    saveState()
+    if (!hand) return
+    hand.deleted = true
+    sendChange(`/hands/${handId}`, 'DELETE')
   }
 
   return {
