@@ -28,6 +28,7 @@ coverage
 
 # Persistent game data and backups (lives in data/ on the host, not in git)
 data/state.json
+data/changelog.jsonl
 backups/
 
 .eslintcache

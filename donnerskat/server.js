@@ -1,11 +1,12 @@
 import express from 'express'
-import { copyFileSync, existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs'
+import { appendFileSync, copyFileSync, existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const DATA_DIR    = join(__dirname, 'data')
 const STATE_FILE  = join(DATA_DIR, 'state.json')
+const CHANGELOG_FILE = join(DATA_DIR, 'changelog.jsonl')
 const AVATARS_DIR = join(__dirname, 'avatars')
 const BACKUPS_DIR = join(__dirname, 'backups')
 const PORT = Number(process.env.PORT) || 2605
@@ -52,17 +53,37 @@ function writeState(data) {
   renameSync(tmp, STATE_FILE)
 }
 
+// Append-only audit log: one JSON line per change, so games can be
+// reconstructed by hand even if state.json is ever damaged again.
+function logChange(req, state, entry) {
+  try {
+    const names = Object.fromEntries(state.players.map((p) => [p.id, p.name]))
+    const line = JSON.stringify({
+      ts: new Date().toISOString(),
+      ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress,
+      ...entry,
+      playerNames: names,
+      totals: { players: state.players.length, hands: state.hands.length },
+    })
+    appendFileSync(CHANGELOG_FILE, line + '\n', 'utf8')
+  } catch (err) {
+    console.error('[donnerskat] changelog write failed:', err.message)
+  }
+}
+
 // Read → apply one change → write → return the authoritative state.
 // Clients never send the full state, so concurrent tabs can't erase
-// each other's games.
-function mutate(res, apply) {
+// each other's games. `apply` returns { reject } to refuse, { log } to
+// record the change in the changelog, or nothing for an idempotent no-op.
+function mutate(req, res, apply) {
   try {
     const state = readState()
-    const rejection = apply(state)
-    if (rejection) {
-      return res.status(rejection.status).json({ error: rejection.error })
+    const result = apply(state) || {}
+    if (result.reject) {
+      return res.status(result.reject.status).json({ error: result.reject.error })
     }
     writeState(state)
+    if (result.log) logChange(req, state, result.log)
     res.json(state)
   } catch (err) {
     console.error('[donnerskat] mutation failed:', err.message)
@@ -88,25 +109,30 @@ app.post('/api/players', (req, res) => {
   if (!p || typeof p.id !== 'string' || typeof p.name !== 'string' || !p.name.trim()) {
     return res.status(400).json({ error: 'Invalid payload' })
   }
-  mutate(res, (state) => {
+  mutate(req, res, (state) => {
     if (state.players.some((x) => x.id === p.id)) return
     if (state.players.some((x) => x.name.toLowerCase() === p.name.trim().toLowerCase())) {
-      return { status: 409, error: 'Dieser Spieler ist bereits vorhanden.' }
+      return { reject: { status: 409, error: 'Dieser Spieler ist bereits vorhanden.' } }
     }
-    state.players.push({
+    const player = {
       id: p.id,
       name: p.name.trim(),
       createdAt: typeof p.createdAt === 'string' ? p.createdAt : new Date().toISOString(),
-    })
+    }
+    state.players.push(player)
+    return { log: { action: 'add_player', player } }
   })
 })
 
 app.delete('/api/players/:id', (req, res) => {
-  mutate(res, (state) => {
+  mutate(req, res, (state) => {
     if (state.hands.some((h) => Array.isArray(h.players) && h.players.includes(req.params.id))) {
-      return { status: 409, error: 'Dieser Spieler kann nicht entfernt werden, da bereits Partien eingetragen wurden.' }
+      return { reject: { status: 409, error: 'Dieser Spieler kann nicht entfernt werden, da bereits Partien eingetragen wurden.' } }
     }
+    const player = state.players.find((x) => x.id === req.params.id)
+    if (!player) return
     state.players = state.players.filter((x) => x.id !== req.params.id)
+    return { log: { action: 'remove_player', player } }
   })
 })
 
@@ -115,17 +141,19 @@ app.post('/api/hands', (req, res) => {
   if (!h || typeof h.id !== 'string' || !Array.isArray(h.players) || !Array.isArray(h.scores)) {
     return res.status(400).json({ error: 'Invalid payload' })
   }
-  mutate(res, (state) => {
+  mutate(req, res, (state) => {
     if (state.hands.some((x) => x.id === h.id)) return
     state.hands.push(h)
+    return { log: { action: 'add_hand', hand: h } }
   })
 })
 
 app.delete('/api/hands/:id', (req, res) => {
-  mutate(res, (state) => {
+  mutate(req, res, (state) => {
     const hand = state.hands.find((x) => x.id === req.params.id)
-    if (!hand) return { status: 404, error: 'Partie nicht gefunden.' }
+    if (!hand) return { reject: { status: 404, error: 'Partie nicht gefunden.' } }
     hand.deleted = true
+    return { log: { action: 'delete_hand', hand } }
   })
 })
 
