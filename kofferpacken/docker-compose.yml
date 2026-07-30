@@ -1,0 +1,15 @@
+services:
+  kofferpacken:
+    build: .
+    container_name: kofferpacken
+    restart: unless-stopped
+
+    volumes:
+      - ./data:/app/data
+
+    networks:
+      - caddy-network
+
+networks:
+  caddy-network:
+    external: true

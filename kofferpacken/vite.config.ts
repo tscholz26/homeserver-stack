@@ -7,6 +7,7 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: '/koffer/',
   plugins: [
     vue(),
     vueJsx(),
@@ -15,6 +16,14 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+    },
+  },
+  server: {
+    proxy: {
+      '/koffer/api': {
+        target: 'http://localhost:2606',
+        rewrite: (path) => path.replace(/^\/koffer/, ''),
+      },
     },
   },
 })
