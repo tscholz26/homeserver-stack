@@ -98,11 +98,7 @@ async function exportPdf() {
       <ul>
         <li v-for="item in group.items" :key="item.id">
           <label class="row" :class="{ packed: packedSet.has(item.id) }">
-            <input
-              type="checkbox"
-              :checked="packedSet.has(item.id)"
-              @change="toggle(item.id)"
-            />
+            <input type="checkbox" :checked="packedSet.has(item.id)" @change="toggle(item.id)" />
             <span>{{ item.name }}</span>
           </label>
         </li>
