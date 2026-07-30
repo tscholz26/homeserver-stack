@@ -1,14 +1,23 @@
 <script setup lang="ts">
-import { computed, ref, watchEffect } from 'vue'
+import { computed, ref, watch, watchEffect } from 'vue'
 import { usePackStore } from '@/composables/usePackStore'
 
 const store = usePackStore()
 
-const selectedTripId = ref<string | null>(null)
-const onlyMissing = ref(false)
+// Both survive a reload on this device, so the phone opens right where you left off
+const selectedTripId = ref<string | null>(localStorage.getItem('koffer:selectedTripId'))
+const onlyMissing = ref(localStorage.getItem('koffer:onlyMissing') === '1')
 
-// Keep a valid trip selected (first one by default, e.g. after deletes)
+watch(selectedTripId, (v) => {
+  if (v) localStorage.setItem('koffer:selectedTripId', v)
+  else localStorage.removeItem('koffer:selectedTripId')
+})
+watch(onlyMissing, (v) => localStorage.setItem('koffer:onlyMissing', v ? '1' : '0'))
+
+// Keep a valid trip selected (first one by default, e.g. after deletes);
+// don't touch the stored choice while the server state is still loading
 watchEffect(() => {
+  if (store.loading.value) return
   const trips = store.sortedTrips.value
   if (!trips.some((t) => t.id === selectedTripId.value)) {
     selectedTripId.value = trips[0]?.id ?? null
