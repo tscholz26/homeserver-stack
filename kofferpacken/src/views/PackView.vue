@@ -120,11 +120,15 @@ async function exportPdf() {
       role="progressbar"
       :aria-valuenow="progressPercent"
     >
-      <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
+      <div
+        class="progress-fill"
+        :class="{ full: progressPercent === 100 }"
+        :style="{ width: progressPercent + '%' }"
+      ></div>
     </div>
 
-    <p v-if="selectedTrip && onlyMissing && groups.length === 0" class="hint done">
-      Alles eingepackt – gute Reise! 🎉
+    <p v-if="selectedTrip && totalCount > 0 && packedCount === totalCount" class="hint done">
+      <span class="party">🎉</span> Alles eingepackt – gute Reise! <span class="party">🧳</span>
     </p>
 
     <section
@@ -170,6 +174,31 @@ async function exportPdf() {
   font-weight: 600;
 }
 
+.party {
+  display: inline-block;
+  animation: party 1.1s ease-in-out infinite;
+}
+
+.party:last-child {
+  animation-delay: 0.55s;
+}
+
+@keyframes party {
+  0%,
+  100% {
+    transform: rotate(-10deg) scale(1);
+  }
+  50% {
+    transform: rotate(10deg) scale(1.3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .party {
+    animation: none;
+  }
+}
+
 .trip-picker {
   display: flex;
   flex-wrap: wrap;
@@ -212,7 +241,13 @@ async function exportPdf() {
   height: 100%;
   border-radius: 1rem;
   background: linear-gradient(90deg, #e0a92e, #f2c14e);
-  transition: width 0.35s ease;
+  transition:
+    width 0.35s ease,
+    background 0.35s ease;
+}
+
+.progress-fill.full {
+  background: linear-gradient(90deg, #5cc474, #7ed98f);
 }
 
 /* Stays visible while scrolling the long list */
