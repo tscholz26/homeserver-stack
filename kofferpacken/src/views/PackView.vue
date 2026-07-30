@@ -215,13 +215,22 @@ async function exportPdf() {
   transition: width 0.35s ease;
 }
 
+/* Stays visible while scrolling the long list */
 .toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.6rem;
-  margin-bottom: 0.8rem;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: rgba(16, 34, 47, 0.88);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  margin: 0 -0.5rem 0.8rem;
+  padding: 0.55rem 0.5rem;
+  border-radius: 0 0 0.8rem 0.8rem;
 }
 
 .progress {
@@ -322,8 +331,49 @@ ul {
   flex-shrink: 0;
 }
 
+.row span {
+  transition: opacity 0.15s ease;
+}
+
 .row.packed span {
   text-decoration: line-through;
   opacity: 0.55;
+}
+
+/* Phone: swipeable trip chips instead of wrapping, bigger touch targets */
+@media (max-width: 600px) {
+  .trip-picker {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-left: -1rem;
+    margin-right: -1rem;
+    padding: 0 1rem;
+  }
+
+  .trip-picker::-webkit-scrollbar {
+    display: none;
+  }
+
+  .trip-chip {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+}
+
+@media (pointer: coarse) {
+  .row {
+    padding: 0.6rem 0.2rem;
+  }
+
+  .row input {
+    width: 1.45rem;
+    height: 1.45rem;
+  }
+
+  .filter-btn,
+  .trip-chip {
+    padding: 0.55rem 1rem;
+  }
 }
 </style>

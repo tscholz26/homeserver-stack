@@ -26,6 +26,7 @@
 
 :global(body) {
   margin: 0;
+  -webkit-tap-highlight-color: transparent;
   color: #f2f6f9;
   font-family: 'Segoe UI', 'Source Sans 3', sans-serif;
   background:
@@ -38,6 +39,9 @@
   max-width: 52rem;
   margin: 0 auto;
   padding: 1rem;
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
 }
 
 .top {
