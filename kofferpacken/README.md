@@ -1,48 +1,51 @@
-# kofferpacken
+# Kofferpacken
 
-This template should help get you started developing with Vue 3 in Vite.
+Reisepacklisten-App für den Homeserver: Trips anlegen und die Packliste pro Trip
+auf allen Geräten gemeinsam abhaken. Erreichbar unter `https://tshomeserv.duckdns.org/koffer/`.
 
-## Recommended IDE Setup
+## Funktionen
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+- **Packliste** pro Trip, gruppiert nach Kategorien, mit Abhaken/Enthaken,
+  Filter „Nur fehlende anzeigen“, Fortschrittsbalken und einklappbaren Kategorien
+- **Verwaltung** von Trips sowie dem Katalog (Kategorien anlegen, Gegenstände
+  anlegen/umbenennen/löschen, Suche)
+- **PDF-Export** der leeren Liste als kompakte A4-Checkliste zum Ausdrucken
+- **Mehrgeräte-tauglich**: jede Änderung geht als einzelner Request an den Server,
+  der sie auf den zentralen Stand anwendet und den autoritativen State zurückgibt –
+  Geräte können sich nicht gegenseitig überschreiben
+- Als **PWA** zum Homescreen hinzufügbar (Koffer-Icon, Standalone-Anzeige)
 
-## Recommended Browser Setup
+## Technik
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+- Frontend: Vue 3 + TypeScript + Vite (Base-Pfad `/koffer/`)
+- Backend: Express ([server.js](server.js)), Port 2606
+- Persistenz: `data/state.json` (atomar geschrieben); beim allerersten Start wird
+  der Katalog aus [seed.json](seed.json) übernommen
 
-## Type Support for `.vue` Imports in TS
+### API
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
+| Methode | Pfad | Zweck |
+| --- | --- | --- |
+| GET | `/api/state` | kompletter Stand |
+| POST / DELETE | `/api/trips[/:id]` | Trip anlegen / löschen |
+| POST | `/api/trips/:id/check` | `{ itemId, packed }` setzen |
+| POST | `/api/categories` | Kategorie anlegen |
+| POST / PUT / DELETE | `/api/items[/:id]` | Gegenstand anlegen / umbenennen / löschen |
 
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
+## Entwicklung
 
 ```sh
 npm install
+node server.js        # API auf :2606
+npm run dev           # Vite-Devserver, proxied /koffer/api → :2606
 ```
 
-### Compile and Hot-Reload for Development
+## Deployment
 
 ```sh
-npm run dev
+docker compose up -d --build
 ```
 
-### Type-Check, Compile and Minify for Production
-
-```sh
-npm run build
-```
-
-### Lint with [ESLint](https://eslint.org/)
-
-```sh
-npm run lint
-```
+Der Container `kofferpacken` hängt im `caddy-network`; Caddy leitet
+`/koffer/*` dorthin weiter (siehe [../caddy/Caddyfile](../caddy/Caddyfile)).
+Die Daten liegen über das Volume `./data` auf dem Host.
