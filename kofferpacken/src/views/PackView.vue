@@ -59,6 +59,15 @@ function tripPackedCount(trip: Trip): number {
   return trip.packedItemIds.filter((id) => itemIds.value.has(id)).length
 }
 
+// Collapsed categories (per tab only, resets on reload)
+const collapsedIds = ref(new Set<string>())
+function toggleCollapsed(categoryId: string) {
+  const next = new Set(collapsedIds.value)
+  if (next.has(categoryId)) next.delete(categoryId)
+  else next.add(categoryId)
+  collapsedIds.value = next
+}
+
 function toggle(itemId: string) {
   if (!selectedTrip.value) return
   store.setPacked(selectedTrip.value.id, itemId, !packedSet.value.has(itemId))
@@ -124,14 +133,21 @@ async function exportPdf() {
       class="card"
       :class="{ done: group.packedCount === group.totalCount }"
     >
-      <header class="card-head">
+      <header
+        class="card-head"
+        role="button"
+        tabindex="0"
+        @click="toggleCollapsed(group.category.id)"
+        @keydown.enter="toggleCollapsed(group.category.id)"
+      >
         <h2>{{ group.category.name }}</h2>
         <span class="count">
           <template v-if="group.packedCount === group.totalCount">✓ komplett</template>
           <template v-else>{{ group.packedCount }}/{{ group.totalCount }}</template>
+          <span class="chevron" :class="{ collapsed: collapsedIds.has(group.category.id) }">▾</span>
         </span>
       </header>
-      <ul>
+      <ul v-show="!collapsedIds.has(group.category.id)">
         <li v-for="item in group.items" :key="item.id">
           <label class="row" :class="{ packed: packedSet.has(item.id) }">
             <input type="checkbox" :checked="packedSet.has(item.id)" @change="toggle(item.id)" />
@@ -248,6 +264,19 @@ async function exportPdf() {
   align-items: baseline;
   justify-content: space-between;
   gap: 0.6rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.chevron {
+  display: inline-block;
+  margin-left: 0.35rem;
+  opacity: 0.7;
+  transition: transform 0.2s ease;
+}
+
+.chevron.collapsed {
+  transform: rotate(-90deg);
 }
 
 .card-head h2 {
