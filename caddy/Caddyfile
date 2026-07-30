@@ -15,6 +15,10 @@ tshomeserv.duckdns.org {
         reverse_proxy donnerskat:2605
     }
 
+    handle_path /koffer/* {
+        reverse_proxy kofferpacken:2606
+    }
+
     handle /home/* {
         reverse_proxy website-weather-api:80
     }
