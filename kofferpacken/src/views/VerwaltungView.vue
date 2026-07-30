@@ -1,8 +1,17 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { usePackStore } from '@/composables/usePackStore'
 
 const store = usePackStore()
+
+const search = ref('')
+const searchLower = computed(() => search.value.trim().toLowerCase())
+
+function filteredItems(categoryId: string) {
+  const items = store.itemsByCategory.value[categoryId] ?? []
+  if (!searchLower.value) return items
+  return items.filter((i) => i.name.toLowerCase().includes(searchLower.value))
+}
 
 const newTripName = ref('')
 const newCategoryName = ref('')
@@ -89,14 +98,17 @@ function removeItem(itemId: string, name: string) {
       <button type="submit">Kategorie hinzufügen</button>
     </form>
 
-    <div v-for="category in store.state.categories" :key="category.id" class="category">
+    <input v-model="search" class="search" type="search" placeholder="🔍 Gegenstand suchen …" />
+
+    <div
+      v-for="category in store.state.categories"
+      v-show="!searchLower || filteredItems(category.id).length > 0"
+      :key="category.id"
+      class="category"
+    >
       <h3>{{ category.name }}</h3>
       <ul>
-        <li
-          v-for="item in store.itemsByCategory.value[category.id] ?? []"
-          :key="item.id"
-          class="row"
-        >
+        <li v-for="item in filteredItems(category.id)" :key="item.id" class="row">
           <template v-if="editingItemId === item.id">
             <input v-model="editingName" class="edit-input" @keyup.enter="saveEdit" />
             <button @click="saveEdit">Speichern</button>
@@ -111,7 +123,7 @@ function removeItem(itemId: string, name: string) {
           </template>
         </li>
       </ul>
-      <form class="inline-form" @submit.prevent="addItem(category.id)">
+      <form v-if="!searchLower" class="inline-form" @submit.prevent="addItem(category.id)">
         <input v-model="newItemNames[category.id]" placeholder="Neuer Gegenstand" />
         <button type="submit">Hinzufügen</button>
       </form>
@@ -138,6 +150,11 @@ function removeItem(itemId: string, name: string) {
 .card h2 {
   margin: 0 0 0.6rem;
   font-size: 1.15rem;
+}
+
+.search {
+  width: 100%;
+  margin-top: 0.6rem;
 }
 
 .category {
