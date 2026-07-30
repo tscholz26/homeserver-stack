@@ -1,23 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { usePackStore } from '@/composables/usePackStore'
+import { usePackStore, type Trip } from '@/composables/usePackStore'
 
 const store = usePackStore()
 
-const search = ref('')
-const searchLower = computed(() => search.value.trim().toLowerCase())
-
-function filteredItems(categoryId: string) {
-  const items = store.itemsByCategory.value[categoryId] ?? []
-  if (!searchLower.value) return items
-  return items.filter((i) => i.name.toLowerCase().includes(searchLower.value))
-}
-
-const newTripName = ref('')
-const newCategoryName = ref('')
-const newItemNames = ref<Record<string, string>>({})
-const editingItemId = ref<string | null>(null)
-const editingName = ref('')
+const tab = ref<'trips' | 'items'>('trips')
 const error = ref('')
 
 function run(fn: () => void) {
@@ -27,6 +14,22 @@ function run(fn: () => void) {
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
   }
+}
+
+// ── Trips ──────────────────────────────────────────────────────────────────
+const newTripName = ref('')
+const itemIds = computed(() => new Set(store.state.items.map((i) => i.id)))
+
+function tripPackedCount(trip: Trip): number {
+  return trip.packedItemIds.filter((id) => itemIds.value.has(id)).length
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
 }
 
 function addTrip() {
@@ -39,6 +42,37 @@ function addTrip() {
 function removeTrip(tripId: string, name: string) {
   if (!confirm(`Trip „${name}“ wirklich löschen?`)) return
   store.removeTrip(tripId)
+}
+
+// ── Gegenstände ────────────────────────────────────────────────────────────
+const search = ref('')
+const searchLower = computed(() => search.value.trim().toLowerCase())
+const newCategoryName = ref('')
+const newItemNames = ref<Record<string, string>>({})
+const editingItemId = ref<string | null>(null)
+const editingName = ref('')
+
+// One category open at a time keeps the page short; a search opens all hits
+const expandedId = ref<string | null>(null)
+
+function categoryItems(categoryId: string) {
+  return store.itemsByCategory.value[categoryId] ?? []
+}
+
+function filteredItems(categoryId: string) {
+  const items = categoryItems(categoryId)
+  if (!searchLower.value) return items
+  return items.filter((i) => i.name.toLowerCase().includes(searchLower.value))
+}
+
+function isOpen(categoryId: string): boolean {
+  if (searchLower.value) return filteredItems(categoryId).length > 0
+  return expandedId.value === categoryId
+}
+
+function toggleExpanded(categoryId: string) {
+  if (searchLower.value) return
+  expandedId.value = expandedId.value === categoryId ? null : categoryId
 }
 
 function addCategory() {
@@ -77,57 +111,121 @@ function removeItem(itemId: string, name: string) {
 <template>
   <p v-if="error" class="error">{{ error }}</p>
 
-  <section class="card">
-    <h2>Trips</h2>
-    <form class="inline-form" @submit.prevent="addTrip">
-      <input v-model="newTripName" placeholder="Name des Trips, z.B. Italien 2026" />
-      <button type="submit">Trip anlegen</button>
+  <div class="tabs" role="tablist">
+    <button
+      role="tab"
+      :aria-selected="tab === 'trips'"
+      :class="{ active: tab === 'trips' }"
+      @click="tab = 'trips'"
+    >
+      ✈️ Trips
+    </button>
+    <button
+      role="tab"
+      :aria-selected="tab === 'items'"
+      :class="{ active: tab === 'items' }"
+      @click="tab = 'items'"
+    >
+      🧳 Gegenstände
+    </button>
+  </div>
+
+  <!-- ── Trips ─────────────────────────────────────────────────────────── -->
+  <section v-if="tab === 'trips'">
+    <form class="add-form" @submit.prevent="addTrip">
+      <input v-model="newTripName" placeholder="Neuer Trip, z. B. Italien 2026" />
+      <button type="submit" class="primary">Anlegen</button>
     </form>
-    <ul>
-      <li v-for="trip in store.sortedTrips.value" :key="trip.id" class="row">
-        <span>{{ trip.name }}</span>
-        <button class="danger" @click="removeTrip(trip.id, trip.name)">Löschen</button>
+
+    <p v-if="store.sortedTrips.value.length === 0" class="empty">
+      Noch keine Trips – leg oben den ersten an.
+    </p>
+
+    <ul class="trip-list">
+      <li v-for="trip in store.sortedTrips.value" :key="trip.id" class="trip-card">
+        <div class="trip-info">
+          <strong>{{ trip.name }}</strong>
+          <span class="meta">
+            {{ formatDate(trip.createdAt) }} · {{ tripPackedCount(trip) }}/{{
+              store.state.items.length
+            }}
+            gepackt
+          </span>
+        </div>
+        <button
+          class="icon-btn danger"
+          aria-label="Trip löschen"
+          @click="removeTrip(trip.id, trip.name)"
+        >
+          🗑️
+        </button>
       </li>
     </ul>
   </section>
 
-  <section class="card">
-    <h2>Gegenstände</h2>
-    <form class="inline-form" @submit.prevent="addCategory">
-      <input v-model="newCategoryName" placeholder="Neue Kategorie" />
-      <button type="submit">Kategorie hinzufügen</button>
-    </form>
-
-    <input v-model="search" class="search" type="search" placeholder="🔍 Gegenstand suchen …" />
+  <!-- ── Gegenstände ───────────────────────────────────────────────────── -->
+  <section v-else>
+    <input v-model="search" type="search" class="search" placeholder="🔍 Gegenstand suchen …" />
 
     <div
       v-for="category in store.state.categories"
       v-show="!searchLower || filteredItems(category.id).length > 0"
       :key="category.id"
-      class="category"
+      class="acc"
+      :class="{ open: isOpen(category.id) }"
     >
-      <h3>{{ category.name }}</h3>
-      <ul>
-        <li v-for="item in filteredItems(category.id)" :key="item.id" class="row">
-          <template v-if="editingItemId === item.id">
-            <input v-model="editingName" class="edit-input" @keyup.enter="saveEdit" />
-            <button @click="saveEdit">Speichern</button>
-            <button @click="editingItemId = null">Abbrechen</button>
-          </template>
-          <template v-else>
-            <span>{{ item.name }}</span>
-            <span class="actions">
-              <button @click="startEdit(item.id, item.name)">Bearbeiten</button>
-              <button class="danger" @click="removeItem(item.id, item.name)">Löschen</button>
-            </span>
-          </template>
-        </li>
-      </ul>
-      <form v-if="!searchLower" class="inline-form" @submit.prevent="addItem(category.id)">
-        <input v-model="newItemNames[category.id]" placeholder="Neuer Gegenstand" />
-        <button type="submit">Hinzufügen</button>
-      </form>
+      <button class="acc-head" type="button" @click="toggleExpanded(category.id)">
+        <span class="acc-title">{{ category.name }}</span>
+        <span class="acc-meta">
+          {{ categoryItems(category.id).length }}
+          <span class="chevron" :class="{ collapsed: !isOpen(category.id) }">▾</span>
+        </span>
+      </button>
+
+      <div v-if="isOpen(category.id)" class="acc-body">
+        <ul>
+          <li v-for="item in filteredItems(category.id)" :key="item.id" class="row">
+            <template v-if="editingItemId === item.id">
+              <input v-model="editingName" class="edit-input" @keyup.enter="saveEdit" />
+              <span class="actions">
+                <button class="icon-btn" aria-label="Speichern" @click="saveEdit">✔️</button>
+                <button class="icon-btn" aria-label="Abbrechen" @click="editingItemId = null">
+                  ✖️
+                </button>
+              </span>
+            </template>
+            <template v-else>
+              <span class="item-name">{{ item.name }}</span>
+              <span class="actions">
+                <button
+                  class="icon-btn"
+                  aria-label="Bearbeiten"
+                  @click="startEdit(item.id, item.name)"
+                >
+                  ✏️
+                </button>
+                <button
+                  class="icon-btn danger"
+                  aria-label="Löschen"
+                  @click="removeItem(item.id, item.name)"
+                >
+                  🗑️
+                </button>
+              </span>
+            </template>
+          </li>
+        </ul>
+        <form v-if="!searchLower" class="add-form" @submit.prevent="addItem(category.id)">
+          <input v-model="newItemNames[category.id]" placeholder="Neuer Gegenstand" />
+          <button type="submit" class="primary">+</button>
+        </form>
+      </div>
     </div>
+
+    <form class="add-form new-cat" @submit.prevent="addCategory">
+      <input v-model="newCategoryName" placeholder="Neue Kategorie" />
+      <button type="submit" class="primary">Kategorie anlegen</button>
+    </form>
   </section>
 </template>
 
@@ -139,37 +237,129 @@ function removeItem(itemId: string, name: string) {
   padding: 0.6rem 0.8rem;
 }
 
-.card {
+/* Segmented tabs */
+.tabs {
+  display: flex;
+  gap: 0.3rem;
+  padding: 0.25rem;
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 0.8rem;
   background: rgba(255, 255, 255, 0.06);
-  padding: 0.8rem 1rem;
-  margin-bottom: 0.8rem;
+  margin-bottom: 1rem;
 }
 
-.card h2 {
-  margin: 0 0 0.6rem;
-  font-size: 1.15rem;
+.tabs button {
+  flex: 1;
+  border: none;
+  border-radius: 0.55rem;
+  background: transparent;
+  color: inherit;
+  padding: 0.55rem 0.6rem;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
 }
 
-.search {
+.tabs button.active {
+  background: #f2c14e;
+  color: #23303b;
+}
+
+/* Trips */
+.trip-list {
+  list-style: none;
+  margin: 0.8rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.trip-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.8rem;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.7rem 0.9rem;
+}
+
+.trip-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.trip-info strong {
+  font-size: 1.05rem;
+}
+
+.meta {
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+.empty {
+  text-align: center;
+  opacity: 0.8;
+}
+
+/* Accordion for categories */
+.acc {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.8rem;
+  background: rgba(255, 255, 255, 0.06);
+  margin-bottom: 0.5rem;
+  overflow: hidden;
+}
+
+.acc.open {
+  border-color: rgba(242, 193, 78, 0.55);
+}
+
+.acc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
   width: 100%;
-  margin-top: 0.6rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 0.7rem 0.9rem;
+  cursor: pointer;
+  user-select: none;
 }
 
-.category {
-  margin-top: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
-  padding-top: 0.6rem;
-}
-
-.category h3 {
-  margin: 0 0 0.3rem;
-  font-size: 1rem;
+.acc-title {
+  font-weight: 700;
   color: #f2c14e;
 }
 
-ul {
+.acc-meta {
+  font-size: 0.85rem;
+  opacity: 0.8;
+  white-space: nowrap;
+}
+
+.chevron {
+  display: inline-block;
+  margin-left: 0.3rem;
+  transition: transform 0.2s ease;
+}
+
+.chevron.collapsed {
+  transform: rotate(-90deg);
+}
+
+.acc-body {
+  padding: 0 0.9rem 0.7rem;
+}
+
+.acc-body ul {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -180,56 +370,85 @@ ul {
   align-items: center;
   justify-content: space-between;
   gap: 0.6rem;
-  padding: 0.35rem 0;
+  padding: 0.4rem 0;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.item-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .actions {
   display: flex;
-  gap: 0.4rem;
+  gap: 0.3rem;
   flex-shrink: 0;
 }
 
-.inline-form {
+/* Forms & inputs */
+.add-form {
   display: flex;
   gap: 0.5rem;
-  margin: 0.5rem 0;
-  flex-wrap: wrap;
+  margin-top: 0.6rem;
+}
+
+.new-cat {
+  margin-top: 1rem;
 }
 
 input {
   flex: 1;
-  min-width: 10rem;
+  min-width: 0;
   border: 1px solid rgba(255, 255, 255, 0.35);
-  border-radius: 0.5rem;
+  border-radius: 0.55rem;
   background: rgba(0, 0, 0, 0.25);
   color: inherit;
-  padding: 0.45rem 0.6rem;
+  padding: 0.5rem 0.65rem;
   font: inherit;
 }
 
-.edit-input {
-  min-width: 6rem;
+.search {
+  width: 100%;
+  margin-bottom: 0.8rem;
 }
 
-button {
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  border-radius: 0.5rem;
-  background: rgba(255, 255, 255, 0.1);
-  color: inherit;
-  padding: 0.4rem 0.7rem;
-  font-weight: 600;
+.edit-input {
+  flex: 1;
+}
+
+button.primary {
+  border: 1px solid #f2c14e;
+  border-radius: 0.55rem;
+  background: #f2c14e;
+  color: #23303b;
+  padding: 0.5rem 0.9rem;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.icon-btn {
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 0.55rem;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.35rem 0.5rem;
+  font-size: 0.95rem;
+  line-height: 1;
   cursor: pointer;
 }
 
-button[type='submit'] {
-  background: #f2c14e;
-  border-color: #f2c14e;
-  color: #23303b;
+.icon-btn.danger {
+  border-color: rgba(255, 120, 120, 0.5);
 }
 
-button.danger {
-  border-color: rgba(255, 120, 120, 0.7);
-  color: #ffb0b0;
+@media (pointer: coarse) {
+  .icon-btn {
+    padding: 0.5rem 0.6rem;
+  }
+
+  .row {
+    padding: 0.55rem 0;
+  }
 }
 </style>
