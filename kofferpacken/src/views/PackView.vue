@@ -45,6 +45,11 @@ function toggle(itemId: string) {
   if (!selectedTrip.value) return
   store.setPacked(selectedTrip.value.id, itemId, !packedSet.value.has(itemId))
 }
+
+async function exportPdf() {
+  const { exportEmptyPackliste } = await import('@/utils/packlistePdf')
+  exportEmptyPackliste(store.state.categories, store.itemsByCategory.value)
+}
 </script>
 
 <template>
@@ -69,9 +74,16 @@ function toggle(itemId: string) {
 
     <div v-if="selectedTrip" class="toolbar">
       <p class="progress">{{ packedCount }} von {{ totalCount }} eingepackt</p>
-      <button class="filter-btn" :class="{ active: onlyMissing }" @click="onlyMissing = !onlyMissing">
-        {{ onlyMissing ? 'Alle anzeigen' : 'Nur fehlende anzeigen' }}
-      </button>
+      <div class="toolbar-buttons">
+        <button
+          class="filter-btn"
+          :class="{ active: onlyMissing }"
+          @click="onlyMissing = !onlyMissing"
+        >
+          {{ onlyMissing ? 'Alle anzeigen' : 'Nur fehlende anzeigen' }}
+        </button>
+        <button class="filter-btn" @click="exportPdf">Leere Liste als PDF</button>
+      </div>
     </div>
 
     <p v-if="selectedTrip && onlyMissing && groups.length === 0" class="hint done">
@@ -145,6 +157,12 @@ function toggle(itemId: string) {
 .progress {
   margin: 0;
   font-weight: 600;
+}
+
+.toolbar-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .filter-btn {
