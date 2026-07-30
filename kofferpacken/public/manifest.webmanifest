@@ -1,0 +1,25 @@
+{
+  "name": "Kofferpacken",
+  "short_name": "Kofferpacken",
+  "description": "Reisepackliste für Trips – gemeinsam abhaken auf allen Geräten",
+  "start_url": "/koffer/",
+  "scope": "/koffer/",
+  "display": "standalone",
+  "background_color": "#10222f",
+  "theme_color": "#10222f",
+  "lang": "de",
+  "icons": [
+    {
+      "src": "/koffer/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/koffer/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
