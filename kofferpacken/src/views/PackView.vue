@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch, watchEffect } from 'vue'
-import { usePackStore } from '@/composables/usePackStore'
+import { usePackStore, type Trip } from '@/composables/usePackStore'
 
 const store = usePackStore()
 
@@ -49,6 +49,15 @@ const totalCount = computed(() => store.state.items.length)
 const packedCount = computed(
   () => store.state.items.filter((i) => packedSet.value.has(i.id)).length,
 )
+const progressPercent = computed(() =>
+  totalCount.value === 0 ? 0 : Math.round((packedCount.value / totalCount.value) * 100),
+)
+
+// Per-trip counter for the chips; ignores checkmarks of meanwhile deleted items
+const itemIds = computed(() => new Set(store.state.items.map((i) => i.id)))
+function tripPackedCount(trip: Trip): number {
+  return trip.packedItemIds.filter((id) => itemIds.value.has(id)).length
+}
 
 function toggle(itemId: string) {
   if (!selectedTrip.value) return
@@ -78,6 +87,7 @@ async function exportPdf() {
         @click="selectedTripId = trip.id"
       >
         {{ trip.name }}
+        <span class="chip-count">{{ tripPackedCount(trip) }}/{{ totalCount }}</span>
       </button>
     </div>
 
@@ -95,14 +105,31 @@ async function exportPdf() {
       </div>
     </div>
 
+    <div
+      v-if="selectedTrip"
+      class="progress-bar"
+      role="progressbar"
+      :aria-valuenow="progressPercent"
+    >
+      <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
+    </div>
+
     <p v-if="selectedTrip && onlyMissing && groups.length === 0" class="hint done">
       Alles eingepackt – gute Reise! 🎉
     </p>
 
-    <section v-for="group in groups" :key="group.category.id" class="card">
+    <section
+      v-for="group in groups"
+      :key="group.category.id"
+      class="card"
+      :class="{ done: group.packedCount === group.totalCount }"
+    >
       <header class="card-head">
         <h2>{{ group.category.name }}</h2>
-        <span class="count">{{ group.packedCount }}/{{ group.totalCount }}</span>
+        <span class="count">
+          <template v-if="group.packedCount === group.totalCount">✓ komplett</template>
+          <template v-else>{{ group.packedCount }}/{{ group.totalCount }}</template>
+        </span>
       </header>
       <ul>
         <li v-for="item in group.items" :key="item.id">
@@ -148,6 +175,28 @@ async function exportPdf() {
   background: #f2c14e;
   border-color: #f2c14e;
   color: #23303b;
+}
+
+.chip-count {
+  font-size: 0.75rem;
+  opacity: 0.7;
+  font-weight: 400;
+  margin-left: 0.15rem;
+}
+
+.progress-bar {
+  height: 0.45rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+  margin-bottom: 0.8rem;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 1rem;
+  background: linear-gradient(90deg, #e0a92e, #f2c14e);
+  transition: width 0.35s ease;
 }
 
 .toolbar {
@@ -209,6 +258,17 @@ async function exportPdf() {
 .count {
   font-size: 0.85rem;
   opacity: 0.8;
+  white-space: nowrap;
+}
+
+.card.done {
+  border-color: rgba(126, 217, 143, 0.45);
+}
+
+.card.done .count {
+  color: #7ed98f;
+  opacity: 1;
+  font-weight: 600;
 }
 
 ul {
