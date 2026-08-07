@@ -73,6 +73,11 @@ function toggle(itemId: string) {
   store.setPacked(selectedTrip.value.id, itemId, !packedSet.value.has(itemId))
 }
 
+function toggleCategory(categoryId: string, allPacked: boolean) {
+  if (!selectedTrip.value) return
+  store.setCategoryPacked(selectedTrip.value.id, categoryId, !allPacked)
+}
+
 // Notes autosave: 3 s after the last keystroke (or on blur), with a status hint
 const notesDraft = ref('')
 const notesStatus = ref<'idle' | 'pending' | 'saved'>('idle')
@@ -183,6 +188,13 @@ async function exportPdf() {
         @keydown.enter="toggleCollapsed(group.category.id)"
       >
         <h2>{{ group.category.name }}</h2>
+        <button
+          class="bulk-btn"
+          type="button"
+          @click.stop="toggleCategory(group.category.id, group.packedCount === group.totalCount)"
+        >
+          {{ group.packedCount === group.totalCount ? 'alle enthaken' : 'alle abhaken' }}
+        </button>
         <span class="count">
           <template v-if="group.packedCount === group.totalCount">✓ komplett</template>
           <template v-else>{{ group.packedCount }}/{{ group.totalCount }}</template>
@@ -379,6 +391,20 @@ async function exportPdf() {
 .card-head h2 {
   margin: 0;
   font-size: 1.05rem;
+  flex: 1;
+}
+
+.bulk-btn {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 2rem;
+  background: rgba(255, 255, 255, 0.07);
+  color: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.25rem 0.6rem;
+  cursor: pointer;
+  white-space: nowrap;
+  opacity: 0.85;
 }
 
 .count {

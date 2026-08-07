@@ -99,6 +99,23 @@ app.post('/api/trips/:id/check', (req, res) => {
   })
 })
 
+// Check or uncheck every item of one category at once
+app.post('/api/trips/:id/check-category', (req, res) => {
+  const { categoryId, packed } = req.body || {}
+  if (typeof categoryId !== 'string' || typeof packed !== 'boolean') {
+    return res.status(400).json({ error: 'Invalid payload' })
+  }
+  mutate(req, res, (state) => {
+    const trip = state.trips.find((x) => x.id === req.params.id)
+    if (!trip) return { reject: { status: 404, error: 'Trip nicht gefunden.' } }
+    const categoryItemIds = new Set(
+      state.items.filter((i) => i.categoryId === categoryId).map((i) => i.id),
+    )
+    trip.packedItemIds = trip.packedItemIds.filter((x) => !categoryItemIds.has(x))
+    if (packed) trip.packedItemIds.push(...categoryItemIds)
+  })
+})
+
 app.put('/api/trips/:id/notes', (req, res) => {
   const { notes } = req.body || {}
   if (typeof notes !== 'string') {

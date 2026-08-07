@@ -127,6 +127,17 @@ function createStore() {
     sendChange(`/trips/${tripId}/check`, 'POST', { itemId, packed })
   }
 
+  function setCategoryPacked(tripId: string, categoryId: string, packed: boolean) {
+    const trip = state.trips.find((t) => t.id === tripId)
+    if (!trip) return
+    const categoryItemIds = new Set(
+      state.items.filter((i) => i.categoryId === categoryId).map((i) => i.id),
+    )
+    trip.packedItemIds = trip.packedItemIds.filter((x) => !categoryItemIds.has(x))
+    if (packed) trip.packedItemIds.push(...categoryItemIds)
+    sendChange(`/trips/${tripId}/check-category`, 'POST', { categoryId, packed })
+  }
+
   function setTripNotes(tripId: string, notes: string) {
     const trip = state.trips.find((t) => t.id === tripId)
     if (!trip) return
@@ -180,6 +191,7 @@ function createStore() {
     addTrip,
     removeTrip,
     setPacked,
+    setCategoryPacked,
     setTripNotes,
     addCategory,
     addItem,
