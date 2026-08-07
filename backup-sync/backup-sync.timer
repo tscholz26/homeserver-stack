@@ -1,0 +1,12 @@
+[Unit]
+Description=Backups täglich in die Nextcloud laden
+
+[Timer]
+# Die Apps schreiben ihre Backups beim Start und danach alle 24 h – nachts
+# hochladen reicht also völlig.
+OnCalendar=*-*-* 03:30
+# Holt einen verpassten Lauf nach, wenn der Server zu der Zeit aus war
+Persistent=true
+
+[Install]
+WantedBy=timers.target

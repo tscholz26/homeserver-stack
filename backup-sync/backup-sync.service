@@ -1,0 +1,8 @@
+[Unit]
+Description=Backups der Homeserver-Apps in die Nextcloud laden
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/backup-sync.sh
