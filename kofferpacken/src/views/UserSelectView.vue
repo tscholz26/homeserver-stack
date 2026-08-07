@@ -110,7 +110,7 @@ async function create() {
             <span>
               <strong>Standardliste</strong>
               <small
-                >Der fertige Katalog mit allen Kategorien – für die meisten das Richtige.</small
+                >Ein vorgefertigter Katalog mit Standard-Kategorien.</small
               >
             </span>
           </label>
