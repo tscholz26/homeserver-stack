@@ -2,11 +2,11 @@
   "categories": [
     { "id": "cat-dokumente", "name": "Dokumente & Wichtiges" },
     { "id": "cat-kleidung", "name": "Alltagskleidung" },
-    { "id": "cat-strand", "name": "Strand & Wasser" },
     { "id": "cat-waschtasche", "name": "Waschtasche" },
     { "id": "cat-elektronik", "name": "Elektronik" },
     { "id": "cat-kueche", "name": "Küche" },
     { "id": "cat-ferienwohnung", "name": "Ferienwohnung" },
+    { "id": "cat-strand", "name": "Strand & Wasser" },
     { "id": "cat-wandern", "name": "Wandern" },
     { "id": "cat-sonstiges", "name": "Sonstiges / Extras" }
   ],
@@ -37,16 +37,6 @@
     { "id": "kld-14", "categoryId": "cat-kleidung", "name": "Adiletten" },
     { "id": "kld-15", "categoryId": "cat-kleidung", "name": "Ein schickes Outfit (für Restaurant o.ä.)" },
     { "id": "kld-16", "categoryId": "cat-kleidung", "name": "Kopfbedeckung" },
-
-    { "id": "str-01", "categoryId": "cat-strand", "name": "Badehosen" },
-    { "id": "str-02", "categoryId": "cat-strand", "name": "Strandtücher zum Hinlegen und Trocknen" },
-    { "id": "str-03", "categoryId": "cat-strand", "name": "Sonnenbrille" },
-    { "id": "str-04", "categoryId": "cat-strand", "name": "Wasserschuhe gegen Seeigel" },
-    { "id": "str-05", "categoryId": "cat-strand", "name": "Strandtasche" },
-    { "id": "str-06", "categoryId": "cat-strand", "name": "Sonnenschirm" },
-    { "id": "str-07", "categoryId": "cat-strand", "name": "Wasserdichte Handyhülle" },
-    { "id": "str-08", "categoryId": "cat-strand", "name": "Schnorchel + Taucherbrille" },
-    { "id": "str-09", "categoryId": "cat-strand", "name": "Strandspiel/Wasserball (optional)" },
 
     { "id": "wsc-01", "categoryId": "cat-waschtasche", "name": "Zahnbürste & Zahnpasta" },
     { "id": "wsc-02", "categoryId": "cat-waschtasche", "name": "Duschgel, Shampoo, Spülung" },
@@ -90,6 +80,16 @@
     { "id": "fwo-01", "categoryId": "cat-ferienwohnung", "name": "Toilettenpapier" },
     { "id": "fwo-02", "categoryId": "cat-ferienwohnung", "name": "Handtücher, falls nötig" },
     { "id": "fwo-03", "categoryId": "cat-ferienwohnung", "name": "Bettwäsche, falls nötig" },
+
+    { "id": "str-01", "categoryId": "cat-strand", "name": "Badehosen" },
+    { "id": "str-02", "categoryId": "cat-strand", "name": "Strandtücher zum Hinlegen und Trocknen" },
+    { "id": "str-03", "categoryId": "cat-strand", "name": "Sonnenbrille" },
+    { "id": "str-04", "categoryId": "cat-strand", "name": "Wasserschuhe gegen Seeigel" },
+    { "id": "str-05", "categoryId": "cat-strand", "name": "Strandtasche" },
+    { "id": "str-06", "categoryId": "cat-strand", "name": "Sonnenschirm" },
+    { "id": "str-07", "categoryId": "cat-strand", "name": "Wasserdichte Handyhülle" },
+    { "id": "str-08", "categoryId": "cat-strand", "name": "Schnorchel + Taucherbrille" },
+    { "id": "str-09", "categoryId": "cat-strand", "name": "Strandspiel/Wasserball (optional)" },
 
     { "id": "wan-01", "categoryId": "cat-wandern", "name": "Wanderschuhe" },
     { "id": "wan-02", "categoryId": "cat-wandern", "name": "Wanderhose" },
