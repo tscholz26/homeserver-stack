@@ -15,7 +15,10 @@ fi
 : "${NC_BASE_URL:?NC_BASE_URL fehlt (siehe backup-sync.env.example)}"
 : "${NC_USER:?NC_USER fehlt (siehe backup-sync.env.example)}"
 : "${NC_PASS:?NC_PASS fehlt (siehe backup-sync.env.example)}"
-: "${BACKUP_DIRS:?BACKUP_DIRS fehlt (siehe backup-sync.env.example)}"
+# Beide Apps sind Vorgabe, damit eine knappe Konfiguration nicht versehentlich
+# eine davon auslässt; in der env-Datei lässt sich das überschreiben.
+STACK_DIR="${STACK_DIR:-/home/tristans/homeserver-stack}"
+BACKUP_DIRS="${BACKUP_DIRS:-$STACK_DIR/kofferpacken/backups $STACK_DIR/donnerskat/backups}"
 REMOTE_DIR="${NC_REMOTE_DIR:-Programmierung/homeserver-backups}"
 DRY_RUN="${DRY_RUN:-0}"
 
