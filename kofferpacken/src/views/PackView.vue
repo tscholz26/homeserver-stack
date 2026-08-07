@@ -1,11 +1,17 @@
 <script setup lang="ts">
 import { computed, ref, watch, watchEffect } from 'vue'
+import { useRoute } from 'vue-router'
 import { usePackStore, type Trip } from '@/composables/usePackStore'
 
 const store = usePackStore()
+const route = useRoute()
 
-// Both survive a reload on this device, so the phone opens right where you left off
-const selectedTripId = ref<string | null>(localStorage.getItem('koffer:selectedTripId'))
+// ?trip=… gewinnt (so führt ein Klick in der Verwaltung direkt zum Trip),
+// sonst der zuletzt auf diesem Gerät gewählte
+const selectedTripId = ref<string | null>(
+  (typeof route.query.trip === 'string' ? route.query.trip : null) ??
+    localStorage.getItem('koffer:selectedTripId'),
+)
 const onlyMissing = ref(localStorage.getItem('koffer:onlyMissing') === '1')
 
 watch(selectedTripId, (v) => {

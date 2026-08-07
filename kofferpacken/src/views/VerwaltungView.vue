@@ -46,6 +46,10 @@ function removeTrip(tripId: string, name: string) {
   store.removeTrip(tripId)
 }
 
+function openTrip(tripId: string) {
+  router.push({ path: '/packliste', query: { trip: tripId } })
+}
+
 // ── Gegenstände ────────────────────────────────────────────────────────────
 const search = ref('')
 const searchLower = computed(() => search.value.trim().toLowerCase())
@@ -160,7 +164,7 @@ async function deleteAccount() {
 
     <ul class="trip-list">
       <li v-for="trip in store.sortedTrips.value" :key="trip.id" class="trip-card">
-        <div class="trip-info">
+        <button class="trip-info" @click="openTrip(trip.id)">
           <strong>{{ trip.name }}</strong>
           <span class="meta">
             {{ formatDate(trip.createdAt) }} · {{ tripPackedCount(trip) }}/{{
@@ -168,7 +172,7 @@ async function deleteAccount() {
             }}
             gepackt
           </span>
-        </div>
+        </button>
         <button
           class="icon-btn danger"
           aria-label="Trip löschen"
@@ -330,11 +334,26 @@ async function deleteAccount() {
   padding: 0.7rem 0.9rem;
 }
 
+/* Der Name führt direkt zur Packliste dieses Trips */
 .trip-info {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 0.15rem;
   min-width: 0;
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+}
+
+.trip-info:hover strong,
+.trip-info:focus-visible strong {
+  color: #f2c14e;
 }
 
 .trip-info strong {
