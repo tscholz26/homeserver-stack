@@ -270,6 +270,39 @@ app.post('/api/users/:userId/categories', (req, res) => {
   })
 })
 
+app.put('/api/users/:userId/categories/:id', (req, res) => {
+  const { name } = req.body || {}
+  if (typeof name !== 'string' || !name.trim()) {
+    return res.status(400).json({ error: 'Invalid payload' })
+  }
+  mutateUser(req, res, (user) => {
+    const category = user.categories.find((x) => x.id === req.params.id)
+    if (!category) return { reject: { status: 404, error: 'Kategorie nicht gefunden.' } }
+    if (
+      user.categories.some(
+        (x) => x.id !== category.id && x.name.toLowerCase() === name.trim().toLowerCase(),
+      )
+    ) {
+      return { reject: { status: 409, error: 'Diese Kategorie gibt es bereits.' } }
+    }
+    category.name = name.trim()
+  })
+})
+
+// Löscht die Kategorie samt ihrer Gegenstände und deren Häkchen in allen Trips
+app.delete('/api/users/:userId/categories/:id', (req, res) => {
+  mutateUser(req, res, (user) => {
+    const removedItemIds = new Set(
+      user.items.filter((i) => i.categoryId === req.params.id).map((i) => i.id),
+    )
+    user.categories = user.categories.filter((x) => x.id !== req.params.id)
+    user.items = user.items.filter((i) => !removedItemIds.has(i.id))
+    for (const trip of user.trips) {
+      trip.packedItemIds = trip.packedItemIds.filter((x) => !removedItemIds.has(x))
+    }
+  })
+})
+
 // ── Items ─────────────────────────────────────────────────────────────────────
 app.post('/api/users/:userId/items', (req, res) => {
   const i = req.body

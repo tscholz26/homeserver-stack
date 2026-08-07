@@ -57,6 +57,8 @@ const newCategoryName = ref('')
 const newItemNames = ref<Record<string, string>>({})
 const editingItemId = ref<string | null>(null)
 const editingName = ref('')
+const editingCategoryId = ref<string | null>(null)
+const editingCategoryName = ref('')
 
 // One category open at a time keeps the page short; a search opens all hits
 const expandedId = ref<string | null>(null)
@@ -86,6 +88,26 @@ function addCategory() {
     store.addCategory(newCategoryName.value)
     newCategoryName.value = ''
   })
+}
+
+function startEditCategory(categoryId: string, name: string) {
+  editingCategoryId.value = categoryId
+  editingCategoryName.value = name
+}
+
+function saveCategoryEdit() {
+  if (!editingCategoryId.value) return
+  run(() => {
+    store.renameCategory(editingCategoryId.value!, editingCategoryName.value)
+    editingCategoryId.value = null
+  })
+}
+
+function removeCategory(categoryId: string, name: string) {
+  const count = categoryItems(categoryId).length
+  const suffix = count > 0 ? ` Die ${count} enthaltenen Gegenstände werden mitgelöscht.` : ''
+  if (!confirm(`Kategorie „${name}“ wirklich löschen?${suffix}`)) return
+  store.removeCategory(categoryId)
 }
 
 function addItem(categoryId: string) {
@@ -195,13 +217,47 @@ async function deleteAccount() {
       class="acc"
       :class="{ open: isOpen(category.id) }"
     >
-      <button class="acc-head" type="button" @click="toggleExpanded(category.id)">
-        <span class="acc-title">{{ category.name }}</span>
-        <span class="acc-meta">
-          {{ categoryItems(category.id).length }}
-          <span class="chevron" :class="{ collapsed: !isOpen(category.id) }">▾</span>
-        </span>
-      </button>
+      <div class="acc-head-row">
+        <template v-if="editingCategoryId === category.id">
+          <input
+            v-model="editingCategoryName"
+            class="cat-input"
+            @keyup.enter="saveCategoryEdit"
+            @keyup.esc="editingCategoryId = null"
+          />
+          <span class="actions">
+            <button class="icon-btn" aria-label="Speichern" @click="saveCategoryEdit">✔️</button>
+            <button class="icon-btn" aria-label="Abbrechen" @click="editingCategoryId = null">
+              ✖️
+            </button>
+          </span>
+        </template>
+        <template v-else>
+          <button class="acc-head" type="button" @click="toggleExpanded(category.id)">
+            <span class="acc-title">{{ category.name }}</span>
+            <span class="acc-meta">
+              {{ categoryItems(category.id).length }}
+              <span class="chevron" :class="{ collapsed: !isOpen(category.id) }">▾</span>
+            </span>
+          </button>
+          <span class="actions cat-actions">
+            <button
+              class="icon-btn"
+              aria-label="Kategorie umbenennen"
+              @click="startEditCategory(category.id, category.name)"
+            >
+              ✏️
+            </button>
+            <button
+              class="icon-btn danger"
+              aria-label="Kategorie löschen"
+              @click="removeCategory(category.id, category.name)"
+            >
+              🗑️
+            </button>
+          </span>
+        </template>
+      </div>
 
       <div v-if="isOpen(category.id)" class="acc-body">
         <ul>
@@ -383,17 +439,33 @@ async function deleteAccount() {
   border-color: rgba(242, 193, 78, 0.55);
 }
 
+.acc-head-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding-right: 0.7rem;
+}
+
+.acc-head-row .cat-input {
+  margin: 0.5rem 0 0.5rem 0.9rem;
+}
+
+.cat-actions {
+  flex-shrink: 0;
+}
+
 .acc-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.6rem;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   border: none;
   background: transparent;
   color: inherit;
   font: inherit;
-  padding: 0.7rem 0.9rem;
+  padding: 0.7rem 0.3rem 0.7rem 0.9rem;
   cursor: pointer;
   user-select: none;
 }

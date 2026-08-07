@@ -229,6 +229,38 @@ function createStore() {
     sendChange(userPath('/categories'), 'POST', category)
   }
 
+  function renameCategory(categoryId: string, name: string) {
+    const user = currentUser.value
+    if (!user) return
+    const clean = name.trim()
+    if (!clean) throw new Error('Der Kategoriename darf nicht leer sein.')
+    const category = user.categories.find((c) => c.id === categoryId)
+    if (!category) return
+    if (
+      user.categories.some(
+        (c) => c.id !== categoryId && c.name.toLowerCase() === clean.toLowerCase(),
+      )
+    ) {
+      throw new Error('Diese Kategorie gibt es bereits.')
+    }
+    category.name = clean
+    sendChange(userPath(`/categories/${categoryId}`), 'PUT', { name: clean })
+  }
+
+  function removeCategory(categoryId: string) {
+    const user = currentUser.value
+    if (!user) return
+    const removedItemIds = new Set(
+      user.items.filter((i) => i.categoryId === categoryId).map((i) => i.id),
+    )
+    user.categories = user.categories.filter((c) => c.id !== categoryId)
+    user.items = user.items.filter((i) => !removedItemIds.has(i.id))
+    for (const trip of user.trips) {
+      trip.packedItemIds = trip.packedItemIds.filter((x) => !removedItemIds.has(x))
+    }
+    sendChange(userPath(`/categories/${categoryId}`), 'DELETE')
+  }
+
   // ── Items ──────────────────────────────────────────────────────────────────
   function addItem(categoryId: string, name: string) {
     const user = currentUser.value
@@ -278,6 +310,8 @@ function createStore() {
     setCategoryPacked,
     setTripNotes,
     addCategory,
+    renameCategory,
+    removeCategory,
     addItem,
     renameItem,
     removeItem,
