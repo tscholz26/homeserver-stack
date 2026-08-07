@@ -1,5 +1,14 @@
 import express from 'express'
-import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs'
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -7,9 +16,39 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const DATA_DIR = join(__dirname, 'data')
 const STATE_FILE = join(DATA_DIR, 'state.json')
 const SEED_FILE = join(__dirname, 'seed.json')
+const BACKUPS_DIR = join(__dirname, 'backups')
+const KEEP_BACKUPS = 30
 const PORT = Number(process.env.PORT) || 2606
 
 mkdirSync(DATA_DIR, { recursive: true })
+mkdirSync(BACKUPS_DIR, { recursive: true })
+
+// ── Tägliches Backup ──────────────────────────────────────────────────────────
+// Die persönlichen Listen stehen sonst nur ein einziges Mal in state.json und
+// sind bewusst nicht im git (sie gehören niemandem außer dem Server).
+function runBackup() {
+  if (!existsSync(STATE_FILE)) return
+  try {
+    const now = new Date()
+    const pad = (n) => String(n).padStart(2, '0')
+    const ts = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`
+    copyFileSync(STATE_FILE, join(BACKUPS_DIR, `state_${ts}.json`))
+
+    const old = readdirSync(BACKUPS_DIR)
+      .filter((f) => f.startsWith('state_') && f.endsWith('.json'))
+      .sort()
+      .slice(0, -KEEP_BACKUPS)
+    for (const file of old) unlinkSync(join(BACKUPS_DIR, file))
+
+    console.log(`[kofferpacken] Backup gespeichert (${KEEP_BACKUPS} werden aufbewahrt)`)
+  } catch (err) {
+    console.error('[kofferpacken] Backup fehlgeschlagen:', err.message)
+  }
+}
+
+runBackup()
+setInterval(runBackup, 24 * 60 * 60 * 1000)
+// ─────────────────────────────────────────────────────────────────────────────
 
 // The default packing list every new user starts with lives in seed.json
 function readSeedCatalog() {

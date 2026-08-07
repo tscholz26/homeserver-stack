@@ -6,6 +6,7 @@ services:
 
     volumes:
       - ./data:/app/data
+      - ./backups:/app/backups
 
     networks:
       - caddy-network

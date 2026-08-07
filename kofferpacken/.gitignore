@@ -38,5 +38,6 @@ __screenshots__/
 # Vite
 *.timestamp-*-*.mjs
 
-# Persistent packing data (lives in data/ on the host, not in git)
+# Persistent packing data and backups (live on the host, not in git)
 data/state.json
+backups/
