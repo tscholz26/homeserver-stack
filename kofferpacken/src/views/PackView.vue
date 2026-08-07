@@ -31,7 +31,7 @@ const selectedTrip = computed(
 const packedSet = computed(() => new Set(selectedTrip.value?.packedItemIds ?? []))
 
 const groups = computed(() =>
-  store.state.categories
+  store.categories.value
     .map((category) => {
       const items = store.itemsByCategory.value[category.id] ?? []
       const missing = items.filter((i) => !packedSet.value.has(i.id))
@@ -45,16 +45,16 @@ const groups = computed(() =>
     .filter((g) => g.items.length > 0),
 )
 
-const totalCount = computed(() => store.state.items.length)
+const totalCount = computed(() => store.items.value.length)
 const packedCount = computed(
-  () => store.state.items.filter((i) => packedSet.value.has(i.id)).length,
+  () => store.items.value.filter((i) => packedSet.value.has(i.id)).length,
 )
 const progressPercent = computed(() =>
   totalCount.value === 0 ? 0 : Math.round((packedCount.value / totalCount.value) * 100),
 )
 
 // Per-trip counter for the chips; ignores checkmarks of meanwhile deleted items
-const itemIds = computed(() => new Set(store.state.items.map((i) => i.id)))
+const itemIds = computed(() => new Set(store.items.value.map((i) => i.id)))
 function tripPackedCount(trip: Trip): number {
   return trip.packedItemIds.filter((id) => itemIds.value.has(id)).length
 }
@@ -118,7 +118,7 @@ function saveNotes() {
 
 async function exportPdf() {
   const { exportEmptyPackliste } = await import('@/utils/packlistePdf')
-  exportEmptyPackliste(store.state.categories, store.itemsByCategory.value)
+  exportEmptyPackliste(store.categories.value, store.itemsByCategory.value)
 }
 </script>
 

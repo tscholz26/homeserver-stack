@@ -1,15 +1,39 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import { watchEffect } from 'vue'
+import { useRouter } from 'vue-router'
+import { usePackStore } from '@/composables/usePackStore'
+
+const store = usePackStore()
+const router = useRouter()
+
+function logout() {
+  store.logout()
+  router.push('/')
+}
+
+// If the stored user was deleted on another device, fall back to the tiles
+watchEffect(() => {
+  if (!store.loading.value && store.currentUserId.value && !store.currentUser.value) {
+    logout()
+  }
+})
+</script>
 
 <template>
   <div class="shell">
     <header class="top">
       <div>
-        <p class="brand-sub">Reisepackliste</p>
+        <p class="brand-sub">
+          Reisepackliste<template v-if="store.currentUser.value">
+            · {{ store.currentUser.value.name }}</template
+          >
+        </p>
         <h1>Kofferpacken</h1>
       </div>
-      <nav class="menu">
-        <RouterLink to="/">Packliste</RouterLink>
+      <nav v-if="store.currentUser.value" class="menu">
+        <RouterLink to="/packliste">Packliste</RouterLink>
         <RouterLink to="/verwaltung">Verwaltung</RouterLink>
+        <button class="logout" @click="logout">Abmelden</button>
       </nav>
     </header>
 
@@ -87,6 +111,17 @@ h1 {
 .menu a.router-link-exact-active {
   background: #f2c14e;
   color: #23303b;
+}
+
+.logout {
+  color: #f2f6f9;
+  font: inherit;
+  font-weight: 700;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: transparent;
+  padding: 0.45rem 0.75rem;
+  border-radius: 0.6rem;
+  cursor: pointer;
 }
 
 .content {

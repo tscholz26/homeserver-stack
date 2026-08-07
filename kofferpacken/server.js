@@ -11,17 +11,49 @@ const PORT = Number(process.env.PORT) || 2606
 
 mkdirSync(DATA_DIR, { recursive: true })
 
-// Throws on a corrupt file instead of falling back to an empty state, so a
-// read error can never cascade into overwriting the data with nothing.
-// On the very first start the committed seed catalog becomes the state.
-function readState() {
-  const source = existsSync(STATE_FILE) ? STATE_FILE : SEED_FILE
-  const parsed = JSON.parse(readFileSync(source, 'utf8'))
+// The default packing list every new user starts with lives in seed.json
+function readSeedCatalog() {
+  const parsed = JSON.parse(readFileSync(SEED_FILE, 'utf8'))
   return {
     categories: Array.isArray(parsed.categories) ? parsed.categories : [],
     items: Array.isArray(parsed.items) ? parsed.items : [],
-    trips: Array.isArray(parsed.trips) ? parsed.trips : [],
   }
+}
+
+function normalizeUser(u) {
+  return {
+    id: u.id,
+    name: u.name,
+    createdAt: u.createdAt,
+    categories: Array.isArray(u.categories) ? u.categories : [],
+    items: Array.isArray(u.items) ? u.items : [],
+    trips: Array.isArray(u.trips) ? u.trips : [],
+  }
+}
+
+// Throws on a corrupt file instead of falling back to an empty state, so a
+// read error can never cascade into overwriting the data with nothing.
+function readState() {
+  if (!existsSync(STATE_FILE)) return { users: [] }
+  const parsed = JSON.parse(readFileSync(STATE_FILE, 'utf8'))
+  if (Array.isArray(parsed.users)) return { users: parsed.users.map(normalizeUser) }
+  // Legacy single-list format from before user accounts existed:
+  // keep any real data reachable under a shared tile instead of dropping it
+  if (Array.isArray(parsed.trips) && parsed.trips.length > 0) {
+    return {
+      users: [
+        normalizeUser({
+          id: 'user-gemeinsam',
+          name: 'Gemeinsame Liste',
+          createdAt: new Date().toISOString(),
+          categories: parsed.categories,
+          items: parsed.items,
+          trips: parsed.trips,
+        }),
+      ],
+    }
+  }
+  return { users: [] }
 }
 
 // Write to a temp file and rename so a crash mid-write can't corrupt state.json
@@ -49,6 +81,15 @@ function mutate(req, res, apply) {
   }
 }
 
+// Same as mutate, but scoped to the user in the URL
+function mutateUser(req, res, apply) {
+  mutate(req, res, (state) => {
+    const user = state.users.find((u) => u.id === req.params.userId)
+    if (!user) return { reject: { status: 404, error: 'Nutzer nicht gefunden.' } }
+    return apply(user)
+  })
+}
+
 const app = express()
 app.use(express.json({ limit: '1mb' }))
 app.use(express.static(join(__dirname, 'dist')))
@@ -61,15 +102,44 @@ app.get('/api/state', (_req, res) => {
   }
 })
 
+// ── Users ─────────────────────────────────────────────────────────────────────
+app.post('/api/users', (req, res) => {
+  const u = req.body
+  if (!u || typeof u.id !== 'string' || typeof u.name !== 'string' || !u.name.trim()) {
+    return res.status(400).json({ error: 'Invalid payload' })
+  }
+  mutate(req, res, (state) => {
+    if (state.users.some((x) => x.id === u.id)) return
+    if (state.users.some((x) => x.name.toLowerCase() === u.name.trim().toLowerCase())) {
+      return { reject: { status: 409, error: 'Diesen Nutzer gibt es bereits.' } }
+    }
+    const seed = readSeedCatalog()
+    state.users.push({
+      id: u.id,
+      name: u.name.trim(),
+      createdAt: typeof u.createdAt === 'string' ? u.createdAt : new Date().toISOString(),
+      categories: seed.categories,
+      items: seed.items,
+      trips: [],
+    })
+  })
+})
+
+app.delete('/api/users/:id', (req, res) => {
+  mutate(req, res, (state) => {
+    state.users = state.users.filter((x) => x.id !== req.params.id)
+  })
+})
+
 // ── Trips ─────────────────────────────────────────────────────────────────────
-app.post('/api/trips', (req, res) => {
+app.post('/api/users/:userId/trips', (req, res) => {
   const t = req.body
   if (!t || typeof t.id !== 'string' || typeof t.name !== 'string' || !t.name.trim()) {
     return res.status(400).json({ error: 'Invalid payload' })
   }
-  mutate(req, res, (state) => {
-    if (state.trips.some((x) => x.id === t.id)) return
-    state.trips.push({
+  mutateUser(req, res, (user) => {
+    if (user.trips.some((x) => x.id === t.id)) return
+    user.trips.push({
       id: t.id,
       name: t.name.trim(),
       createdAt: typeof t.createdAt === 'string' ? t.createdAt : new Date().toISOString(),
@@ -78,21 +148,21 @@ app.post('/api/trips', (req, res) => {
   })
 })
 
-app.delete('/api/trips/:id', (req, res) => {
-  mutate(req, res, (state) => {
-    state.trips = state.trips.filter((x) => x.id !== req.params.id)
+app.delete('/api/users/:userId/trips/:id', (req, res) => {
+  mutateUser(req, res, (user) => {
+    user.trips = user.trips.filter((x) => x.id !== req.params.id)
   })
 })
 
 // Sets (not toggles) the packed flag, so a double-tap or a slow connection
 // can never flip a checkbox into the wrong direction.
-app.post('/api/trips/:id/check', (req, res) => {
+app.post('/api/users/:userId/trips/:id/check', (req, res) => {
   const { itemId, packed } = req.body || {}
   if (typeof itemId !== 'string' || typeof packed !== 'boolean') {
     return res.status(400).json({ error: 'Invalid payload' })
   }
-  mutate(req, res, (state) => {
-    const trip = state.trips.find((x) => x.id === req.params.id)
+  mutateUser(req, res, (user) => {
+    const trip = user.trips.find((x) => x.id === req.params.id)
     if (!trip) return { reject: { status: 404, error: 'Trip nicht gefunden.' } }
     trip.packedItemIds = trip.packedItemIds.filter((x) => x !== itemId)
     if (packed) trip.packedItemIds.push(itemId)
@@ -100,51 +170,51 @@ app.post('/api/trips/:id/check', (req, res) => {
 })
 
 // Check or uncheck every item of one category at once
-app.post('/api/trips/:id/check-category', (req, res) => {
+app.post('/api/users/:userId/trips/:id/check-category', (req, res) => {
   const { categoryId, packed } = req.body || {}
   if (typeof categoryId !== 'string' || typeof packed !== 'boolean') {
     return res.status(400).json({ error: 'Invalid payload' })
   }
-  mutate(req, res, (state) => {
-    const trip = state.trips.find((x) => x.id === req.params.id)
+  mutateUser(req, res, (user) => {
+    const trip = user.trips.find((x) => x.id === req.params.id)
     if (!trip) return { reject: { status: 404, error: 'Trip nicht gefunden.' } }
     const categoryItemIds = new Set(
-      state.items.filter((i) => i.categoryId === categoryId).map((i) => i.id),
+      user.items.filter((i) => i.categoryId === categoryId).map((i) => i.id),
     )
     trip.packedItemIds = trip.packedItemIds.filter((x) => !categoryItemIds.has(x))
     if (packed) trip.packedItemIds.push(...categoryItemIds)
   })
 })
 
-app.put('/api/trips/:id/notes', (req, res) => {
+app.put('/api/users/:userId/trips/:id/notes', (req, res) => {
   const { notes } = req.body || {}
   if (typeof notes !== 'string') {
     return res.status(400).json({ error: 'Invalid payload' })
   }
-  mutate(req, res, (state) => {
-    const trip = state.trips.find((x) => x.id === req.params.id)
+  mutateUser(req, res, (user) => {
+    const trip = user.trips.find((x) => x.id === req.params.id)
     if (!trip) return { reject: { status: 404, error: 'Trip nicht gefunden.' } }
     trip.notes = notes
   })
 })
 
 // ── Categories ────────────────────────────────────────────────────────────────
-app.post('/api/categories', (req, res) => {
+app.post('/api/users/:userId/categories', (req, res) => {
   const c = req.body
   if (!c || typeof c.id !== 'string' || typeof c.name !== 'string' || !c.name.trim()) {
     return res.status(400).json({ error: 'Invalid payload' })
   }
-  mutate(req, res, (state) => {
-    if (state.categories.some((x) => x.id === c.id)) return
-    if (state.categories.some((x) => x.name.toLowerCase() === c.name.trim().toLowerCase())) {
+  mutateUser(req, res, (user) => {
+    if (user.categories.some((x) => x.id === c.id)) return
+    if (user.categories.some((x) => x.name.toLowerCase() === c.name.trim().toLowerCase())) {
       return { reject: { status: 409, error: 'Diese Kategorie gibt es bereits.' } }
     }
-    state.categories.push({ id: c.id, name: c.name.trim() })
+    user.categories.push({ id: c.id, name: c.name.trim() })
   })
 })
 
 // ── Items ─────────────────────────────────────────────────────────────────────
-app.post('/api/items', (req, res) => {
+app.post('/api/users/:userId/items', (req, res) => {
   const i = req.body
   if (
     !i ||
@@ -155,31 +225,31 @@ app.post('/api/items', (req, res) => {
   ) {
     return res.status(400).json({ error: 'Invalid payload' })
   }
-  mutate(req, res, (state) => {
-    if (state.items.some((x) => x.id === i.id)) return
-    if (!state.categories.some((x) => x.id === i.categoryId)) {
+  mutateUser(req, res, (user) => {
+    if (user.items.some((x) => x.id === i.id)) return
+    if (!user.categories.some((x) => x.id === i.categoryId)) {
       return { reject: { status: 404, error: 'Kategorie nicht gefunden.' } }
     }
-    state.items.push({ id: i.id, categoryId: i.categoryId, name: i.name.trim() })
+    user.items.push({ id: i.id, categoryId: i.categoryId, name: i.name.trim() })
   })
 })
 
-app.put('/api/items/:id', (req, res) => {
+app.put('/api/users/:userId/items/:id', (req, res) => {
   const { name } = req.body || {}
   if (typeof name !== 'string' || !name.trim()) {
     return res.status(400).json({ error: 'Invalid payload' })
   }
-  mutate(req, res, (state) => {
-    const item = state.items.find((x) => x.id === req.params.id)
+  mutateUser(req, res, (user) => {
+    const item = user.items.find((x) => x.id === req.params.id)
     if (!item) return { reject: { status: 404, error: 'Gegenstand nicht gefunden.' } }
     item.name = name.trim()
   })
 })
 
-app.delete('/api/items/:id', (req, res) => {
-  mutate(req, res, (state) => {
-    state.items = state.items.filter((x) => x.id !== req.params.id)
-    for (const trip of state.trips) {
+app.delete('/api/users/:userId/items/:id', (req, res) => {
+  mutateUser(req, res, (user) => {
+    user.items = user.items.filter((x) => x.id !== req.params.id)
+    for (const trip of user.trips) {
       trip.packedItemIds = trip.packedItemIds.filter((x) => x !== req.params.id)
     }
   })

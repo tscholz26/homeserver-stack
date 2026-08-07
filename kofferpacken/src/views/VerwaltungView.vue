@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { usePackStore, type Trip } from '@/composables/usePackStore'
 
 const store = usePackStore()
+const router = useRouter()
 
 const tab = ref<'trips' | 'items'>('trips')
 const error = ref('')
@@ -18,7 +20,7 @@ function run(fn: () => void) {
 
 // ── Trips ──────────────────────────────────────────────────────────────────
 const newTripName = ref('')
-const itemIds = computed(() => new Set(store.state.items.map((i) => i.id)))
+const itemIds = computed(() => new Set(store.items.value.map((i) => i.id)))
 
 function tripPackedCount(trip: Trip): number {
   return trip.packedItemIds.filter((id) => itemIds.value.has(id)).length
@@ -106,6 +108,21 @@ function removeItem(itemId: string, name: string) {
   if (!confirm(`Gegenstand „${name}“ wirklich löschen?`)) return
   store.removeItem(itemId)
 }
+
+// ── Konto ──────────────────────────────────────────────────────────────────
+const showDeleteAccount = ref(false)
+const deleteConfirmed = ref(false)
+
+async function deleteAccount() {
+  const user = store.currentUser.value
+  if (!user || !deleteConfirmed.value) return
+  try {
+    await store.removeUser(user.id)
+    router.push('/')
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err)
+  }
+}
 </script>
 
 <template>
@@ -147,7 +164,7 @@ function removeItem(itemId: string, name: string) {
           <strong>{{ trip.name }}</strong>
           <span class="meta">
             {{ formatDate(trip.createdAt) }} · {{ tripPackedCount(trip) }}/{{
-              store.state.items.length
+              store.items.value.length
             }}
             gepackt
           </span>
@@ -168,7 +185,7 @@ function removeItem(itemId: string, name: string) {
     <input v-model="search" type="search" class="search" placeholder="🔍 Gegenstand suchen …" />
 
     <div
-      v-for="category in store.state.categories"
+      v-for="category in store.categories.value"
       v-show="!searchLower || filteredItems(category.id).length > 0"
       :key="category.id"
       class="acc"
@@ -226,6 +243,34 @@ function removeItem(itemId: string, name: string) {
       <input v-model="newCategoryName" placeholder="Neue Kategorie" />
       <button type="submit" class="primary">Kategorie anlegen</button>
     </form>
+  </section>
+
+  <!-- ── Konto ─────────────────────────────────────────────────────────── -->
+  <section class="account">
+    <button v-if="!showDeleteAccount" class="account-delete-link" @click="showDeleteAccount = true">
+      Konto löschen …
+    </button>
+    <div v-else class="delete-box">
+      <p>
+        Das löscht das Konto „{{ store.currentUser.value?.name }}“ mit allen Trips, Notizen und
+        deiner persönlichen Packliste – <strong>endgültig</strong>.
+      </p>
+      <label class="confirm-label">
+        <input v-model="deleteConfirmed" type="checkbox" />
+        Ich bin mir sicher, dass ich mein Konto löschen möchte
+      </label>
+      <div class="delete-actions">
+        <button class="danger-btn" :disabled="!deleteConfirmed" @click="deleteAccount">
+          Endgültig löschen
+        </button>
+        <button
+          class="cancel-btn"
+          @click="((showDeleteAccount = false), (deleteConfirmed = false))"
+        >
+          Abbrechen
+        </button>
+      </div>
+    </div>
   </section>
 </template>
 
@@ -450,5 +495,82 @@ button.primary {
   .row {
     padding: 0.55rem 0;
   }
+}
+
+/* Account deletion */
+.account {
+  margin-top: 2rem;
+  text-align: center;
+}
+
+.account-delete-link {
+  border: none;
+  background: transparent;
+  color: #ffb0b0;
+  font: inherit;
+  font-size: 0.85rem;
+  opacity: 0.8;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.delete-box {
+  text-align: left;
+  border: 1px solid rgba(255, 120, 120, 0.6);
+  border-radius: 0.8rem;
+  background: rgba(160, 40, 40, 0.25);
+  padding: 0.9rem 1rem;
+}
+
+.delete-box p {
+  margin: 0 0 0.6rem;
+}
+
+.confirm-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.confirm-label input {
+  flex: none;
+  width: 1.2rem;
+  height: 1.2rem;
+  accent-color: #ff8f8f;
+}
+
+.delete-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.8rem;
+}
+
+.danger-btn {
+  border: 1px solid rgba(255, 120, 120, 0.8);
+  border-radius: 0.55rem;
+  background: rgba(200, 60, 60, 0.75);
+  color: #fff;
+  padding: 0.5rem 0.9rem;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.danger-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.cancel-btn {
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 0.55rem;
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  padding: 0.5rem 0.9rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
 }
 </style>

@@ -5,10 +5,13 @@ auf allen Geräten gemeinsam abhaken. Erreichbar unter `https://tshomeserv.duckd
 
 ## Funktionen
 
+- **Nutzer** ohne Passwort: Kachel-Auswahl beim Öffnen, jeder Nutzer hat seine
+  eigene Packliste (Kategorien, Gegenstände, Trips); neue Nutzer starten mit der
+  Standard-Packliste aus [seed.json](seed.json)
 - **Packliste** pro Trip, gruppiert nach Kategorien, mit Abhaken/Enthaken,
   Filter „Nur fehlende anzeigen“, Fortschrittsbalken und einklappbaren Kategorien
 - **Verwaltung** von Trips sowie dem Katalog (Kategorien anlegen, Gegenstände
-  anlegen/umbenennen/löschen, Suche)
+  anlegen/umbenennen/löschen, Suche), inkl. Konto-Löschung mit Bestätigung
 - **PDF-Export** der leeren Liste als kompakte A4-Checkliste zum Ausdrucken
 - **Mehrgeräte-tauglich**: jede Änderung geht als einzelner Request an den Server,
   der sie auf den zentralen Stand anwendet und den autoritativen State zurückgibt –
@@ -26,11 +29,19 @@ auf allen Geräten gemeinsam abhaken. Erreichbar unter `https://tshomeserv.duckd
 
 | Methode | Pfad | Zweck |
 | --- | --- | --- |
-| GET | `/api/state` | kompletter Stand |
-| POST / DELETE | `/api/trips[/:id]` | Trip anlegen / löschen |
-| POST | `/api/trips/:id/check` | `{ itemId, packed }` setzen |
-| POST | `/api/categories` | Kategorie anlegen |
-| POST / PUT / DELETE | `/api/items[/:id]` | Gegenstand anlegen / umbenennen / löschen |
+| GET | `/api/state` | kompletter Stand (alle Nutzer) |
+| POST / DELETE | `/api/users[/:id]` | Nutzer anlegen (Katalog aus seed.json) / löschen |
+| POST / DELETE | `/api/users/:uid/trips[/:id]` | Trip anlegen / löschen |
+| POST | `/api/users/:uid/trips/:id/check` | `{ itemId, packed }` setzen |
+| POST | `/api/users/:uid/trips/:id/check-category` | ganze Kategorie (ent-)haken |
+| PUT | `/api/users/:uid/trips/:id/notes` | Trip-Notizen speichern |
+| POST | `/api/users/:uid/categories` | Kategorie anlegen |
+| POST / PUT / DELETE | `/api/users/:uid/items[/:id]` | Gegenstand anlegen / umbenennen / löschen |
+
+Die **Standard-Packliste** für neue Nutzer liegt in [seed.json](seed.json).
+Änderungen daran gelten für alle danach angelegten Nutzer (im Betrieb ist die
+Datei ins Docker-Image gebacken – nach dem Bearbeiten also einmal
+`docker compose up -d --build` ausführen).
 
 ## Entwicklung
 
