@@ -73,6 +73,44 @@ function toggle(itemId: string) {
   store.setPacked(selectedTrip.value.id, itemId, !packedSet.value.has(itemId))
 }
 
+// Notes autosave: 3 s after the last keystroke (or on blur), with a status hint
+const notesDraft = ref('')
+const notesStatus = ref<'idle' | 'pending' | 'saved'>('idle')
+let notesTimer: ReturnType<typeof setTimeout> | undefined
+
+watch(
+  () => selectedTrip.value?.id,
+  () => {
+    clearTimeout(notesTimer)
+    notesDraft.value = selectedTrip.value?.notes ?? ''
+    notesStatus.value = 'idle'
+  },
+  { immediate: true },
+)
+
+// Pick up notes edited on another device, but never while typing here
+watch(
+  () => selectedTrip.value?.notes,
+  (serverNotes) => {
+    if (notesStatus.value !== 'pending' && (serverNotes ?? '') !== notesDraft.value) {
+      notesDraft.value = serverNotes ?? ''
+    }
+  },
+)
+
+function onNotesInput() {
+  notesStatus.value = 'pending'
+  clearTimeout(notesTimer)
+  notesTimer = setTimeout(saveNotes, 3000)
+}
+
+function saveNotes() {
+  clearTimeout(notesTimer)
+  if (!selectedTrip.value || notesStatus.value !== 'pending') return
+  store.setTripNotes(selectedTrip.value.id, notesDraft.value)
+  notesStatus.value = 'saved'
+}
+
 async function exportPdf() {
   const { exportEmptyPackliste } = await import('@/utils/packlistePdf')
   exportEmptyPackliste(store.state.categories, store.itemsByCategory.value)
@@ -159,6 +197,21 @@ async function exportPdf() {
           </label>
         </li>
       </ul>
+    </section>
+
+    <section v-if="selectedTrip" class="card notes-card">
+      <div class="notes-head">
+        <h2>Notizen</h2>
+        <span v-if="notesStatus === 'pending'" class="save-state">wird gespeichert …</span>
+        <span v-else-if="notesStatus === 'saved'" class="save-state saved">✓ gespeichert</span>
+      </div>
+      <textarea
+        v-model="notesDraft"
+        rows="4"
+        placeholder="Freitext zum Trip – Besorgungen, Erinnerungen, Adressen …"
+        @input="onNotesInput"
+        @blur="saveNotes"
+      ></textarea>
     </section>
   </template>
 </template>
@@ -364,6 +417,40 @@ ul {
   height: 1.2rem;
   accent-color: #f2c14e;
   flex-shrink: 0;
+}
+
+.notes-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.notes-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.save-state {
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
+
+.save-state.saved {
+  color: #7ed98f;
+  opacity: 1;
+}
+
+.notes-card textarea {
+  width: 100%;
+  margin-top: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 0.6rem;
+  background: rgba(0, 0, 0, 0.25);
+  color: inherit;
+  padding: 0.55rem 0.7rem;
+  font: inherit;
+  resize: vertical;
 }
 
 .row span {

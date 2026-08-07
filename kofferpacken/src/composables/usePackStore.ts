@@ -16,6 +16,7 @@ export interface Trip {
   name: string
   createdAt: string
   packedItemIds: string[]
+  notes?: string
 }
 
 interface State {
@@ -126,6 +127,13 @@ function createStore() {
     sendChange(`/trips/${tripId}/check`, 'POST', { itemId, packed })
   }
 
+  function setTripNotes(tripId: string, notes: string) {
+    const trip = state.trips.find((t) => t.id === tripId)
+    if (!trip) return
+    trip.notes = notes
+    sendChange(`/trips/${tripId}/notes`, 'PUT', { notes })
+  }
+
   // ── Categories ─────────────────────────────────────────────────────────────
   function addCategory(name: string) {
     const clean = name.trim()
@@ -172,6 +180,7 @@ function createStore() {
     addTrip,
     removeTrip,
     setPacked,
+    setTripNotes,
     addCategory,
     addItem,
     renameItem,

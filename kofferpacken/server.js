@@ -99,6 +99,18 @@ app.post('/api/trips/:id/check', (req, res) => {
   })
 })
 
+app.put('/api/trips/:id/notes', (req, res) => {
+  const { notes } = req.body || {}
+  if (typeof notes !== 'string') {
+    return res.status(400).json({ error: 'Invalid payload' })
+  }
+  mutate(req, res, (state) => {
+    const trip = state.trips.find((x) => x.id === req.params.id)
+    if (!trip) return { reject: { status: 404, error: 'Trip nicht gefunden.' } }
+    trip.notes = notes
+  })
+})
+
 // ── Categories ────────────────────────────────────────────────────────────────
 app.post('/api/categories', (req, res) => {
   const c = req.body
