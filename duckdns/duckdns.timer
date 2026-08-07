@@ -1,0 +1,11 @@
+[Unit]
+Description=DuckDNS regelmäßig aktualisieren
+
+[Timer]
+# Provider wechselt das IPv6-Präfix bei jeder Neuverbindung (meist täglich).
+# Alle 5 Minuten heißt: nach einem Wechsel ist der Eintrag schnell wieder aktuell.
+OnBootSec=2min
+OnUnitActiveSec=5min
+
+[Install]
+WantedBy=timers.target
