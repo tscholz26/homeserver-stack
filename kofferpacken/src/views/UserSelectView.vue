@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { nextTick, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { usePackStore } from '@/composables/usePackStore'
+import { usePackStore, type ListSource } from '@/composables/usePackStore'
 
 const store = usePackStore()
 const router = useRouter()
@@ -12,6 +12,14 @@ const newName = ref('')
 const error = ref('')
 const creating = ref(false)
 
+// Schritt 1 fragt den Namen, Schritt 2 die Startliste – eine Entscheidung pro
+// Ansicht ist auf dem Handy deutlich angenehmer als ein volles Formular.
+const step = ref<1 | 2>(1)
+const choice = ref<'default' | 'empty' | 'copy'>('default')
+const copyFromId = ref<string | null>(null)
+
+const templates = computed(() => store.sortedUsers.value)
+
 function open(userId: string) {
   store.login(userId)
   router.push('/packliste')
@@ -20,18 +28,36 @@ function open(userId: string) {
 async function openDialog() {
   newName.value = ''
   error.value = ''
+  step.value = 1
+  choice.value = 'default'
+  copyFromId.value = templates.value[0]?.id ?? null
   dialog.value?.showModal()
   await nextTick()
   nameInput.value?.focus()
+}
+
+function toStep2() {
+  if (!newName.value.trim()) {
+    error.value = 'Bitte einen Namen eingeben.'
+    return
+  }
+  error.value = ''
+  step.value = 2
 }
 
 async function create() {
   error.value = ''
   creating.value = true
   try {
-    await store.addUser(newName.value)
+    const source: ListSource =
+      choice.value === 'copy'
+        ? { kind: 'copy', userId: copyFromId.value ?? '' }
+        : { kind: choice.value }
+    await store.addUser(newName.value, source)
     dialog.value?.close()
-    router.push('/packliste')
+    // Bei leerer Liste gibt es nichts zu packen – direkt dorthin, wo man
+    // Kategorien und Gegenstände anlegt.
+    router.push(choice.value === 'empty' ? '/verwaltung' : '/packliste')
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
   } finally {
@@ -66,25 +92,64 @@ async function create() {
     <!-- Klick auf die Fläche außerhalb des Formulars schließt; das Formular
          selbst hat das Padding, damit .self nur beim Backdrop greift. -->
     <dialog ref="dialog" class="modal" @click.self="dialog?.close()">
-      <form @submit.prevent="create">
-        <h2>Neuen Nutzer anlegen</h2>
-        <p class="modal-hint">
-          Du bekommst eine eigene Packliste, die du danach frei anpassen kannst.
-        </p>
-        <input
-          ref="nameInput"
-          v-model="newName"
-          placeholder="Dein Name"
-          :disabled="creating"
-          maxlength="30"
-        />
+      <form @submit.prevent="step === 1 ? toStep2() : create()">
+        <p class="step-badge">Schritt {{ step }} von 2</p>
+
+        <template v-if="step === 1">
+          <h2>Wie heißt du?</h2>
+          <p class="modal-hint">Unter diesem Namen erscheint deine Kachel auf der Startseite.</p>
+          <input ref="nameInput" v-model="newName" placeholder="Dein Name" maxlength="30" />
+        </template>
+
+        <template v-else>
+          <h2>Womit soll deine Liste starten?</h2>
+          <p class="modal-hint">Alles lässt sich später in der Verwaltung ändern.</p>
+
+          <label class="option" :class="{ active: choice === 'default' }">
+            <input v-model="choice" type="radio" value="default" />
+            <span>
+              <strong>Standardliste</strong>
+              <small
+                >Der fertige Katalog mit allen Kategorien – für die meisten das Richtige.</small
+              >
+            </span>
+          </label>
+
+          <label class="option" :class="{ active: choice === 'empty' }">
+            <input v-model="choice" type="radio" value="empty" />
+            <span>
+              <strong>Leere Liste</strong>
+              <small>Du legst Kategorien und Gegenstände selbst an.</small>
+            </span>
+          </label>
+
+          <label v-if="templates.length > 0" class="option" :class="{ active: choice === 'copy' }">
+            <input v-model="choice" type="radio" value="copy" />
+            <span>
+              <strong>Liste von jemand anderem übernehmen</strong>
+              <small>Kopiert Kategorien und Gegenstände – die Trips bleiben privat.</small>
+              <select v-model="copyFromId" :disabled="choice !== 'copy'" @click.stop>
+                <option v-for="user in templates" :key="user.id" :value="user.id">
+                  {{ user.name }}
+                </option>
+              </select>
+            </span>
+          </label>
+        </template>
+
         <p v-if="error" class="error">{{ error }}</p>
+
         <div class="modal-actions">
-          <button type="button" class="ghost" :disabled="creating" @click="dialog?.close()">
-            Abbrechen
+          <button
+            type="button"
+            class="ghost"
+            :disabled="creating"
+            @click="step === 1 ? dialog?.close() : (step = 1)"
+          >
+            {{ step === 1 ? 'Abbrechen' : 'Zurück' }}
           </button>
           <button type="submit" class="primary" :disabled="creating">
-            {{ creating ? 'Wird angelegt …' : 'Anlegen' }}
+            {{ step === 1 ? 'Weiter' : creating ? 'Wird angelegt …' : 'Anlegen' }}
           </button>
         </div>
       </form>
@@ -208,7 +273,8 @@ async function create() {
   opacity: 0.75;
 }
 
-.modal input {
+.modal input[type='text'],
+.modal input:not([type]) {
   width: 100%;
   border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 0.55rem;
@@ -216,6 +282,64 @@ async function create() {
   color: inherit;
   padding: 0.55rem 0.7rem;
   font: inherit;
+}
+
+.step-badge {
+  margin: 0 0 0.5rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #f2c14e;
+}
+
+.option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 0.7rem;
+  padding: 0.7rem 0.8rem;
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+}
+
+.option.active {
+  border-color: #f2c14e;
+  background: rgba(242, 193, 78, 0.1);
+}
+
+.option input[type='radio'] {
+  margin-top: 0.15rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: #f2c14e;
+  flex-shrink: 0;
+}
+
+.option span {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.option small {
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
+
+.option select {
+  margin-top: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 0.5rem;
+  background: rgba(0, 0, 0, 0.35);
+  color: inherit;
+  padding: 0.4rem 0.5rem;
+  font: inherit;
+}
+
+.option select:disabled {
+  opacity: 0.5;
 }
 
 .modal-actions {

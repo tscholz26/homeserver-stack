@@ -152,13 +152,31 @@ app.post('/api/users', (req, res) => {
     if (state.users.some((x) => x.name.toLowerCase() === u.name.trim().toLowerCase())) {
       return { reject: { status: 409, error: 'Diesen Nutzer gibt es bereits.' } }
     }
-    const seed = readSeedCatalog()
+    // Womit die persönliche Liste startet: Standardkatalog, leer, oder eine
+    // Kopie der Liste eines anderen Nutzers (dessen Trips bleiben bei ihm).
+    let categories = []
+    let items = []
+    if (u.source === 'empty') {
+      // bleibt leer
+    } else if (u.source === 'copy') {
+      const from = state.users.find((x) => x.id === u.sourceUserId)
+      if (!from) {
+        return { reject: { status: 404, error: 'Die gewählte Vorlage gibt es nicht mehr.' } }
+      }
+      categories = from.categories.map((c) => ({ ...c }))
+      items = from.items.map((i) => ({ ...i }))
+    } else {
+      const seed = readSeedCatalog()
+      categories = seed.categories
+      items = seed.items
+    }
+
     state.users.push({
       id: u.id,
       name: u.name.trim(),
       createdAt: typeof u.createdAt === 'string' ? u.createdAt : new Date().toISOString(),
-      categories: seed.categories,
-      items: seed.items,
+      categories,
+      items,
       trips: [],
     })
   })

@@ -19,6 +19,9 @@ export interface Trip {
   notes?: string
 }
 
+// Womit die persönliche Liste eines neuen Nutzers startet
+export type ListSource = { kind: 'default' } | { kind: 'empty' } | { kind: 'copy'; userId: string }
+
 export interface User {
   id: string
   name: string
@@ -107,13 +110,22 @@ function createStore() {
     localStorage.removeItem('koffer:userId')
   }
 
-  async function addUser(name: string) {
+  async function addUser(name: string, source: ListSource = { kind: 'default' }) {
     const clean = name.trim()
     if (!clean) throw new Error('Der Name darf nicht leer sein.')
     if (state.users.some((u) => u.name.toLowerCase() === clean.toLowerCase())) {
       throw new Error('Diesen Nutzer gibt es bereits.')
     }
-    const user = { id: createId(), name: clean, createdAt: new Date().toISOString() }
+    if (source.kind === 'copy' && !source.userId) {
+      throw new Error('Bitte auswählen, wessen Liste übernommen werden soll.')
+    }
+    const user = {
+      id: createId(),
+      name: clean,
+      createdAt: new Date().toISOString(),
+      source: source.kind,
+      sourceUserId: source.kind === 'copy' ? source.userId : undefined,
+    }
     const r = await fetch(`${API_BASE}/users`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
