@@ -105,22 +105,26 @@ async function create() {
   opacity: 0.85;
 }
 
+/* Feste zwei Spalten: bei einer Handvoll Nutzern dürfen die Kacheln groß und
+   breit sein, statt in viele schmale Spalten zu zerfallen. */
 .tiles {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
-  gap: 0.8rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
 }
 
 .tile {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.55rem;
+  justify-content: center;
+  gap: 0.8rem;
+  min-height: 11rem;
   border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 1rem;
+  border-radius: 1.2rem;
   background: rgba(255, 255, 255, 0.06);
   color: inherit;
-  padding: 1.1rem 0.8rem;
+  padding: 1.8rem 1rem;
   cursor: pointer;
   font: inherit;
   transition:
@@ -138,18 +142,20 @@ async function create() {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 3.2rem;
-  height: 3.2rem;
+  width: 4.6rem;
+  height: 4.6rem;
   border-radius: 50%;
   background: #f2c14e;
   color: #23303b;
-  font-size: 1.5rem;
+  font-size: 2.2rem;
   font-weight: 700;
 }
 
 .tile-name {
+  font-size: 1.15rem;
   font-weight: 700;
   overflow-wrap: anywhere;
+  text-align: center;
 }
 
 /* Die Kachel zum Anlegen bleibt sichtbar zurückhaltender als echte Nutzer */
@@ -162,9 +168,9 @@ async function create() {
   background: transparent;
   border: 2px dashed rgba(242, 193, 78, 0.75);
   color: #f2c14e;
-  font-size: 1.9rem;
+  font-size: 2.8rem;
   line-height: 1;
-  padding-bottom: 0.2rem;
+  padding-bottom: 0.3rem;
 }
 
 .tile.add .tile-name {
