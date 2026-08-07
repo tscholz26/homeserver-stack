@@ -241,7 +241,7 @@ async function exportPdf() {
       <textarea
         v-model="notesDraft"
         rows="4"
-        placeholder="Freitext zum Trip – Besorgungen, Erinnerungen, Adressen …"
+        placeholder="Freitext, z.B. letzte Notizen für Abreisetag, Erinnerungen, Adressen..."
         @input="onNotesInput"
         @blur="saveNotes"
       ></textarea>
