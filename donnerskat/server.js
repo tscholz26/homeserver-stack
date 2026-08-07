@@ -1,5 +1,5 @@
 import express from 'express'
-import { appendFileSync, copyFileSync, existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs'
+import { appendFileSync, copyFileSync, existsSync, readFileSync, readdirSync, unlinkSync, writeFileSync, renameSync, mkdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -9,6 +9,7 @@ const STATE_FILE  = join(DATA_DIR, 'state.json')
 const CHANGELOG_FILE = join(DATA_DIR, 'changelog.jsonl')
 const AVATARS_DIR = join(__dirname, 'avatars')
 const BACKUPS_DIR = join(__dirname, 'backups')
+const KEEP_BACKUPS = 180
 const PORT = Number(process.env.PORT) || 2605
 
 mkdirSync(DATA_DIR,    { recursive: true })
@@ -24,7 +25,15 @@ function runBackup() {
     const ts  = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`
     const dest = join(BACKUPS_DIR, `state_${ts}.json`)
     copyFileSync(STATE_FILE, dest)
-    console.log(`[donnerskat] backup saved: ${dest}`)
+
+    // Die Dateinamen sortieren sich chronologisch, ältere fallen hinten raus
+    const old = readdirSync(BACKUPS_DIR)
+      .filter((f) => f.startsWith('state_') && f.endsWith('.json'))
+      .sort()
+      .slice(0, -KEEP_BACKUPS)
+    for (const file of old) unlinkSync(join(BACKUPS_DIR, file))
+
+    console.log(`[donnerskat] backup saved: ${dest} (${KEEP_BACKUPS} werden aufbewahrt)`)
   } catch (err) {
     console.error('[donnerskat] backup failed:', err.message)
   }
