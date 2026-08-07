@@ -117,8 +117,11 @@ function saveNotes() {
 }
 
 async function exportPdf() {
-  const { exportEmptyPackliste } = await import('@/utils/packlistePdf')
-  exportEmptyPackliste(store.categories.value, store.itemsByCategory.value)
+  const { exportPackliste } = await import('@/utils/packlistePdf')
+  exportPackliste(store.categories.value, store.itemsByCategory.value, {
+    packedItemIds: packedSet.value,
+    tripName: selectedTrip.value?.name,
+  })
 }
 </script>
 
@@ -153,7 +156,7 @@ async function exportPdf() {
         >
           {{ onlyMissing ? 'Alle anzeigen' : 'Nur fehlende anzeigen' }}
         </button>
-        <button class="filter-btn" @click="exportPdf">Leere Liste als PDF</button>
+        <button class="filter-btn" @click="exportPdf">Liste als PDF</button>
       </div>
     </div>
 

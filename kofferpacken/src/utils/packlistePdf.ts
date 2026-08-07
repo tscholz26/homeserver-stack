@@ -11,15 +11,23 @@ const BOX = 3.2
 const TEXT_GAP = 2.4
 const CATEGORY_GAP = 3.5
 
+export interface PdfOptions {
+  // Already packed items get a printed check mark, so you can continue on paper
+  packedItemIds?: ReadonlySet<string>
+  tripName?: string
+}
+
 export function buildPacklisteDoc(
   categories: Category[],
   itemsByCategory: Record<string, Item[]>,
+  options: PdfOptions = {},
 ): jsPDF {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  const packedItemIds = options.packedItemIds ?? new Set<string>()
 
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(15)
-  doc.text('Packliste', MARGIN, MARGIN + 4)
+  doc.text(options.tripName ? `Packliste – ${options.tripName}` : 'Packliste', MARGIN, MARGIN + 4)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8.5)
   doc.setTextColor(120)
@@ -64,8 +72,16 @@ export function buildPacklisteDoc(
     for (const item of items) {
       const lines: string[] = doc.splitTextToSize(item.name, COL_W - BOX - TEXT_GAP)
       ensure(lines.length * LINE_H)
-      doc.rect(colX(), y + LINE_H - 1.4 - BOX + 0.5, BOX, BOX)
-      doc.text(lines, colX() + BOX + TEXT_GAP, y + LINE_H - 1.4)
+      const bx = colX()
+      const by = y + LINE_H - 1.4 - BOX + 0.5
+      doc.rect(bx, by, BOX, BOX)
+      if (packedItemIds.has(item.id)) {
+        doc.setLineWidth(0.55)
+        doc.line(bx + 0.6, by + 1.7, bx + 1.25, by + 2.45)
+        doc.line(bx + 1.25, by + 2.45, bx + 2.6, by + 0.75)
+        doc.setLineWidth(0.2)
+      }
+      doc.text(lines, bx + BOX + TEXT_GAP, y + LINE_H - 1.4)
       y += lines.length * LINE_H
     }
   }
@@ -73,9 +89,16 @@ export function buildPacklisteDoc(
   return doc
 }
 
-export function exportEmptyPackliste(
+export function exportPackliste(
   categories: Category[],
   itemsByCategory: Record<string, Item[]>,
+  options: PdfOptions = {},
 ) {
-  buildPacklisteDoc(categories, itemsByCategory).save('packliste.pdf')
+  const slug = options.tripName
+    ?.toLowerCase()
+    .replace(/[^a-z0-9äöüß]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  buildPacklisteDoc(categories, itemsByCategory, options).save(
+    slug ? `packliste-${slug}.pdf` : 'packliste.pdf',
+  )
 }
