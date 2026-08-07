@@ -65,14 +65,26 @@ function tripPackedCount(trip: Trip): number {
   return trip.packedItemIds.filter((id) => itemIds.value.has(id)).length
 }
 
-// Collapsed categories (per tab only, resets on reload)
-const collapsedIds = ref(new Set<string>())
-function toggleCollapsed(categoryId: string) {
-  const next = new Set(collapsedIds.value)
+// Alle Kategorien starten eingeklappt: so sieht man die Übersicht mit allen
+// Zählern und das Notizfeld sofort, ohne an 90 Gegenständen vorbeizuscrollen.
+const expandedIds = ref(new Set<string>())
+
+function isExpanded(categoryId: string): boolean {
+  return onlyMissing.value || expandedIds.value.has(categoryId)
+}
+
+function toggleExpanded(categoryId: string) {
+  const next = new Set(expandedIds.value)
   if (next.has(categoryId)) next.delete(categoryId)
   else next.add(categoryId)
-  collapsedIds.value = next
+  expandedIds.value = next
 }
+
+// Der Filter „Nur fehlende" wäre sinnlos, wenn alles zugeklappt bliebe –
+// er klappt deshalb auf und beim Ausschalten wieder zusammen.
+watch(onlyMissing, () => {
+  expandedIds.value = new Set()
+})
 
 function toggle(itemId: string) {
   if (!selectedTrip.value) return
@@ -193,8 +205,8 @@ async function exportPdf() {
         class="card-head"
         role="button"
         tabindex="0"
-        @click="toggleCollapsed(group.category.id)"
-        @keydown.enter="toggleCollapsed(group.category.id)"
+        @click="toggleExpanded(group.category.id)"
+        @keydown.enter="toggleExpanded(group.category.id)"
       >
         <h2>{{ group.category.name }}</h2>
         <button
@@ -207,10 +219,10 @@ async function exportPdf() {
         <span class="count">
           <template v-if="group.packedCount === group.totalCount">✓ komplett</template>
           <template v-else>{{ group.packedCount }}/{{ group.totalCount }}</template>
-          <span class="chevron" :class="{ collapsed: collapsedIds.has(group.category.id) }">▾</span>
+          <span class="chevron" :class="{ collapsed: !isExpanded(group.category.id) }">▾</span>
         </span>
       </header>
-      <ul v-show="!collapsedIds.has(group.category.id)">
+      <ul v-show="isExpanded(group.category.id)">
         <li v-for="item in group.items" :key="item.id">
           <label class="row" :class="{ packed: packedSet.has(item.id) }">
             <input type="checkbox" :checked="packedSet.has(item.id)" @change="toggle(item.id)" />
