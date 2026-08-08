@@ -142,6 +142,19 @@ function removeItem(itemId: string, name: string) {
 const textMode = ref(false)
 const catalogText = ref('')
 
+// Sortiermodus: statt Stift und Papierkorb erscheinen Pfeile in denselben
+// Zeilen – die Oberfläche gewinnt dadurch keinen einzigen Knopf dazu.
+const sortMode = ref(false)
+
+function toggleSortMode() {
+  sortMode.value = !sortMode.value
+  if (sortMode.value) {
+    search.value = ''
+    editingItemId.value = null
+    editingCategoryId.value = null
+  }
+}
+
 function openTextMode() {
   catalogText.value = serializeCatalog(store.categories.value, store.items.value)
   error.value = ''
@@ -246,12 +259,22 @@ async function deleteAccount() {
 
   <section v-else>
     <div class="items-bar">
-      <input v-model="search" type="search" class="search" placeholder="🔍 Gegenstand suchen …" />
-      <button class="ghost-btn" @click="openTextMode">Als Text bearbeiten</button>
+      <input
+        v-if="!sortMode"
+        v-model="search"
+        type="search"
+        class="search"
+        placeholder="🔍 Gegenstand suchen …"
+      />
+      <p v-else class="sort-hint">Reihenfolge ändern – so erscheint sie auch in der Packliste.</p>
+      <button class="ghost-btn" :class="{ active: sortMode }" @click="toggleSortMode">
+        {{ sortMode ? 'Fertig' : 'Sortieren' }}
+      </button>
+      <button v-if="!sortMode" class="ghost-btn" @click="openTextMode">Als Text bearbeiten</button>
     </div>
 
     <div
-      v-for="category in store.categories.value"
+      v-for="(category, index) in store.categories.value"
       v-show="!searchLower || filteredItems(category.id).length > 0"
       :key="category.id"
       class="acc"
@@ -280,7 +303,25 @@ async function deleteAccount() {
               <span class="chevron" :class="{ collapsed: !isOpen(category.id) }">▾</span>
             </span>
           </button>
-          <span class="actions cat-actions">
+          <span v-if="sortMode" class="actions cat-actions">
+            <button
+              class="icon-btn"
+              aria-label="Kategorie nach oben"
+              :disabled="index === 0"
+              @click="store.moveCategory(category.id, -1)"
+            >
+              ▲
+            </button>
+            <button
+              class="icon-btn"
+              aria-label="Kategorie nach unten"
+              :disabled="index === store.categories.value.length - 1"
+              @click="store.moveCategory(category.id, 1)"
+            >
+              ▼
+            </button>
+          </span>
+          <span v-else class="actions cat-actions">
             <button
               class="icon-btn"
               aria-label="Kategorie umbenennen"
@@ -301,8 +342,29 @@ async function deleteAccount() {
 
       <div v-if="isOpen(category.id)" class="acc-body">
         <ul>
-          <li v-for="item in filteredItems(category.id)" :key="item.id" class="row">
-            <template v-if="editingItemId === item.id">
+          <li v-for="(item, i) in filteredItems(category.id)" :key="item.id" class="row">
+            <template v-if="sortMode">
+              <span class="item-name">{{ item.name }}</span>
+              <span class="actions">
+                <button
+                  class="icon-btn"
+                  aria-label="Nach oben"
+                  :disabled="i === 0"
+                  @click="store.moveItem(item.id, -1)"
+                >
+                  ▲
+                </button>
+                <button
+                  class="icon-btn"
+                  aria-label="Nach unten"
+                  :disabled="i === filteredItems(category.id).length - 1"
+                  @click="store.moveItem(item.id, 1)"
+                >
+                  ▼
+                </button>
+              </span>
+            </template>
+            <template v-else-if="editingItemId === item.id">
               <input v-model="editingName" class="edit-input" @keyup.enter="saveEdit" />
               <span class="actions">
                 <button class="icon-btn" aria-label="Speichern" @click="saveEdit">✔️</button>
@@ -332,7 +394,11 @@ async function deleteAccount() {
             </template>
           </li>
         </ul>
-        <form v-if="!searchLower" class="add-form" @submit.prevent="addItem(category.id)">
+        <form
+          v-if="!searchLower && !sortMode"
+          class="add-form"
+          @submit.prevent="addItem(category.id)"
+        >
           <input v-model="newItemNames[category.id]" placeholder="Neuer Gegenstand" />
           <button type="submit" class="primary">+</button>
         </form>
@@ -593,6 +659,24 @@ input {
 .search {
   flex: 1;
   min-width: 0;
+}
+
+.sort-hint {
+  flex: 1;
+  margin: 0;
+  font-size: 0.85rem;
+  opacity: 0.75;
+}
+
+.ghost-btn.active {
+  background: #f2c14e;
+  border-color: #f2c14e;
+  color: #23303b;
+}
+
+.icon-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
 }
 
 .ghost-btn {
