@@ -1,4 +1,5 @@
 import { computed, reactive, ref } from 'vue'
+import { flattenItems, reorderCategories, reorderItems } from '@/utils/reorder'
 
 export interface Category {
   id: string
@@ -296,36 +297,18 @@ function createStore() {
     sendChange(userPath('/catalog'), 'PUT', { categories, items })
   }
 
-  // Gegenstände in Kategorienreihenfolge flach hintereinander – die Anzeige
-  // richtet sich nach dieser Reihenfolge.
-  function flatten(categories: Category[], items: Item[]): Item[] {
-    return categories.flatMap((c) => items.filter((i) => i.categoryId === c.id))
-  }
-
-  function moveCategory(categoryId: string, delta: number) {
+  function moveCategoryTo(from: number, to: number) {
     const user = currentUser.value
     if (!user) return
-    const cats = [...user.categories]
-    const from = cats.findIndex((c) => c.id === categoryId)
-    const to = from + delta
-    if (from < 0 || to < 0 || to >= cats.length) return
-    ;[cats[from], cats[to]] = [cats[to]!, cats[from]!]
-    replaceCatalog(cats, flatten(cats, user.items))
+    const cats = reorderCategories(user.categories, from, to)
+    replaceCatalog(cats, flattenItems(cats, user.items))
   }
 
-  function moveItem(itemId: string, delta: number) {
+  function moveItemTo(itemId: string, toCategoryId: string, toIndex: number) {
     const user = currentUser.value
     if (!user) return
-    const item = user.items.find((i) => i.id === itemId)
-    if (!item) return
-    const siblings = user.items.filter((i) => i.categoryId === item.categoryId)
-    const from = siblings.findIndex((s) => s.id === itemId)
-    const to = from + delta
-    if (to < 0 || to >= siblings.length) return
-    ;[siblings[from], siblings[to]] = [siblings[to]!, siblings[from]!]
-
-    const rest = user.items.filter((i) => i.categoryId !== item.categoryId)
-    replaceCatalog([...user.categories], flatten(user.categories, [...rest, ...siblings]))
+    const items = reorderItems(user.categories, user.items, itemId, toCategoryId, toIndex)
+    replaceCatalog([...user.categories], items)
   }
 
   // ── Items ──────────────────────────────────────────────────────────────────
@@ -382,8 +365,8 @@ function createStore() {
     renameCategory,
     removeCategory,
     replaceCatalog,
-    moveCategory,
-    moveItem,
+    moveCategoryTo,
+    moveItemTo,
     addItem,
     renameItem,
     removeItem,

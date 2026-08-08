@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, onUpdated, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import Sortable from 'sortablejs'
 import { usePackStore, type Item, type Trip } from '@/composables/usePackStore'
 import { parseCatalog, serializeCatalog } from '@/utils/catalogText'
 
@@ -61,8 +62,9 @@ const editingName = ref('')
 const editingCategoryId = ref<string | null>(null)
 const editingCategoryName = ref('')
 
-// One category open at a time keeps the page short; a search opens all hits
-const expandedId = ref<string | null>(null)
+// Mehrere Kategorien dürfen offen sein – nur so kann man einen Gegenstand von
+// einer Kategorie in eine andere ziehen.
+const expandedIds = ref(new Set<string>())
 
 function categoryItems(categoryId: string) {
   return store.itemsByCategory.value[categoryId] ?? []
@@ -76,12 +78,15 @@ function filteredItems(categoryId: string) {
 
 function isOpen(categoryId: string): boolean {
   if (searchLower.value) return filteredItems(categoryId).length > 0
-  return expandedId.value === categoryId
+  return expandedIds.value.has(categoryId)
 }
 
 function toggleExpanded(categoryId: string) {
   if (searchLower.value) return
-  expandedId.value = expandedId.value === categoryId ? null : categoryId
+  const next = new Set(expandedIds.value)
+  if (next.has(categoryId)) next.delete(categoryId)
+  else next.add(categoryId)
+  expandedIds.value = next
 }
 
 function addCategory() {
@@ -142,18 +147,77 @@ function removeItem(itemId: string, name: string) {
 const textMode = ref(false)
 const catalogText = ref('')
 
-// Sortiermodus: statt Stift und Papierkorb erscheinen Pfeile in denselben
-// Zeilen – die Oberfläche gewinnt dadurch keinen einzigen Knopf dazu.
-const sortMode = ref(false)
+// ── Drag & Drop ────────────────────────────────────────────────────────────
+// Angefasst wird nur am Griff links neben Stift und Papierkorb; SortableJS
+// bringt Touch-Unterstützung mit, was HTML5-Drag-and-drop auf dem Handy fehlt.
+const accList = ref<HTMLElement | null>(null)
+const itemLists = new Map<string, HTMLElement>()
+const dragging = ref(false)
+let sortables: Sortable[] = []
 
-function toggleSortMode() {
-  sortMode.value = !sortMode.value
-  if (sortMode.value) {
-    search.value = ''
-    editingItemId.value = null
-    editingCategoryId.value = null
+function setItemList(categoryId: string, el: unknown) {
+  if (el instanceof HTMLElement) itemLists.set(categoryId, el)
+  else itemLists.delete(categoryId)
+}
+
+// SortableJS verschiebt den Knoten selbst; wir machen das rückgängig und
+// lassen Vue aus dem Zustand neu zeichnen, damit beides nicht auseinanderläuft.
+function undoDomMove(evt: Sortable.SortableEvent) {
+  evt.from.insertBefore(evt.item, evt.from.children[evt.oldIndex ?? 0] ?? null)
+}
+
+function buildSortables() {
+  for (const s of sortables) s.destroy()
+  sortables = []
+  if (tab.value !== 'items' || textMode.value) return
+
+  if (accList.value) {
+    sortables.push(
+      new Sortable(accList.value, {
+        draggable: '.acc',
+        handle: '.cat-handle',
+        animation: 150,
+        onStart: () => (dragging.value = true),
+        onEnd: (evt) => {
+          dragging.value = false
+          undoDomMove(evt)
+          if (evt.oldIndex != null && evt.newIndex != null) {
+            store.moveCategoryTo(evt.oldIndex, evt.newIndex)
+          }
+        },
+      }),
+    )
+  }
+
+  for (const [, el] of itemLists) {
+    sortables.push(
+      new Sortable(el, {
+        group: 'koffer-items',
+        draggable: '.row',
+        handle: '.item-handle',
+        animation: 150,
+        onStart: () => (dragging.value = true),
+        onEnd: (evt) => {
+          dragging.value = false
+          undoDomMove(evt)
+          const itemId = (evt.item as HTMLElement).dataset.itemId
+          const toCategoryId = (evt.to as HTMLElement).dataset.categoryId
+          if (itemId && toCategoryId) store.moveItemTo(itemId, toCategoryId, evt.newIndex ?? 0)
+        },
+      }),
+    )
   }
 }
+
+onMounted(buildSortables)
+onBeforeUnmount(() => {
+  for (const s of sortables) s.destroy()
+  sortables = []
+})
+// Nach jedem Neuzeichnen neu verdrahten – aber nie mitten in einer Bewegung
+onUpdated(() => {
+  if (!dragging.value) buildSortables()
+})
 
 function openTextMode() {
   catalogText.value = serializeCatalog(store.categories.value, store.items.value)
@@ -290,149 +354,109 @@ async function deleteAccount() {
 
   <section v-else>
     <div class="items-bar">
-      <input
-        v-if="!sortMode"
-        v-model="search"
-        type="search"
-        class="search"
-        placeholder="🔍 Gegenstand suchen …"
-      />
-      <p v-else class="sort-hint">Reihenfolge ändern – so erscheint sie auch in der Packliste.</p>
-      <button class="ghost-btn" :class="{ active: sortMode }" @click="toggleSortMode">
-        {{ sortMode ? 'Fertig' : 'Sortieren' }}
-      </button>
-      <button v-if="!sortMode" class="ghost-btn" @click="openTextMode">Als Text bearbeiten</button>
+      <input v-model="search" type="search" class="search" placeholder="🔍 Gegenstand suchen …" />
+      <button class="ghost-btn" @click="openTextMode">Als Text bearbeiten</button>
     </div>
 
-    <div
-      v-for="(category, index) in store.categories.value"
-      v-show="!searchLower || filteredItems(category.id).length > 0"
-      :key="category.id"
-      class="acc"
-      :class="{ open: isOpen(category.id) }"
-    >
-      <div class="acc-head-row">
-        <template v-if="editingCategoryId === category.id">
-          <input
-            v-model="editingCategoryName"
-            class="cat-input"
-            @keyup.enter="saveCategoryEdit"
-            @keyup.esc="editingCategoryId = null"
-          />
-          <span class="actions">
-            <button class="icon-btn" aria-label="Speichern" @click="saveCategoryEdit">✔️</button>
-            <button class="icon-btn" aria-label="Abbrechen" @click="editingCategoryId = null">
-              ✖️
-            </button>
-          </span>
-        </template>
-        <template v-else>
-          <button class="acc-head" type="button" @click="toggleExpanded(category.id)">
-            <span class="acc-title">{{ category.name }}</span>
-            <span class="acc-meta">
-              {{ categoryItems(category.id).length }}
-              <span class="chevron" :class="{ collapsed: !isOpen(category.id) }">▾</span>
+    <div ref="accList">
+      <div
+        v-for="category in store.categories.value"
+        v-show="!searchLower || filteredItems(category.id).length > 0"
+        :key="category.id"
+        class="acc"
+        :class="{ open: isOpen(category.id) }"
+      >
+        <div class="acc-head-row">
+          <template v-if="editingCategoryId === category.id">
+            <input
+              v-model="editingCategoryName"
+              class="cat-input"
+              @keyup.enter="saveCategoryEdit"
+              @keyup.esc="editingCategoryId = null"
+            />
+            <span class="actions">
+              <button class="icon-btn" aria-label="Speichern" @click="saveCategoryEdit">✔️</button>
+              <button class="icon-btn" aria-label="Abbrechen" @click="editingCategoryId = null">
+                ✖️
+              </button>
             </span>
-          </button>
-          <span v-if="sortMode" class="actions cat-actions">
-            <button
-              class="icon-btn"
-              aria-label="Kategorie nach oben"
-              :disabled="index === 0"
-              @click="store.moveCategory(category.id, -1)"
-            >
-              ▲
+          </template>
+          <template v-else>
+            <button class="acc-head" type="button" @click="toggleExpanded(category.id)">
+              <span class="acc-title">{{ category.name }}</span>
+              <span class="acc-meta">
+                {{ categoryItems(category.id).length }}
+                <span class="chevron" :class="{ collapsed: !isOpen(category.id) }">▾</span>
+              </span>
             </button>
-            <button
-              class="icon-btn"
-              aria-label="Kategorie nach unten"
-              :disabled="index === store.categories.value.length - 1"
-              @click="store.moveCategory(category.id, 1)"
-            >
-              ▼
-            </button>
-          </span>
-          <span v-else class="actions cat-actions">
-            <button
-              class="icon-btn"
-              aria-label="Kategorie umbenennen"
-              @click="startEditCategory(category.id, category.name)"
-            >
-              ✏️
-            </button>
-            <button
-              class="icon-btn danger"
-              aria-label="Kategorie löschen"
-              @click="removeCategory(category.id, category.name)"
-            >
-              🗑️
-            </button>
-          </span>
-        </template>
-      </div>
+            <span class="actions cat-actions">
+              <span class="drag-handle cat-handle" title="Kategorie verschieben">⠿</span>
+              <button
+                class="icon-btn"
+                aria-label="Kategorie umbenennen"
+                @click="startEditCategory(category.id, category.name)"
+              >
+                ✏️
+              </button>
+              <button
+                class="icon-btn danger"
+                aria-label="Kategorie löschen"
+                @click="removeCategory(category.id, category.name)"
+              >
+                🗑️
+              </button>
+            </span>
+          </template>
+        </div>
 
-      <div v-if="isOpen(category.id)" class="acc-body">
-        <ul>
-          <li v-for="(item, i) in filteredItems(category.id)" :key="item.id" class="row">
-            <template v-if="sortMode">
-              <span class="item-name">{{ item.name }}</span>
-              <span class="actions">
-                <button
-                  class="icon-btn"
-                  aria-label="Nach oben"
-                  :disabled="i === 0"
-                  @click="store.moveItem(item.id, -1)"
-                >
-                  ▲
-                </button>
-                <button
-                  class="icon-btn"
-                  aria-label="Nach unten"
-                  :disabled="i === filteredItems(category.id).length - 1"
-                  @click="store.moveItem(item.id, 1)"
-                >
-                  ▼
-                </button>
-              </span>
-            </template>
-            <template v-else-if="editingItemId === item.id">
-              <input v-model="editingName" class="edit-input" @keyup.enter="saveEdit" />
-              <span class="actions">
-                <button class="icon-btn" aria-label="Speichern" @click="saveEdit">✔️</button>
-                <button class="icon-btn" aria-label="Abbrechen" @click="editingItemId = null">
-                  ✖️
-                </button>
-              </span>
-            </template>
-            <template v-else>
-              <span class="item-name">{{ item.name }}</span>
-              <span class="actions">
-                <button
-                  class="icon-btn"
-                  aria-label="Bearbeiten"
-                  @click="startEdit(item.id, item.name)"
-                >
-                  ✏️
-                </button>
-                <button
-                  class="icon-btn danger"
-                  aria-label="Löschen"
-                  @click="removeItem(item.id, item.name)"
-                >
-                  🗑️
-                </button>
-              </span>
-            </template>
-          </li>
-        </ul>
-        <form
-          v-if="!searchLower && !sortMode"
-          class="add-form"
-          @submit.prevent="addItem(category.id)"
-        >
-          <input v-model="newItemNames[category.id]" placeholder="Neuer Gegenstand" />
-          <button type="submit" class="primary">+</button>
-        </form>
+        <div v-if="isOpen(category.id)" class="acc-body">
+          <ul
+            :ref="(el) => setItemList(category.id, el)"
+            :data-category-id="category.id"
+            class="item-list"
+          >
+            <li
+              v-for="item in filteredItems(category.id)"
+              :key="item.id"
+              :data-item-id="item.id"
+              class="row"
+            >
+              <template v-if="editingItemId === item.id">
+                <input v-model="editingName" class="edit-input" @keyup.enter="saveEdit" />
+                <span class="actions">
+                  <button class="icon-btn" aria-label="Speichern" @click="saveEdit">✔️</button>
+                  <button class="icon-btn" aria-label="Abbrechen" @click="editingItemId = null">
+                    ✖️
+                  </button>
+                </span>
+              </template>
+              <template v-else>
+                <span class="item-name">{{ item.name }}</span>
+                <span class="actions">
+                  <span class="drag-handle item-handle" title="Gegenstand verschieben">⠿</span>
+                  <button
+                    class="icon-btn"
+                    aria-label="Bearbeiten"
+                    @click="startEdit(item.id, item.name)"
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    class="icon-btn danger"
+                    aria-label="Löschen"
+                    @click="removeItem(item.id, item.name)"
+                  >
+                    🗑️
+                  </button>
+                </span>
+              </template>
+            </li>
+          </ul>
+          <form v-if="!searchLower" class="add-form" @submit.prevent="addItem(category.id)">
+            <input v-model="newItemNames[category.id]" placeholder="Neuer Gegenstand" />
+            <button type="submit" class="primary">+</button>
+          </form>
+        </div>
       </div>
     </div>
 
@@ -719,22 +743,37 @@ input {
   min-width: 0;
 }
 
-.sort-hint {
-  flex: 1;
-  margin: 0;
-  font-size: 0.85rem;
-  opacity: 0.75;
+/* Anfasser für Drag & Drop, links neben Stift und Papierkorb */
+.drag-handle {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.4rem;
+  font-size: 1rem;
+  line-height: 1;
+  opacity: 0.5;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
 }
 
-.ghost-btn.active {
-  background: #f2c14e;
-  border-color: #f2c14e;
-  color: #23303b;
+.drag-handle:active {
+  cursor: grabbing;
+  opacity: 1;
 }
 
-.icon-btn:disabled {
-  opacity: 0.3;
-  cursor: default;
+.sortable-ghost {
+  opacity: 0.4;
+}
+
+.sortable-chosen {
+  background: rgba(242, 193, 78, 0.12);
+}
+
+@media (pointer: coarse) {
+  .drag-handle {
+    padding: 0.5rem 0.5rem;
+    font-size: 1.15rem;
+  }
 }
 
 .ghost-btn {
