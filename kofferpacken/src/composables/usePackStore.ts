@@ -33,7 +33,7 @@ export interface User {
 
 let singleton: ReturnType<typeof createStore> | undefined
 
-function createId(): string {
+export function createId(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID()
   }
@@ -261,6 +261,20 @@ function createStore() {
     sendChange(userPath(`/categories/${categoryId}`), 'DELETE')
   }
 
+  // Ersetzt Kategorien und Gegenstände in einem Rutsch (Text-Modus). Haken zu
+  // Gegenständen, die es nicht mehr gibt, fallen weg.
+  function replaceCatalog(categories: Category[], items: Item[]) {
+    const user = currentUser.value
+    if (!user) return
+    const ids = new Set(items.map((i) => i.id))
+    user.categories = categories
+    user.items = items
+    for (const trip of user.trips) {
+      trip.packedItemIds = trip.packedItemIds.filter((x) => ids.has(x))
+    }
+    sendChange(userPath('/catalog'), 'PUT', { categories, items })
+  }
+
   // ── Items ──────────────────────────────────────────────────────────────────
   function addItem(categoryId: string, name: string) {
     const user = currentUser.value
@@ -312,6 +326,7 @@ function createStore() {
     addCategory,
     renameCategory,
     removeCategory,
+    replaceCatalog,
     addItem,
     renameItem,
     removeItem,

@@ -303,6 +303,55 @@ app.delete('/api/users/:userId/categories/:id', (req, res) => {
   })
 })
 
+// Ersetzt Kategorien und Gegenstände komplett (Text-Modus in der Verwaltung).
+// Der Client behält bekannte IDs bei, damit gesetzte Haken erhalten bleiben.
+app.put('/api/users/:userId/catalog', (req, res) => {
+  const { categories, items } = req.body || {}
+  if (!Array.isArray(categories) || !Array.isArray(items)) {
+    return res.status(400).json({ error: 'Invalid payload' })
+  }
+
+  const categoryIds = new Set()
+  for (const c of categories) {
+    if (!c || typeof c.id !== 'string' || typeof c.name !== 'string' || !c.name.trim()) {
+      return res.status(400).json({ error: 'Invalid payload' })
+    }
+    if (categoryIds.has(c.id)) {
+      return res.status(400).json({ error: 'Doppelte Kategorie-ID' })
+    }
+    categoryIds.add(c.id)
+  }
+
+  const itemIds = new Set()
+  for (const i of items) {
+    if (
+      !i ||
+      typeof i.id !== 'string' ||
+      typeof i.name !== 'string' ||
+      !i.name.trim() ||
+      !categoryIds.has(i.categoryId)
+    ) {
+      return res.status(400).json({ error: 'Invalid payload' })
+    }
+    if (itemIds.has(i.id)) {
+      return res.status(400).json({ error: 'Doppelte Gegenstands-ID' })
+    }
+    itemIds.add(i.id)
+  }
+
+  mutateUser(req, res, (user) => {
+    user.categories = categories.map((c) => ({ id: c.id, name: c.name.trim() }))
+    user.items = items.map((i) => ({
+      id: i.id,
+      categoryId: i.categoryId,
+      name: i.name.trim(),
+    }))
+    for (const trip of user.trips) {
+      trip.packedItemIds = trip.packedItemIds.filter((x) => itemIds.has(x))
+    }
+  })
+})
+
 // ── Items ─────────────────────────────────────────────────────────────────────
 app.post('/api/users/:userId/items', (req, res) => {
   const i = req.body

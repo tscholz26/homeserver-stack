@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePackStore, type Trip } from '@/composables/usePackStore'
+import { parseCatalog, serializeCatalog } from '@/utils/catalogText'
 
 const store = usePackStore()
 const router = useRouter()
@@ -135,6 +136,29 @@ function removeItem(itemId: string, name: string) {
   store.removeItem(itemId)
 }
 
+// ── Text-Modus ─────────────────────────────────────────────────────────────
+// Die ganze Liste als Text: umbenennen, verschieben, löschen und ergänzen in
+// einem Zug, statt jeden Eintrag einzeln anzufassen.
+const textMode = ref(false)
+const catalogText = ref('')
+
+function openTextMode() {
+  catalogText.value = serializeCatalog(store.categories.value, store.items.value)
+  error.value = ''
+  textMode.value = true
+}
+
+function saveTextMode() {
+  run(() => {
+    const parsed = parseCatalog(catalogText.value, {
+      categories: store.categories.value,
+      items: store.items.value,
+    })
+    store.replaceCatalog(parsed.categories, parsed.items)
+    textMode.value = false
+  })
+}
+
 // ── Konto ──────────────────────────────────────────────────────────────────
 const showDeleteAccount = ref(false)
 const deleteConfirmed = ref(false)
@@ -207,8 +231,24 @@ async function deleteAccount() {
   </section>
 
   <!-- ── Gegenstände ───────────────────────────────────────────────────── -->
+  <section v-else-if="textMode" class="text-mode">
+    <p class="text-hint">
+      Kategorien in eckigen Klammern, Gegenstände eingerückt darunter. Umbenennen, verschieben,
+      löschen und ergänzen geht hier alles auf einmal – gesetzte Haken bleiben erhalten, solange der
+      Name gleich bleibt.
+    </p>
+    <textarea v-model="catalogText" spellcheck="false" rows="24"></textarea>
+    <div class="text-actions">
+      <button class="ghost-btn" @click="textMode = false">Abbrechen</button>
+      <button class="primary" @click="saveTextMode">Speichern</button>
+    </div>
+  </section>
+
   <section v-else>
-    <input v-model="search" type="search" class="search" placeholder="🔍 Gegenstand suchen …" />
+    <div class="items-bar">
+      <input v-model="search" type="search" class="search" placeholder="🔍 Gegenstand suchen …" />
+      <button class="ghost-btn" @click="openTextMode">Als Text bearbeiten</button>
+    </div>
 
     <div
       v-for="category in store.categories.value"
@@ -543,9 +583,55 @@ input {
   font: inherit;
 }
 
-.search {
-  width: 100%;
+.items-bar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
   margin-bottom: 0.8rem;
+}
+
+.search {
+  flex: 1;
+  min-width: 0;
+}
+
+.ghost-btn {
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 0.55rem;
+  background: rgba(255, 255, 255, 0.07);
+  color: inherit;
+  padding: 0.5rem 0.7rem;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.text-mode textarea {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 0.6rem;
+  background: rgba(0, 0, 0, 0.3);
+  color: inherit;
+  padding: 0.7rem 0.8rem;
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.text-hint {
+  margin: 0 0 0.6rem;
+  font-size: 0.85rem;
+  opacity: 0.75;
+}
+
+.text-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
 }
 
 .edit-input {
