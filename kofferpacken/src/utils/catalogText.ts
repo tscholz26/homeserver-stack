@@ -5,14 +5,15 @@ export interface Catalog {
   items: Item[]
 }
 
-// Format: Kategorien in eckigen Klammern, Gegenstände eingerückt darunter –
-// dasselbe, das der Export als Textdatei liefert.
+// Format: Kategorien in eckigen Klammern, Gegenstände in den Zeilen darunter.
+// Eingerückt wird nicht – der Parser trimmt ohnehin jede Zeile, Einrückung wäre
+// also reine Zierde, die beim Tippen nur stört.
 export function serializeCatalog(categories: Category[], items: Item[]): string {
   const lines: string[] = []
   for (const category of categories) {
     lines.push(`[${category.name}]`)
     for (const item of items.filter((i) => i.categoryId === category.id)) {
-      lines.push(`  ${item.name}`)
+      lines.push(item.name)
     }
     lines.push('')
   }

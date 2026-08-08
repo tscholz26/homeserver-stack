@@ -277,9 +277,9 @@ async function deleteAccount() {
   <!-- ── Gegenstände ───────────────────────────────────────────────────── -->
   <section v-else-if="textMode" class="text-mode">
     <p class="text-hint">
-      Kategorien in eckigen Klammern, Gegenstände eingerückt darunter. Umbenennen, verschieben,
-      löschen und ergänzen geht hier alles auf einmal – gesetzte Haken bleiben erhalten, solange der
-      Name gleich bleibt.
+      Kategorien in eckigen Klammern, Gegenstände in den Zeilen darunter – eine pro Zeile.
+      Umbenennen, verschieben, löschen und ergänzen geht hier alles auf einmal; gesetzte Haken
+      bleiben erhalten, solange der Name gleich bleibt.
     </p>
     <textarea v-model="catalogText" spellcheck="false" rows="24"></textarea>
     <div class="text-actions">
