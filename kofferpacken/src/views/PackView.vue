@@ -35,25 +35,38 @@ const selectedTrip = computed(
 )
 
 const packedSet = computed(() => new Set(selectedTrip.value?.packedItemIds ?? []))
+const skippedSet = computed(() => new Set(selectedTrip.value?.skippedItemIds ?? []))
+
+// Im Auswahlmodus ist alles sichtbar und antippbar, sonst fallen die für
+// diesen Trip abgewählten Gegenstände komplett raus.
+const chooseMode = ref(false)
 
 const groups = computed(() =>
   store.categories.value
     .map((category) => {
-      const items = store.itemsByCategory.value[category.id] ?? []
-      const missing = items.filter((i) => !packedSet.value.has(i.id))
+      const all = store.itemsByCategory.value[category.id] ?? []
+      const relevant = all.filter((i) => !skippedSet.value.has(i.id))
+      const missing = relevant.filter((i) => !packedSet.value.has(i.id))
+      const visible = chooseMode.value ? all : onlyMissing.value ? missing : relevant
       return {
         category,
-        packedCount: items.length - missing.length,
-        totalCount: items.length,
-        items: onlyMissing.value ? missing : items,
+        packedCount: relevant.length - missing.length,
+        totalCount: relevant.length,
+        skippedCount: all.length - relevant.length,
+        allSkipped: all.length > 0 && relevant.length === 0,
+        items: visible,
       }
     })
     .filter((g) => g.items.length > 0),
 )
 
-const totalCount = computed(() => store.items.value.length)
+const relevantItems = computed(() => store.items.value.filter((i) => !skippedSet.value.has(i.id)))
+const totalCount = computed(() => relevantItems.value.length)
 const packedCount = computed(
-  () => store.items.value.filter((i) => packedSet.value.has(i.id)).length,
+  () => relevantItems.value.filter((i) => packedSet.value.has(i.id)).length,
+)
+const skippedCount = computed(
+  () => store.items.value.filter((i) => skippedSet.value.has(i.id)).length,
 )
 const progressPercent = computed(() =>
   totalCount.value === 0 ? 0 : Math.round((packedCount.value / totalCount.value) * 100),
@@ -88,12 +101,21 @@ watch(onlyMissing, () => {
 
 function toggle(itemId: string) {
   if (!selectedTrip.value) return
+  if (chooseMode.value) {
+    store.setSkipped(selectedTrip.value.id, itemId, !skippedSet.value.has(itemId))
+    return
+  }
   store.setPacked(selectedTrip.value.id, itemId, !packedSet.value.has(itemId))
 }
 
 function toggleCategory(categoryId: string, allPacked: boolean) {
   if (!selectedTrip.value) return
   store.setCategoryPacked(selectedTrip.value.id, categoryId, !allPacked)
+}
+
+function toggleCategorySkipped(categoryId: string, allSkipped: boolean) {
+  if (!selectedTrip.value) return
+  store.setCategorySkipped(selectedTrip.value.id, categoryId, !allSkipped)
 }
 
 // Notes autosave: 3 s after the last keystroke (or on blur), with a status hint
@@ -136,7 +158,12 @@ function saveNotes() {
 
 async function exportPdf() {
   const { exportPackliste } = await import('@/utils/packlistePdf')
-  exportPackliste(store.categories.value, store.itemsByCategory.value, {
+  // Was diesmal nicht mitkommt, gehört auch nicht auf den Ausdruck
+  const byCategory: Record<string, typeof relevantItems.value> = {}
+  for (const item of relevantItems.value) {
+    ;(byCategory[item.categoryId] ??= []).push(item)
+  }
+  exportPackliste(store.categories.value, byCategory, {
     packedItemIds: packedSet.value,
     tripName: selectedTrip.value?.name,
   })
@@ -191,6 +218,20 @@ async function exportPdf() {
       ></div>
     </div>
 
+    <p v-if="selectedTrip" class="skip-line">
+      <template v-if="chooseMode">
+        Tippe an, was diesmal <strong>nicht</strong> mitkommt.
+        <button class="link" @click="chooseMode = false">fertig</button>
+      </template>
+      <template v-else-if="skippedCount > 0">
+        {{ skippedCount }} diesmal nicht nötig ·
+        <button class="link" @click="chooseMode = true">ändern</button>
+      </template>
+      <template v-else>
+        <button class="link" @click="chooseMode = true">Was brauche ich diesmal nicht?</button>
+      </template>
+    </p>
+
     <p v-if="selectedTrip && totalCount > 0 && packedCount === totalCount" class="hint done">
       <span class="party">🎉</span> Alles eingepackt – gute Reise! <span class="party">🧳</span>
     </p>
@@ -199,7 +240,7 @@ async function exportPdf() {
       v-for="group in groups"
       :key="group.category.id"
       class="card"
-      :class="{ done: group.packedCount === group.totalCount }"
+      :class="{ done: !chooseMode && group.packedCount === group.totalCount }"
     >
       <header
         class="card-head"
@@ -210,6 +251,15 @@ async function exportPdf() {
       >
         <h2>{{ group.category.name }}</h2>
         <button
+          v-if="chooseMode"
+          class="bulk-btn"
+          type="button"
+          @click.stop="toggleCategorySkipped(group.category.id, group.allSkipped)"
+        >
+          {{ group.allSkipped ? 'doch mitnehmen' : 'ganze Kategorie weg' }}
+        </button>
+        <button
+          v-else
           class="bulk-btn"
           type="button"
           @click.stop="toggleCategory(group.category.id, group.packedCount === group.totalCount)"
@@ -217,15 +267,28 @@ async function exportPdf() {
           {{ group.packedCount === group.totalCount ? 'alle enthaken' : 'alle abhaken' }}
         </button>
         <span class="count">
-          <template v-if="group.packedCount === group.totalCount">✓ komplett</template>
+          <template v-if="chooseMode && group.skippedCount > 0">
+            {{ group.skippedCount }} abgewählt
+          </template>
+          <template v-else-if="group.packedCount === group.totalCount">✓ komplett</template>
           <template v-else>{{ group.packedCount }}/{{ group.totalCount }}</template>
           <span class="chevron" :class="{ collapsed: !isExpanded(group.category.id) }">▾</span>
         </span>
       </header>
       <ul v-show="isExpanded(group.category.id)">
         <li v-for="item in group.items" :key="item.id">
-          <label class="row" :class="{ packed: packedSet.has(item.id) }">
-            <input type="checkbox" :checked="packedSet.has(item.id)" @change="toggle(item.id)" />
+          <label
+            class="row"
+            :class="{
+              packed: !chooseMode && packedSet.has(item.id),
+              skipped: chooseMode && skippedSet.has(item.id),
+            }"
+          >
+            <input
+              type="checkbox"
+              :checked="chooseMode ? !skippedSet.has(item.id) : packedSet.has(item.id)"
+              @change="toggle(item.id)"
+            />
             <span>{{ item.name }}</span>
           </label>
         </li>
@@ -507,6 +570,27 @@ ul {
 .row.packed span {
   text-decoration: line-through;
   opacity: 0.55;
+}
+
+.row.skipped span {
+  opacity: 0.4;
+}
+
+.skip-line {
+  margin: -0.3rem 0 0.8rem;
+  font-size: 0.82rem;
+  opacity: 0.8;
+}
+
+.link {
+  border: none;
+  background: none;
+  padding: 0;
+  color: #f2c14e;
+  font: inherit;
+  font-size: 0.82rem;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 /* Phone: swipeable trip chips instead of wrapping, bigger touch targets */

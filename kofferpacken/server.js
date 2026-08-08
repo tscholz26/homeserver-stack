@@ -243,6 +243,37 @@ app.post('/api/users/:userId/trips/:id/check-category', (req, res) => {
   })
 })
 
+// „Diesmal nicht nötig": nimmt Gegenstände aus Zählung, Liste und PDF, ohne
+// sie aus dem Katalog zu löschen (Strandsachen im Winterurlaub).
+app.post('/api/users/:userId/trips/:id/skip', (req, res) => {
+  const { itemId, skipped } = req.body || {}
+  if (typeof itemId !== 'string' || typeof skipped !== 'boolean') {
+    return res.status(400).json({ error: 'Invalid payload' })
+  }
+  mutateUser(req, res, (user) => {
+    const trip = user.trips.find((x) => x.id === req.params.id)
+    if (!trip) return { reject: { status: 404, error: 'Trip nicht gefunden.' } }
+    trip.skippedItemIds = (trip.skippedItemIds || []).filter((x) => x !== itemId)
+    if (skipped) trip.skippedItemIds.push(itemId)
+  })
+})
+
+app.post('/api/users/:userId/trips/:id/skip-category', (req, res) => {
+  const { categoryId, skipped } = req.body || {}
+  if (typeof categoryId !== 'string' || typeof skipped !== 'boolean') {
+    return res.status(400).json({ error: 'Invalid payload' })
+  }
+  mutateUser(req, res, (user) => {
+    const trip = user.trips.find((x) => x.id === req.params.id)
+    if (!trip) return { reject: { status: 404, error: 'Trip nicht gefunden.' } }
+    const categoryItemIds = new Set(
+      user.items.filter((i) => i.categoryId === categoryId).map((i) => i.id),
+    )
+    trip.skippedItemIds = (trip.skippedItemIds || []).filter((x) => !categoryItemIds.has(x))
+    if (skipped) trip.skippedItemIds.push(...categoryItemIds)
+  })
+})
+
 app.put('/api/users/:userId/trips/:id/notes', (req, res) => {
   const { notes } = req.body || {}
   if (typeof notes !== 'string') {

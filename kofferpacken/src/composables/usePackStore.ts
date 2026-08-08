@@ -16,6 +16,8 @@ export interface Trip {
   name: string
   createdAt: string
   packedItemIds: string[]
+  // Für diesen Trip nicht gebraucht – zählt nirgends mit
+  skippedItemIds?: string[]
   notes?: string
 }
 
@@ -208,6 +210,25 @@ function createStore() {
     sendChange(userPath(`/trips/${tripId}/check-category`), 'POST', { categoryId, packed })
   }
 
+  function setSkipped(tripId: string, itemId: string, skipped: boolean) {
+    const trip = currentUser.value?.trips.find((t) => t.id === tripId)
+    if (!trip) return
+    trip.skippedItemIds = (trip.skippedItemIds ?? []).filter((x) => x !== itemId)
+    if (skipped) trip.skippedItemIds.push(itemId)
+    sendChange(userPath(`/trips/${tripId}/skip`), 'POST', { itemId, skipped })
+  }
+
+  function setCategorySkipped(tripId: string, categoryId: string, skipped: boolean) {
+    const trip = currentUser.value?.trips.find((t) => t.id === tripId)
+    if (!trip) return
+    const categoryItemIds = new Set(
+      items.value.filter((i) => i.categoryId === categoryId).map((i) => i.id),
+    )
+    trip.skippedItemIds = (trip.skippedItemIds ?? []).filter((x) => !categoryItemIds.has(x))
+    if (skipped) trip.skippedItemIds.push(...categoryItemIds)
+    sendChange(userPath(`/trips/${tripId}/skip-category`), 'POST', { categoryId, skipped })
+  }
+
   function setTripNotes(tripId: string, notes: string) {
     const trip = currentUser.value?.trips.find((t) => t.id === tripId)
     if (!trip) return
@@ -354,6 +375,8 @@ function createStore() {
     removeTrip,
     setPacked,
     setCategoryPacked,
+    setSkipped,
+    setCategorySkipped,
     setTripNotes,
     addCategory,
     renameCategory,
