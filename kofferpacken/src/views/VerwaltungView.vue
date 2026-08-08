@@ -443,7 +443,7 @@ async function deleteAccount() {
   </section>
 
   <!-- ── Listen der anderen ────────────────────────────────────────────── -->
-  <p v-if="others.length > 0 && !textMode" class="peek-line">
+  <p v-if="tab === 'items' && !textMode && others.length > 0" class="peek-line">
     <button class="link" @click="openPeek">Was haben die anderen auf ihrer Liste?</button>
   </p>
 
@@ -818,7 +818,7 @@ button.primary {
 
 /* Listen der anderen */
 .peek-line {
-  margin: 1.2rem 0 0;
+  margin: 1rem 0 0;
   text-align: center;
 }
 
@@ -890,7 +890,7 @@ button.primary {
 
 /* Account deletion */
 .account {
-  margin-top: 2rem;
+  margin-top: 0.9rem;
   text-align: center;
 }
 
