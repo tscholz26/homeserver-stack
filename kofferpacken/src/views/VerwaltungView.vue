@@ -169,7 +169,7 @@ async function deleteAccount() {
       :class="{ active: tab === 'items' }"
       @click="tab = 'items'"
     >
-      🧳 Gegenstände
+      🧳 Liste verwalten
     </button>
   </div>
 

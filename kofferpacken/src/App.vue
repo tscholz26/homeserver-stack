@@ -24,14 +24,12 @@ watchEffect(() => {
     <header class="top">
       <div>
         <p class="brand-sub">
-          Reisepackliste<template v-if="store.currentUser.value">
-            · {{ store.currentUser.value.name }}</template
-          >
+          <template v-if="store.currentUser.value"> Packliste von: {{ store.currentUser.value.name }}</template>
         </p>
         <h1>Kofferpacken</h1>
       </div>
       <nav v-if="store.currentUser.value" class="menu">
-        <RouterLink to="/packliste">Packliste</RouterLink>
+        <RouterLink to="/packliste">Packen</RouterLink>
         <RouterLink to="/verwaltung">Verwaltung</RouterLink>
         <button class="logout" title="Abmelden" @click="logout">
           <svg

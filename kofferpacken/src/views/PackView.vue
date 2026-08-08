@@ -174,7 +174,7 @@ async function exportPdf() {
         >
           {{ onlyMissing ? 'Alle anzeigen' : 'Nur fehlende anzeigen' }}
         </button>
-        <button class="filter-btn" @click="exportPdf">Liste als PDF</button>
+        <button class="filter-btn" @click="exportPdf">Liste drucken</button>
       </div>
     </div>
 
