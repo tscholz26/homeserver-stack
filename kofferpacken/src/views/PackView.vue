@@ -220,15 +220,17 @@ async function exportPdf() {
 
     <p v-if="selectedTrip" class="skip-line">
       <template v-if="chooseMode">
-        Tippe an, was diesmal <strong>nicht</strong> mitkommt.
+        Tippe an, was du für diesen Trip nicht benötigst (z.B. Kategorie „Strand“ im Skiurlaub).
         <button class="link" @click="chooseMode = false">fertig</button>
       </template>
       <template v-else-if="skippedCount > 0">
-        {{ skippedCount }} diesmal nicht nötig ·
+        {{ skippedCount }} ausgeschlossen ·
         <button class="link" @click="chooseMode = true">ändern</button>
       </template>
       <template v-else>
-        <button class="link" @click="chooseMode = true">Was brauche ich diesmal nicht?</button>
+        <button class="link" @click="chooseMode = true">
+          Gegenstände/Kategorien vom Trip ausschließen
+        </button>
       </template>
     </p>
 
@@ -256,7 +258,7 @@ async function exportPdf() {
           type="button"
           @click.stop="toggleCategorySkipped(group.category.id, group.allSkipped)"
         >
-          {{ group.allSkipped ? 'doch mitnehmen' : 'ganze Kategorie weg' }}
+          {{ group.allSkipped ? 'wieder mitnehmen' : 'alle ausschließen' }}
         </button>
         <button
           v-else
@@ -286,7 +288,7 @@ async function exportPdf() {
           >
             <input
               type="checkbox"
-              :checked="chooseMode ? !skippedSet.has(item.id) : packedSet.has(item.id)"
+              :checked="chooseMode ? skippedSet.has(item.id) : packedSet.has(item.id)"
               @change="toggle(item.id)"
             />
             <span>{{ item.name }}</span>

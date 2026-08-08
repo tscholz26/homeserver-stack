@@ -24,7 +24,9 @@ watchEffect(() => {
     <header class="top">
       <div>
         <p class="brand-sub">
-          <template v-if="store.currentUser.value"> Packliste von: {{ store.currentUser.value.name }}</template>
+          <template v-if="store.currentUser.value">
+            Packliste von: {{ store.currentUser.value.name }}</template
+          >
         </p>
         <h1>Kofferpacken</h1>
       </div>

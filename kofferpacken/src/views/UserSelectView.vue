@@ -109,9 +109,7 @@ async function create() {
             <input v-model="choice" type="radio" value="default" />
             <span>
               <strong>Standardliste</strong>
-              <small
-                >Ein vorgefertigter Katalog mit Standard-Kategorien.</small
-              >
+              <small>Ein vorgefertigter Katalog mit Standard-Kategorien.</small>
             </span>
           </label>
 
