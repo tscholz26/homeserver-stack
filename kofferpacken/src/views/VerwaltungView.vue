@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { usePackStore, type Trip } from '@/composables/usePackStore'
+import { usePackStore, type Item, type Trip } from '@/composables/usePackStore'
 import { parseCatalog, serializeCatalog } from '@/utils/catalogText'
 
 const store = usePackStore()
@@ -170,6 +170,37 @@ function saveTextMode() {
     store.replaceCatalog(parsed.categories, parsed.items)
     textMode.value = false
   })
+}
+
+// ── Listen der anderen ─────────────────────────────────────────────────────
+// Nur zum Nachsehen und Herunterladen; geändert wird hier nichts.
+const peekDialog = ref<HTMLDialogElement | null>(null)
+const peekUserId = ref<string | null>(null)
+
+const others = computed(() =>
+  store.sortedUsers.value.filter((u) => u.id !== store.currentUserId.value),
+)
+
+const peekUser = computed(() => others.value.find((u) => u.id === peekUserId.value) ?? null)
+
+const peekText = computed(() =>
+  peekUser.value ? serializeCatalog(peekUser.value.categories, peekUser.value.items) : '',
+)
+
+function openPeek() {
+  peekUserId.value = others.value[0]?.id ?? null
+  peekDialog.value?.showModal()
+}
+
+async function downloadPeekPdf() {
+  const user = peekUser.value
+  if (!user) return
+  const byCategory: Record<string, Item[]> = {}
+  for (const item of user.items) {
+    ;(byCategory[item.categoryId] ??= []).push(item)
+  }
+  const { exportPackliste } = await import('@/utils/packlistePdf')
+  exportPackliste(user.categories, byCategory, { tripName: `Liste von ${user.name}` })
 }
 
 // ── Konto ──────────────────────────────────────────────────────────────────
@@ -410,6 +441,33 @@ async function deleteAccount() {
       <button type="submit" class="primary">Kategorie anlegen</button>
     </form>
   </section>
+
+  <!-- ── Listen der anderen ────────────────────────────────────────────── -->
+  <p v-if="others.length > 0 && !textMode" class="peek-line">
+    <button class="link" @click="openPeek">Was haben die anderen auf ihrer Liste?</button>
+  </p>
+
+  <dialog ref="peekDialog" class="modal" @click.self="peekDialog?.close()">
+    <div class="peek-body">
+      <div class="peek-head">
+        <select v-model="peekUserId">
+          <option v-for="user in others" :key="user.id" :value="user.id">
+            Liste von {{ user.name }}
+          </option>
+        </select>
+        <button class="icon-btn" aria-label="Schließen" @click="peekDialog?.close()">✖️</button>
+      </div>
+
+      <p v-if="peekUser" class="peek-meta">
+        {{ peekUser.categories.length }} Kategorien · {{ peekUser.items.length }} Gegenstände
+      </p>
+      <pre class="peek-text">{{ peekText }}</pre>
+
+      <div class="text-actions">
+        <button class="ghost-btn" @click="downloadPeekPdf">Als PDF herunterladen</button>
+      </div>
+    </div>
+  </dialog>
 
   <!-- ── Konto ─────────────────────────────────────────────────────────── -->
   <section class="account">
@@ -756,6 +814,78 @@ button.primary {
   .row {
     padding: 0.55rem 0;
   }
+}
+
+/* Listen der anderen */
+.peek-line {
+  margin: 1.2rem 0 0;
+  text-align: center;
+}
+
+.link {
+  border: none;
+  background: none;
+  padding: 0;
+  color: #f2c14e;
+  font: inherit;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.modal {
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 1rem;
+  background: #16303f;
+  color: #f2f6f9;
+  padding: 0;
+  width: min(30rem, calc(100vw - 2rem));
+}
+
+.modal::backdrop {
+  background: rgba(5, 15, 22, 0.65);
+}
+
+.peek-body {
+  padding: 1rem 1.1rem 1.1rem;
+}
+
+.peek-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.peek-head select {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 0.5rem;
+  background: rgba(0, 0, 0, 0.3);
+  color: inherit;
+  padding: 0.45rem 0.5rem;
+  font: inherit;
+  font-weight: 600;
+}
+
+.peek-meta {
+  margin: 0.6rem 0 0.4rem;
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+.peek-text {
+  max-height: 55vh;
+  overflow: auto;
+  margin: 0;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 0.6rem;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 0.7rem 0.8rem;
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
 }
 
 /* Account deletion */
