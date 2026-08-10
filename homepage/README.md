@@ -1,54 +1,61 @@
-# homepage
+# Homepage
 
-This template should help get you started developing with Vue 3 in Vite.
+Startseite des Homeservers: begrüßt Besucher und schickt sie per Kachel zum
+gewünschten Dienst. Erreichbar unter `https://tshomeserv.duckdns.org/` und
+`https://tshomeserv.duckdns.org/start/`.
 
-## Recommended IDE Setup
+## Funktionen
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+- **Große Kacheln** für Nextcloud (`/index.php`), Donnerskat (`/skat/`) und
+  Kofferpacken (`/koffer/`), je mit Icon und kurzer Beschreibung
+- **Eine Spalte auf dem Handy**, mehrere Kacheln nebeneinander auf breiten
+  Bildschirmen – neue Dienste kommen als weiterer Eintrag im Array `services`
+  in [src/App.vue](src/App.vue) dazu
+- Optik passend zu Donnerskat und Kofferpacken (dunkler Verlauf, goldener Akzent)
 
-## Recommended Browser Setup
+## Technik
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+- Vue 3 + TypeScript + Vite, Base-Pfad `/start/`
+- Kein Router und kein Backend: eine statische Seite, ausgeliefert von nginx
+- Alle Assets liegen unter `/start/`, damit sie sich nicht mit Nextcloud unter
+  `/` kreuzen – so kann die Seite unter beiden Pfaden ausgeliefert werden
 
-## Type Support for `.vue` Imports in TS
+### Routing in Caddy
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
+Nextcloud liegt weiterhin unter `/` und beansprucht alles, was nicht
+ausdrücklich woanders hinzeigt. Deshalb greift die Startseite nur den **exakten**
+Pfad `/` ab (`handle /`, kein `/*`) und zusätzlich `/start/*`:
 
-## Customize configuration
+```
+handle_path /start/* {
+    reverse_proxy homepage:80
+}
 
-See [Vite Configuration Reference](https://vite.dev/config/).
+handle /start {
+    redir /start/
+}
 
-## Project Setup
+handle / {
+    reverse_proxy homepage:80
+}
+```
+
+Nextcloud-Pfade wie `/login`, `/status.php` oder `/remote.php/dav/` laufen
+unverändert weiter zum `php_fastcgi`-Block.
+
+## Entwicklung
 
 ```sh
 npm install
-```
-
-### Compile and Hot-Reload for Development
-
-```sh
-npm run dev
-```
-
-### Type-Check, Compile and Minify for Production
-
-```sh
-npm run build
-```
-
-### Run Unit Tests with [Vitest](https://vitest.dev/)
-
-```sh
+npm run dev           # Vite-Devserver unter /start/
 npm run test:unit
 ```
 
-### Lint with [ESLint](https://eslint.org/)
+## Deployment
 
 ```sh
-npm run lint
+docker compose up -d --build
 ```
+
+Der Container `homepage` hängt im `caddy-network`; Caddy leitet `/` und
+`/start/` dorthin.

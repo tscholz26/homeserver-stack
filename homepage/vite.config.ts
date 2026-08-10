@@ -6,6 +6,9 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // Die Seite ist unter / und unter /start/ erreichbar; alle Assets liegen
+  // immer unter /start/, damit sie sich nicht mit Nextcloud unter / kreuzen.
+  base: '/start/',
   plugins: [
     vue(),
     vueDevTools(),

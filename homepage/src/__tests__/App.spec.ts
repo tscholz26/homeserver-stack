@@ -4,8 +4,14 @@ import { mount } from '@vue/test-utils'
 import App from '../App.vue'
 
 describe('App', () => {
-  it('mounts renders properly', () => {
+  it('begrüßt und verlinkt jeden Dienst', () => {
     const wrapper = mount(App)
-    expect(wrapper.text()).toContain('You did it!')
+
+    expect(wrapper.text()).toContain('Willkommen!')
+    expect(wrapper.findAll('a.tile').map((tile) => tile.attributes('href'))).toEqual([
+      '/index.php',
+      '/skat/',
+      '/koffer/',
+    ])
   })
 })

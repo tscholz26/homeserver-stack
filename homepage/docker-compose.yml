@@ -1,0 +1,12 @@
+services:
+  homepage:
+    build: .
+    container_name: homepage
+    restart: unless-stopped
+
+    networks:
+      - caddy-network
+
+networks:
+  caddy-network:
+    external: true
