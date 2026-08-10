@@ -79,7 +79,7 @@ const RADAR_URL = 'https://www.wetteronline.de/regenradar/leipzig'
 /* Die Karte wird von der Grid-Reihe auf Höhe gezogen – die Chips setzen sich
    dann unten ab, statt eine Lücke stehen zu lassen. */
 .card.weather {
-  --accent: #60a5fa;
+  --accent: #2563eb;
   display: flex;
   flex-direction: column;
 }

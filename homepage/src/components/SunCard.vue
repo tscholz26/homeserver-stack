@@ -84,7 +84,7 @@ const time = (date: Date) =>
 }
 
 .sun {
-  --accent: #fbbf24;
+  --accent: #b45309;
 }
 
 .arc {
@@ -123,7 +123,7 @@ const time = (date: Date) =>
 }
 
 .disc.night {
-  fill: #64748b;
+  fill: #94a3b8;
   filter: none;
 }
 

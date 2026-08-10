@@ -108,12 +108,12 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
   width: 0.5rem;
   height: 0.5rem;
   border-radius: 50%;
-  background: #64748b;
+  background: #94a3b8;
 }
 
 .live.ok {
-  background: #4ade80;
-  box-shadow: 0 0 0.6rem rgba(74, 222, 128, 0.9);
+  background: #16a34a;
+  box-shadow: 0 0 0.5rem rgba(22, 163, 74, 0.6);
 }
 
 h1 {

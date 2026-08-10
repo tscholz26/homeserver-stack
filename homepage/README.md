@@ -30,9 +30,11 @@ Neue Dienste kommen als weiterer Eintrag im Array `services` in
 - Vue 3 + TypeScript + Vite, Base-Pfad `/start/`
 - Kein Router und kein eigenes Backend: eine statische Seite, ausgeliefert von
   nginx. Die Live-Daten holt der Browser von den Diensten, die schon laufen
-- Hintergrund sind drei wandernde Farbschleier plus Korn-Overlay, komplett in
-  CSS ([src/assets/base.css](src/assets/base.css)); `prefers-reduced-motion`
-  schaltet alle Animationen ab
+- **Helles Design**: warmes Off-White, Karten mit weichem Schatten, dazu vier
+  langsam wandernde Pastellschleier und ein feines Korn – alles in CSS
+  ([src/assets/base.css](src/assets/base.css)). Farben und Flächen stehen dort
+  als Variablen, die Akzentfarbe pro Dienst in der jeweiligen Komponente.
+  `prefers-reduced-motion` schaltet alle Animationen ab
 - Alle Assets liegen unter `/start/`, damit sie sich nicht mit Nextcloud unter
   `/` kreuzen – so kann die Seite unter beiden Pfaden ausgeliefert werden
 

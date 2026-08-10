@@ -71,6 +71,7 @@ function follow(event: MouseEvent) {
   border: 1px solid var(--line);
   border-radius: 1.5rem;
   background: var(--card);
+  box-shadow: var(--shadow);
   color: inherit;
   text-decoration: none;
   transition:
@@ -80,15 +81,15 @@ function follow(event: MouseEvent) {
 }
 
 .tile.nextcloud {
-  --accent: #38bdf8;
+  --accent: #0369a1;
 }
 
 .tile.donnerskat {
-  --accent: #4ade80;
+  --accent: #15803d;
 }
 
 .tile.kofferpacken {
-  --accent: #fbbf24;
+  --accent: #b45309;
 }
 
 /* Farbiger Schein am Zeiger, sichtbar erst beim Überfahren */
@@ -99,7 +100,7 @@ function follow(event: MouseEvent) {
   opacity: 0;
   background: radial-gradient(
     16rem circle at var(--mx, 50%) var(--my, 0%),
-    color-mix(in srgb, var(--accent) 26%, transparent),
+    color-mix(in srgb, var(--accent) 14%, transparent),
     transparent 70%
   );
   transition: opacity 0.3s ease;
@@ -109,7 +110,9 @@ function follow(event: MouseEvent) {
 .tile:focus-visible {
   transform: translateY(-6px);
   border-color: color-mix(in srgb, var(--accent) 55%, transparent);
-  box-shadow: 0 1.4rem 3rem -1.5rem color-mix(in srgb, var(--accent) 60%, transparent);
+  box-shadow:
+    var(--shadow),
+    0 1.2rem 2.6rem -1.4rem color-mix(in srgb, var(--accent) 70%, transparent);
 }
 
 .tile:hover .glow,
@@ -152,17 +155,17 @@ function follow(event: MouseEvent) {
   width: 0.55rem;
   height: 0.55rem;
   border-radius: 50%;
-  background: #64748b;
+  background: #94a3b8;
 }
 
 .dot.online {
-  background: #4ade80;
-  box-shadow: 0 0 0 0.25rem rgba(74, 222, 128, 0.16);
+  background: #16a34a;
+  box-shadow: 0 0 0 0.25rem rgba(22, 163, 74, 0.18);
 }
 
 .dot.offline {
-  background: #f87171;
-  box-shadow: 0 0 0 0.25rem rgba(248, 113, 113, 0.16);
+  background: #dc2626;
+  box-shadow: 0 0 0 0.25rem rgba(220, 38, 38, 0.18);
 }
 
 kbd {
@@ -173,6 +176,7 @@ kbd {
   padding: 0.25rem 0.45rem;
   border-radius: 0.4rem;
   border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.7);
   color: var(--muted);
 }
 

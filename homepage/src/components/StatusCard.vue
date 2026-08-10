@@ -44,7 +44,7 @@ const LABELS: Record<Status, string> = {
 }
 
 .status {
-  --accent: #4ade80;
+  --accent: #15803d;
 }
 
 .headline {
@@ -61,7 +61,7 @@ const LABELS: Record<Status, string> = {
   width: 0.6rem;
   height: 0.6rem;
   border-radius: 50%;
-  background: #64748b;
+  background: #94a3b8;
   flex-shrink: 0;
 }
 
@@ -112,11 +112,11 @@ li:last-child {
 }
 
 .value.online {
-  color: #4ade80;
+  color: #15803d;
 }
 
 .value.offline {
-  color: #f87171;
+  color: #b91c1c;
 }
 
 .value.checking {
