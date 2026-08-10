@@ -168,6 +168,8 @@ const updatedAt = computed(() =>
         />
       </section>
 
+      <UptimeChart :report="report" />
+
       <section class="card containers">
         <p class="label">
           Docker-Container
@@ -219,8 +221,6 @@ const updatedAt = computed(() =>
           <p class="foot">RAM und CPU pro Container werden jede Minute gemessen.</p>
         </template>
       </section>
-
-      <UptimeChart :report="report" />
     </template>
 
     <p v-else class="notice">Lade Systemwerte …</p>
@@ -348,7 +348,7 @@ h1 {
 
 .containers li {
   display: grid;
-  grid-template-columns: auto minmax(7rem, 1.3fr) minmax(0, 1.2fr) 4.5rem 3.5rem auto;
+  grid-template-columns: 0.6rem minmax(7rem, 1.3fr) minmax(0, 1.2fr) 4.5rem 3.5rem 9.5rem;
   align-items: center;
   gap: 0.7rem;
   padding: 0.55rem 0;
@@ -456,7 +456,7 @@ h1 {
 /* Auf dem Handy passt keine Tabelle – Image und Laufzeit unter den Namen */
 @media (max-width: 44rem) {
   .containers li {
-    grid-template-columns: auto 1fr auto auto;
+    grid-template-columns: 0.6rem 1fr auto auto;
     row-gap: 0.15rem;
   }
 
