@@ -247,6 +247,22 @@ async function exportPdf() {
       <span class="party">🎉</span> Alles eingepackt – gute Reise! <span class="party">🧳</span>
     </p>
 
+    <!-- Über der Liste, damit die Notizen nicht hinter 90 Gegenständen verschwinden -->
+    <section v-if="selectedTrip" class="card notes-card">
+      <div class="notes-head">
+        <h2>Notizen</h2>
+        <span v-if="notesStatus === 'pending'" class="save-state">wird gespeichert …</span>
+        <span v-else-if="notesStatus === 'saved'" class="save-state saved">✓ gespeichert</span>
+      </div>
+      <textarea
+        v-model="notesDraft"
+        rows="4"
+        placeholder="Freitext, z.B. letzte Notizen für Abreisetag, Erinnerungen, Adressen..."
+        @input="onNotesInput"
+        @blur="saveNotes"
+      ></textarea>
+    </section>
+
     <section
       v-for="group in groups"
       :key="group.category.id"
@@ -304,21 +320,6 @@ async function exportPdf() {
           </label>
         </li>
       </ul>
-    </section>
-
-    <section v-if="selectedTrip" class="card notes-card">
-      <div class="notes-head">
-        <h2>Notizen</h2>
-        <span v-if="notesStatus === 'pending'" class="save-state">wird gespeichert …</span>
-        <span v-else-if="notesStatus === 'saved'" class="save-state saved">✓ gespeichert</span>
-      </div>
-      <textarea
-        v-model="notesDraft"
-        rows="4"
-        placeholder="Freitext, z.B. letzte Notizen für Abreisetag, Erinnerungen, Adressen..."
-        @input="onNotesInput"
-        @blur="saveNotes"
-      ></textarea>
     </section>
   </template>
 </template>
