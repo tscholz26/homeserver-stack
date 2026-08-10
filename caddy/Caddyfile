@@ -9,7 +9,7 @@ tshomeserv.duckdns.org {
     # Homepage on the exact path / (no wildcard!) and on /start/, so every
     # other path (/login, /status.php, /remote.php/...) still hits Nextcloud
     handle_path /start/* {
-        reverse_proxy homepage:80
+        reverse_proxy homepage:2607
     }
 
     handle /start {
@@ -17,7 +17,7 @@ tshomeserv.duckdns.org {
     }
 
     handle / {
-        reverse_proxy homepage:80
+        reverse_proxy homepage:2607
     }
 
     handle /home/weather* {

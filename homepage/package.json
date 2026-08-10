@@ -16,7 +16,9 @@
     "format": "prettier --write --experimental-cli src/"
   },
   "dependencies": {
-    "vue": "^3.5.40"
+    "express": "^5.2.1",
+    "vue": "^3.5.40",
+    "vue-router": "^5.2.0"
   },
   "devDependencies": {
     "@tsconfig/node24": "^24.0.4",

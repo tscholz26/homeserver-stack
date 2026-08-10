@@ -4,9 +4,53 @@ services:
     container_name: homepage
     restart: unless-stopped
 
+    environment:
+      - DOCKER_API=http://docker-socket-proxy:2375
+
+    # Nur einzelne Dateien statt ganzer Bäume: /proc als Ganzes würde auch die
+    # Umgebungsvariablen aller Prozesse enthalten (Passwörter), /sys und die
+    # Systemplatte braucht das Dashboard nicht.
+    volumes:
+      - /proc/uptime:/host/proc/uptime:ro
+      - /proc/loadavg:/host/proc/loadavg:ro
+      - /proc/meminfo:/host/proc/meminfo:ro
+      - /proc/stat:/host/proc/stat:ro
+      - /proc/cpuinfo:/host/proc/cpuinfo:ro
+      # /proc/sys/kernel/hostname wäre der Name des Containers (UTS-Namespace)
+      - /etc/hostname:/host/hostname:ro
+      - /proc/sys/kernel/osrelease:/host/proc/osrelease:ro
+      - /etc/os-release:/host/os-release:ro
+      - /sys/devices/virtual/thermal:/host/thermal:ro
+
     networks:
       - caddy-network
+      - docker-api
+
+    depends_on:
+      - docker-socket-proxy
+
+  # Gibt dem Dashboard die Container-Liste, ohne dass die Webseite selbst an den
+  # Docker-Socket kommt (das wäre Root-Zugriff auf den Host). Der Proxy lässt
+  # per Voreinstellung nur lesende Abfragen durch, hier nur /containers.
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    container_name: homepage-docker-api
+    restart: unless-stopped
+
+    environment:
+      - CONTAINERS=1
+      - POST=0
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+    networks:
+      - docker-api
 
 networks:
   caddy-network:
     external: true
+  # Eigenes Netz nur für homepage ↔ Proxy, damit der Proxy nicht im
+  # caddy-network für jeden anderen Container erreichbar ist.
+  docker-api:
+    driver: bridge

@@ -4,10 +4,11 @@ Startseite des Homeservers: ein kleines Dashboard, das begrüßt, den Zustand de
 Dienste zeigt und per Kachel weiterschickt. Erreichbar unter
 `https://tshomeserv.duckdns.org/` und `https://tshomeserv.duckdns.org/start/`.
 
-## Auf der Seite
+## Auf der Startseite
 
 - **Begrüßung** je nach Tageszeit (Morgen/Tag/Abend/Nacht); daneben Uhr und
-  Datum, die auf dem Handy ausgeblendet werden
+  Datum, die auf dem Handy ausgeblendet werden. Ein Klick auf die Uhr öffnet den
+  Google-Kalender
 - **Dienst-Kacheln** für Nextcloud (`/index.php`), Donnerskat (`/skat/`) und
   Kofferpacken (`/koffer/`) – je mit Icon, Status-Punkt und Ziffer. Auf dem
   Handy werden sie zu flachen Zeilen, damit alle drei ohne Scrollen sichtbar
@@ -19,17 +20,68 @@ Dienste zeigt und per Kachel weiterschickt. Erreichbar unter
 - **Sonne**: Auf- und Untergang als Bogen, der den Tagesfortschritt füllt,
   plus „noch x h Tageslicht"
 - **Status**: jeder Dienst wird jede Minute per HEAD angepingt; alles unter
-  HTTP 500 gilt als „läuft" (ein 401 von Nextcloud heißt nur „nicht angemeldet")
+  HTTP 500 gilt als „läuft" (ein 401 von Nextcloud heißt nur „nicht angemeldet").
+  Die Karte führt weiter aufs Dashboard
 
 Neue Dienste kommen als weiterer Eintrag im Array `services` in
 [src/services.ts](src/services.ts) dazu, plus ein Icon-Zweig in
 [src/components/ServiceIcon.vue](src/components/ServiceIcon.vue).
 
+## Dashboard (`/start/dashboard`)
+
+Serverwerte auf einen Blick, alle fünf Sekunden aktualisiert:
+
+- **Läuft seit** – Uptime des Hosts, nicht des Containers
+- **CPU** – Auslastung in Prozent, Load-Average 1/5/15, Temperatur, Modell und
+  Kernzahl
+- **Arbeitsspeicher** – belegt/gesamt, verfügbar, Swap
+- **Speicherplatz** – belegt/gesamt der Systemplatte inklusive Docker-Images
+- **Docker-Container** – Name, Image, Zustand und Laufzeit aller Container
+
+Balken werden ab 70 % gelb und ab 90 % rot (`toneFor` in
+[src/composables/useSystem.ts](src/composables/useSystem.ts)).
+
+### Woher die Werte kommen
+
+`GET /start/api/system` im Express-Server ([server.js](server.js)) liest:
+
+- **Host-Werte** aus einzelnen, read-only gemounteten Dateien
+  (`/proc/uptime`, `/proc/loadavg`, `/proc/meminfo`, `/proc/stat`,
+  `/proc/cpuinfo`, `/etc/hostname`, `/etc/os-release`, Thermal-Zonen).
+  Bewusst **nicht** ganz `/proc`: dort stehen auch die Umgebungsvariablen
+  aller anderen Prozesse, also z. B. Nextclouds Datenbank-Passwort.
+  `/proc/sys/kernel/hostname` funktioniert übrigens nicht – im Container liefert
+  das den Container-Namen, weil die Datei zum UTS-Namespace gehört
+- **Speicherplatz** per `statfs` auf `/` im Container. Der liegt auf dem
+  gleichen Dateisystem wie `/var/lib/docker`, bei Standard-Setup also auf der
+  Systemplatte. Liegt Dockers `data-root` woanders, zeigt die Karte diese Platte
+- **CPU-Auslastung** als Differenz zweier `/proc/stat`-Messungen im 5-Sekunden-
+  Takt; ein einzelner Blick liefert nur Summen seit dem Boot
+- **Container** über den `docker-socket-proxy`, der nur `GET /containers`
+  durchlässt. Der Docker-Socket direkt im Webcontainer wäre Root-Zugriff auf den
+  Host; über den Proxy sind `stop`, `exec`, `/images` und `/info` mit 403 dicht
+
+### Die Seite ist öffentlich
+
+`/start/dashboard` und `/start/api/system` sind aus dem Internet erreichbar wie
+der Rest der Domain – wer die Adresse kennt, sieht Container-Namen, Images und
+die Auslastung. Nur im Heimnetz erlauben geht in der Caddyfile innerhalb von
+`handle_path /start/* { … }`:
+
+```
+@adminExtern {
+    path /dashboard* /api/*
+    not remote_ip private_ranges
+}
+respond @adminExtern 403
+```
+
 ## Technik
 
-- Vue 3 + TypeScript + Vite, Base-Pfad `/start/`
-- Kein Router und kein eigenes Backend: eine statische Seite, ausgeliefert von
-  nginx. Die Live-Daten holt der Browser von den Diensten, die schon laufen
+- Vue 3 + TypeScript + Vite, Base-Pfad `/start/`, vue-router mit den Routen
+  `/` und `/dashboard`
+- Backend: Express ([server.js](server.js)), Port 2607 – liefert `dist`, die
+  System-API und den SPA-Fallback
 - **Helles Design**: warmes Off-White, Karten mit weichem Schatten, dazu vier
   langsam wandernde Pastellschleier und ein feines Korn – alles in CSS
   ([src/assets/base.css](src/assets/base.css)). Farben und Flächen stehen dort
@@ -46,7 +98,7 @@ Pfad `/` ab (`handle /`, kein `/*`) und zusätzlich `/start/*`:
 
 ```
 handle_path /start/* {
-    reverse_proxy homepage:80
+    reverse_proxy homepage:2607
 }
 
 handle /start {
@@ -54,23 +106,28 @@ handle /start {
 }
 
 handle / {
-    reverse_proxy homepage:80
+    reverse_proxy homepage:2607
 }
 ```
 
 Nextcloud-Pfade wie `/login`, `/status.php` oder `/remote.php/dav/` laufen
-unverändert weiter zum `php_fastcgi`-Block.
+unverändert weiter zum `php_fastcgi`-Block. Nach dem Bearbeiten der Caddyfile
+reicht `caddy reload` **nicht**: die Datei ist einzeln gemountet, der Container
+sieht nach einem Editor-Speichern noch die alte. Also
+`docker compose up -d --force-recreate` im Ordner `caddy`.
 
 ## Entwicklung
 
 ```sh
 npm install
-npm run dev           # Vite-Devserver unter /start/
+node server.js        # API auf :2607
+npm run dev           # Vite-Devserver, proxied /start/api → :2607
 npm run test:unit
 ```
 
-Wetter und Status-Pings gehen im Devserver ins Leere (die Pfade liegen auf dem
-Server) – die Karten zeigen dann ihren Fallback.
+Ohne die Host-Mounts (also außerhalb von Docker) stehen die Systemwerte auf
+`null` und das Dashboard zeigt Striche; Wetter und Status-Pings gehen im
+Devserver ins Leere, weil die Pfade auf dem Server liegen.
 
 ## Deployment
 
@@ -78,5 +135,5 @@ Server) – die Karten zeigen dann ihren Fallback.
 docker compose up -d --build
 ```
 
-Der Container `homepage` hängt im `caddy-network`; Caddy leitet `/` und
-`/start/` dorthin.
+Der Container `homepage` hängt im `caddy-network`, dazu kommt
+`homepage-docker-api` (Socket-Proxy) in einem eigenen Netz.

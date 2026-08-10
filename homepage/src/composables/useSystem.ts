@@ -1,0 +1,100 @@
+import { onUnmounted, ref } from 'vue'
+
+export interface Container {
+  name: string
+  image: string
+  state: string
+  status: string
+}
+
+export interface SystemInfo {
+  generatedAt: string
+  host: {
+    hostname: string | null
+    kernel: string | null
+    os: string | null
+    uptimeSeconds: number | null
+  }
+  cpu: {
+    model: string | null
+    cores: number | null
+    load: [number, number, number] | null
+    usagePercent: number | null
+    tempC: number | null
+  }
+  memory: {
+    totalBytes: number
+    availableBytes: number
+    usedBytes: number
+    swapTotalBytes: number | null
+    swapUsedBytes: number | null
+  } | null
+  disk: { totalBytes: number; freeBytes: number; usedBytes: number } | null
+  containers: { running: number; total: number; list: Container[] } | null
+  dockerError: string | null
+}
+
+const REFRESH_MS = 5000
+
+/** Fragt die Systemwerte des Servers ab und hält sie aktuell. */
+export function useSystem() {
+  const info = ref<SystemInfo | null>(null)
+  const failed = ref(false)
+
+  async function load() {
+    try {
+      // Über BASE_URL, damit der Pfad auch von / aus auf /start/api/… zeigt
+      const response = await fetch(`${import.meta.env.BASE_URL}api/system`, { cache: 'no-store' })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      info.value = await response.json()
+      failed.value = false
+    } catch {
+      // Ein Aussetzer soll die schon angezeigten Werte nicht wegräumen
+      failed.value = info.value === null
+    }
+  }
+
+  load()
+  const timer = setInterval(load, REFRESH_MS)
+  onUnmounted(() => clearInterval(timer))
+
+  return { info, failed, reload: load }
+}
+
+export function formatUptime(seconds: number | null): string {
+  if (seconds === null) return '–'
+  const days = Math.floor(seconds / 86400)
+  const hours = Math.floor((seconds % 86400) / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  if (days > 0) return `${days} ${days === 1 ? 'Tag' : 'Tage'}, ${hours} Std`
+  if (hours > 0) return `${hours} Std, ${minutes} min`
+  return `${minutes} min`
+}
+
+export function formatBytes(bytes: number | null): string {
+  if (bytes === null) return '\u2013'
+  const gib = bytes / 1024 ** 3
+  if (gib >= 100) return `${gib.toLocaleString('de-DE', { maximumFractionDigits: 0 })} GB`
+  if (gib >= 1) {
+    return `${gib.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} GB`
+  }
+  return `${(bytes / 1024 ** 2).toLocaleString('de-DE', { maximumFractionDigits: 0 })} MB`
+}
+
+/** „5,5 / 15,5 GB“ – die Einheit steht nur einmal, wenn sie gleich ist. */
+export function formatBytesPair(used: number, total: number): string {
+  const usedText = formatBytes(used)
+  const totalText = formatBytes(total)
+  const usedUnit = usedText.split(' ')[1]
+  const totalUnit = totalText.split(' ')[1]
+  if (usedUnit !== totalUnit) return `${usedText} / ${totalText}`
+  return `${usedText.split(' ')[0]} / ${totalText}`
+}
+
+/** Ab 90 % wird es rot, ab 70 % gelb – gilt für CPU, RAM und Platte gleich. */
+export function toneFor(percent: number | null): 'ok' | 'warn' | 'crit' | 'unknown' {
+  if (percent === null) return 'unknown'
+  if (percent >= 90) return 'crit'
+  if (percent >= 70) return 'warn'
+  return 'ok'
+}

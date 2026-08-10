@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 
 import { flushPromises, mount } from '@vue/test-utils'
-import App from '../App.vue'
+import { createMemoryHistory, createRouter } from 'vue-router'
+import HomeView from '../views/HomeView.vue'
 
 const nowSeconds = Math.floor(Date.now() / 1000)
 
@@ -14,26 +15,43 @@ const weatherPayload = {
 }
 
 // Wetter-API und die Status-Pings der Dienste laufen beide über fetch
-function stubFetch() {
+function stubFetch(overrides: Record<string, Response> = {}) {
   vi.stubGlobal(
     'fetch',
-    vi.fn(async (input: string) =>
-      String(input) === '/home/weather'
-        ? new Response(JSON.stringify(weatherPayload), {
-            status: 200,
-            headers: { 'content-type': 'application/json' },
-          })
-        : new Response(null, { status: 200 }),
-    ),
+    vi.fn(async (input: string) => {
+      const url = String(input)
+      if (overrides[url]) return overrides[url]
+      if (url === '/home/weather') {
+        return new Response(JSON.stringify(weatherPayload), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+      return new Response(null, { status: 200 })
+    }),
   )
+}
+
+// RouterLink in der Status-Karte braucht einen Router
+async function mountHome() {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/', component: HomeView },
+      { path: '/dashboard', component: { template: '<div />' } },
+    ],
+  })
+  router.push('/')
+  await router.isReady()
+  return mount(HomeView, { global: { plugins: [router] } })
 }
 
 afterEach(() => vi.unstubAllGlobals())
 
-describe('App', () => {
+describe('HomeView', () => {
   it('verlinkt jeden Dienst', async () => {
     stubFetch()
-    const wrapper = mount(App)
+    const wrapper = await mountHome()
     await flushPromises()
 
     expect(wrapper.findAll('a.tile').map((tile) => tile.attributes('href'))).toEqual([
@@ -47,7 +65,7 @@ describe('App', () => {
 
   it('zeigt das Wetter und den Status der Dienste', async () => {
     stubFetch()
-    const wrapper = mount(App)
+    const wrapper = await mountHome()
     await flushPromises()
 
     expect(wrapper.text()).toContain('12°C')
@@ -64,17 +82,20 @@ describe('App', () => {
     wrapper.unmount()
   })
 
-  it('meldet einen Dienst als weg, wenn der Proxy 502 liefert', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input: string) =>
-        String(input) === '/skat/'
-          ? new Response(null, { status: 502 })
-          : new Response(null, { status: 200 }),
-      ),
-    )
+  it('führt von der Status-Karte aufs Dashboard und von der Uhr zum Kalender', async () => {
+    stubFetch()
+    const wrapper = await mountHome()
+    await flushPromises()
 
-    const wrapper = mount(App)
+    expect(wrapper.find('a.status').attributes('href')).toBe('/dashboard')
+    expect(wrapper.find('a.clock').attributes('href')).toBe('https://calendar.google.com')
+
+    wrapper.unmount()
+  })
+
+  it('meldet einen Dienst als weg, wenn der Proxy 502 liefert', async () => {
+    stubFetch({ '/skat/': new Response(null, { status: 502 }) })
+    const wrapper = await mountHome()
     await flushPromises()
 
     expect(wrapper.text()).toContain('2 von 3 online')
