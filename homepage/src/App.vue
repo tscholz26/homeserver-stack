@@ -7,12 +7,11 @@ import StatusCard from '@/components/StatusCard.vue'
 import { useClock } from '@/composables/useClock'
 import { useWeather } from '@/composables/useWeather'
 import { useStatus } from '@/composables/useStatus'
-import { services, taglineOfTheDay } from '@/services'
+import { services } from '@/services'
 
 const { now, time, date, greeting } = useClock()
 const { weather, failed } = useWeather()
 const { statuses, onlineCount, allOnline } = useStatus()
-const tagline = taglineOfTheDay()
 
 // 1, 2, 3 springen direkt in den jeweiligen Dienst – die Ziffer steht auf der
 // Kachel. Nicht, wenn gerade getippt wird oder eine Sondertaste mitläuft.
@@ -38,7 +37,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
           Tristans Homeserver
         </p>
         <h1>{{ greeting }}.</h1>
-        <p class="lead">Alles hier läuft auf einem Rechner zuhause. Wo möchtest du hin?</p>
+        <p class="lead">Wo möchtest du hin?</p>
       </div>
 
       <div class="card clock">
@@ -64,14 +63,6 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
         <StatusCard :statuses="statuses" :online-count="onlineCount" :all-online="allOnline" />
       </section>
     </main>
-
-    <footer>
-      <p class="quote">„{{ tagline }}“</p>
-      <p class="keys">
-        <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd>
-        <span>springen direkt los</span>
-      </p>
-    </footer>
   </div>
 </template>
 
@@ -208,50 +199,32 @@ h1 {
   animation-delay: 0.24s;
 }
 
-footer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.8rem;
-  margin-top: 2.2rem;
-  padding-top: 1.2rem;
-  border-top: 1px solid var(--line);
-  font-size: 0.85rem;
-  color: var(--muted);
-}
-
-.quote {
-  margin: 0;
-  font-style: italic;
-}
-
-.keys {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  margin: 0;
-}
-
-kbd {
-  font-family: inherit;
-  font-size: 0.72rem;
-  font-weight: 700;
-  padding: 0.2rem 0.45rem;
-  border-radius: 0.4rem;
-  border: 1px solid var(--line);
-  background: var(--card);
-}
-
-.keys span {
-  margin-left: 0.25rem;
-}
-
-/* Auf dem Handy hat die Uhr keine eigene Spalte mehr */
+/* Auf dem Handy fliegt die Uhr raus – der Platz gehört den Kacheln, die alle
+   drei ohne Scrollen zu sehen sein sollen. */
 @media (max-width: 34rem) {
   .clock {
-    width: 100%;
-    text-align: left;
+    display: none;
+  }
+
+  .hero {
+    margin-bottom: 1.1rem;
+  }
+
+  h1 {
+    font-size: 2.25rem;
+  }
+
+  .lead {
+    margin-top: 0.5rem;
+    font-size: 1rem;
+  }
+
+  .tiles {
+    gap: 0.7rem;
+  }
+
+  .widgets {
+    margin-top: 0.7rem;
   }
 }
 

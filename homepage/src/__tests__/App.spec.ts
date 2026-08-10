@@ -54,6 +54,11 @@ describe('App', () => {
     expect(wrapper.text()).toContain('Leichter regen')
     expect(wrapper.text()).toContain('Alles läuft')
 
+    // Die Wetterkarte führt bewusst nach draußen aufs Regenradar
+    expect(wrapper.find('a.weather').attributes('href')).toBe(
+      'https://www.wetteronline.de/regenradar/leipzig',
+    )
+
     wrapper.unmount()
   })
 

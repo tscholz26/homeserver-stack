@@ -7,12 +7,34 @@ defineProps<{ weather: Weather | null; failed: boolean }>()
 const round = (value: number) => Math.round(value)
 const kmh = (metersPerSecond: number) => Math.round(metersPerSecond * 3.6)
 const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1)
+
+// Die Zahlen kommen aus der eigenen Wetter-API, der Klick führt aber direkt
+// aufs Regenradar von WetterOnline. Die Stadt steht fest, weil die Wetter-API
+// auf dem Server ebenfalls fest auf Leipzig zeigt.
+const RADAR_URL = 'https://www.wetteronline.de/regenradar/leipzig'
 </script>
 
 <template>
-  <!-- Die ausführliche Wetterseite liegt schon unter /home/ auf dem Server -->
-  <a class="card weather" href="/home/">
-    <p class="label">Wetter</p>
+  <a class="card weather" :href="RADAR_URL" target="_blank" rel="noopener noreferrer">
+    <p class="label">
+      Wetter
+      <span class="ext">
+        Regenradar
+        <svg
+          viewBox="0 0 24 24"
+          width="12"
+          height="12"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.4"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M7 17 17 7M9 7h8v8" />
+        </svg>
+      </span>
+    </p>
 
     <template v-if="weather">
       <div class="now">
@@ -34,12 +56,24 @@ const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1
 
 <style scoped>
 .label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
   margin: 0 0 0.7rem;
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--muted);
+}
+
+/* Weist darauf hin, dass es hier vom Server weg nach draußen geht */
+.ext {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--accent);
 }
 
 /* Die Karte wird von der Grid-Reihe auf Höhe gezogen – die Chips setzen sich

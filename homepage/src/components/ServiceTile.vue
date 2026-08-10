@@ -19,19 +19,20 @@ function follow(event: MouseEvent) {
   <a :href="service.href" class="tile" :class="service.id" @mousemove="follow">
     <span class="glow" aria-hidden="true" />
 
-    <span class="head">
-      <span class="badge">
-        <ServiceIcon :id="service.id" :size="26" />
-      </span>
-      <span class="meta">
-        <span class="dot" :class="status" :title="status === 'online' ? 'läuft' : status" />
-        <kbd>{{ shortcut }}</kbd>
-      </span>
+    <span class="badge">
+      <ServiceIcon :id="service.id" :size="26" />
     </span>
 
-    <span class="tagline">{{ service.tagline }}</span>
-    <h2>{{ service.name }}</h2>
-    <p>{{ service.description }}</p>
+    <span class="meta">
+      <span class="dot" :class="status" :title="status === 'online' ? 'läuft' : status" />
+      <kbd>{{ shortcut }}</kbd>
+    </span>
+
+    <span class="text">
+      <span class="tagline">{{ service.tagline }}</span>
+      <h2>{{ service.name }}</h2>
+      <p>{{ service.description }}</p>
+    </span>
 
     <span class="go">
       Öffnen
@@ -57,9 +58,15 @@ function follow(event: MouseEvent) {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
+  /* Bereiche statt Reihenfolge: auf dem Handy wird daraus eine Zeile, ohne
+     dass sich am Markup etwas ändert. */
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas:
+    'badge meta'
+    'text  text'
+    'go    go';
   padding: 1.4rem;
   border: 1px solid var(--line);
   border-radius: 1.5rem;
@@ -110,14 +117,14 @@ function follow(event: MouseEvent) {
   opacity: 1;
 }
 
-.head {
-  display: flex;
-  align-items: start;
-  justify-content: space-between;
-  margin-bottom: 0.9rem;
+.text {
+  grid-area: text;
+  display: block;
+  margin-top: 0.9rem;
 }
 
 .badge {
+  grid-area: badge;
   display: grid;
   place-items: center;
   width: 3.2rem;
@@ -134,6 +141,8 @@ function follow(event: MouseEvent) {
 }
 
 .meta {
+  grid-area: meta;
+  justify-self: end;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -168,6 +177,7 @@ kbd {
 }
 
 .tagline {
+  display: block;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -182,17 +192,17 @@ h2 {
 }
 
 p {
-  margin: 0.3rem 0 1.2rem;
+  margin: 0.3rem 0 0.9rem;
   font-size: 0.92rem;
   line-height: 1.45;
   color: var(--muted);
 }
 
 .go {
+  grid-area: go;
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  margin-top: auto;
   font-size: 0.9rem;
   font-weight: 700;
   color: var(--accent);
@@ -205,6 +215,43 @@ p {
 .tile:hover .go svg,
 .tile:focus-visible .go svg {
   transform: translateX(0.35rem);
+}
+
+/* Auf dem Handy wird die Kachel eine flache Zeile: Icon, Text, Status. So
+   sind alle drei Dienste ohne Scrollen zu sehen. */
+@media (max-width: 34rem) {
+  .tile {
+    grid-template-columns: auto 1fr auto;
+    grid-template-rows: auto;
+    grid-template-areas: 'badge text meta';
+    align-items: center;
+    gap: 0 0.9rem;
+    padding: 1rem 1.1rem;
+  }
+
+  .badge {
+    width: 2.9rem;
+    height: 2.9rem;
+    border-radius: 0.9rem;
+  }
+
+  .text {
+    margin-top: 0;
+    min-width: 0;
+  }
+
+  h2 {
+    font-size: 1.25rem;
+  }
+
+  p {
+    margin: 0.15rem 0 0;
+    font-size: 0.85rem;
+  }
+
+  .go {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
