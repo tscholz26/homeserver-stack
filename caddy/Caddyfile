@@ -6,7 +6,20 @@
 }
 
 tshomeserv.duckdns.org {
-    # Nextcloud (all requests except /home/)
+    # Homepage on the exact path / (no wildcard!) and on /start/, so every
+    # other path (/login, /status.php, /remote.php/...) still hits Nextcloud
+    handle_path /start/* {
+        reverse_proxy homepage:80
+    }
+
+    handle /start {
+        redir * /start/
+    }
+
+    handle / {
+        reverse_proxy homepage:80
+    }
+
     handle /home/weather* {
         reverse_proxy weather-backend:3000
     }
@@ -23,6 +36,7 @@ tshomeserv.duckdns.org {
         reverse_proxy website-weather-api:80
     }
 
+    # Nextcloud (everything else)
     handle {
         root * /var/www/html
         php_fastcgi app:9000
