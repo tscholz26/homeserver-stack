@@ -9,6 +9,8 @@ export interface Weather {
   icon: string
   humidity: number
   wind: number
+  /** Grad, aus der der Wind kommt; fehlt bei Windstille manchmal */
+  windDeg: number | null
   sunrise: Date
   sunset: Date
 }
@@ -18,7 +20,7 @@ interface OwmResponse {
   cod?: number | string
   weather?: { description?: string; icon?: string }[]
   main?: { temp?: number; feels_like?: number; humidity?: number }
-  wind?: { speed?: number }
+  wind?: { speed?: number; deg?: number }
   sys?: { sunrise?: number; sunset?: number }
 }
 
@@ -50,6 +52,7 @@ export function useWeather() {
         icon: current.icon ?? '01d',
         humidity: data.main.humidity ?? 0,
         wind: data.wind?.speed ?? 0,
+        windDeg: typeof data.wind?.deg === 'number' ? data.wind.deg : null,
         sunrise: new Date((data.sys?.sunrise ?? 0) * 1000),
         sunset: new Date((data.sys?.sunset ?? 0) * 1000),
       }

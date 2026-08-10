@@ -8,6 +8,33 @@ const round = (value: number) => Math.round(value)
 const kmh = (metersPerSecond: number) => Math.round(metersPerSecond * 3.6)
 const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1)
 
+// `wind.deg` der API sagt, aus welcher Richtung der Wind kommt – daraus die
+// übliche 16-teilige Windrose.
+const COMPASS = [
+  'N',
+  'NNO',
+  'NO',
+  'ONO',
+  'O',
+  'OSO',
+  'SO',
+  'SSO',
+  'S',
+  'SSW',
+  'SW',
+  'WSW',
+  'W',
+  'WNW',
+  'NW',
+  'NNW',
+]
+
+function windLabel(metersPerSecond: number, degrees: number | null) {
+  const speed = `${kmh(metersPerSecond)} km/h`
+  if (degrees === null) return speed
+  return `${speed} aus ${COMPASS[Math.round(degrees / 22.5) % 16]}`
+}
+
 // Die Zahlen kommen aus der eigenen Wetter-API, der Klick führt aber direkt
 // aufs Regenradar von WetterOnline. Die Stadt steht fest, weil die Wetter-API
 // auf dem Server ebenfalls fest auf Leipzig zeigt.
@@ -44,8 +71,8 @@ const RADAR_URL = 'https://www.wetteronline.de/regenradar/leipzig'
       <p class="desc">{{ capitalize(weather.description) }} · {{ weather.city }}</p>
       <ul class="chips">
         <li>gefühlt {{ round(weather.feelsLike) }}°</li>
-        <li>{{ weather.humidity }}% Luft</li>
-        <li>{{ kmh(weather.wind) }} km/h</li>
+        <li>{{ weather.humidity }} % Luftfeuchtigkeit</li>
+        <li>{{ windLabel(weather.wind, weather.windDeg) }}</li>
       </ul>
     </template>
 

@@ -9,7 +9,7 @@ const weatherPayload = {
   name: 'Leipzig',
   weather: [{ description: 'leichter regen', icon: '10d' }],
   main: { temp: 12.4, feels_like: 11.2, humidity: 80 },
-  wind: { speed: 3 },
+  wind: { speed: 3, deg: 315 },
   sys: { sunrise: nowSeconds - 3600, sunset: nowSeconds + 3600 },
 }
 
@@ -52,6 +52,8 @@ describe('App', () => {
 
     expect(wrapper.text()).toContain('12°C')
     expect(wrapper.text()).toContain('Leichter regen')
+    expect(wrapper.text()).toContain('80 % Luftfeuchtigkeit')
+    expect(wrapper.text()).toContain('11 km/h aus NW')
     expect(wrapper.text()).toContain('Alles läuft')
 
     // Die Wetterkarte führt bewusst nach draußen aufs Regenradar
