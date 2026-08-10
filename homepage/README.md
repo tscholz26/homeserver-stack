@@ -1,22 +1,37 @@
 # Homepage
 
-Startseite des Homeservers: begrüßt Besucher und schickt sie per Kachel zum
-gewünschten Dienst. Erreichbar unter `https://tshomeserv.duckdns.org/` und
-`https://tshomeserv.duckdns.org/start/`.
+Startseite des Homeservers: ein kleines Dashboard, das begrüßt, den Zustand der
+Dienste zeigt und per Kachel weiterschickt. Erreichbar unter
+`https://tshomeserv.duckdns.org/` und `https://tshomeserv.duckdns.org/start/`.
 
-## Funktionen
+## Auf der Seite
 
-- **Große Kacheln** für Nextcloud (`/index.php`), Donnerskat (`/skat/`) und
-  Kofferpacken (`/koffer/`), je mit Icon und kurzer Beschreibung
-- **Eine Spalte auf dem Handy**, mehrere Kacheln nebeneinander auf breiten
-  Bildschirmen – neue Dienste kommen als weiterer Eintrag im Array `services`
-  in [src/App.vue](src/App.vue) dazu
-- Optik passend zu Donnerskat und Kofferpacken (dunkler Verlauf, goldener Akzent)
+- **Begrüßung** je nach Tageszeit (Morgen/Tag/Abend/Nacht) mit laufender Uhr
+  und Datum
+- **Dienst-Kacheln** für Nextcloud (`/index.php`), Donnerskat (`/skat/`) und
+  Kofferpacken (`/koffer/`) – je mit Icon, Status-Punkt und Ziffer
+- **Tastenkürzel**: `1`, `2`, `3` springen direkt in den jeweiligen Dienst
+- **Wetter** live aus der Wetter-API des Servers (`/home/weather`), mit eigenen
+  Icons statt der Bilder von openweathermap.org
+- **Sonne**: Auf- und Untergang als Bogen, der den Tagesfortschritt füllt,
+  plus „noch x h Tageslicht"
+- **Status**: jeder Dienst wird jede Minute per HEAD angepingt; alles unter
+  HTTP 500 gilt als „läuft" (ein 401 von Nextcloud heißt nur „nicht angemeldet")
+- **Spruch des Tages**, wechselt täglich aus einer Liste in
+  [src/services.ts](src/services.ts)
+
+Neue Dienste kommen als weiterer Eintrag im Array `services` in
+[src/services.ts](src/services.ts) dazu, plus ein Icon-Zweig in
+[src/components/ServiceIcon.vue](src/components/ServiceIcon.vue).
 
 ## Technik
 
 - Vue 3 + TypeScript + Vite, Base-Pfad `/start/`
-- Kein Router und kein Backend: eine statische Seite, ausgeliefert von nginx
+- Kein Router und kein eigenes Backend: eine statische Seite, ausgeliefert von
+  nginx. Die Live-Daten holt der Browser von den Diensten, die schon laufen
+- Hintergrund sind drei wandernde Farbschleier plus Korn-Overlay, komplett in
+  CSS ([src/assets/base.css](src/assets/base.css)); `prefers-reduced-motion`
+  schaltet alle Animationen ab
 - Alle Assets liegen unter `/start/`, damit sie sich nicht mit Nextcloud unter
   `/` kreuzen – so kann die Seite unter beiden Pfaden ausgeliefert werden
 
@@ -32,7 +47,7 @@ handle_path /start/* {
 }
 
 handle /start {
-    redir /start/
+    redir * /start/
 }
 
 handle / {
@@ -50,6 +65,9 @@ npm install
 npm run dev           # Vite-Devserver unter /start/
 npm run test:unit
 ```
+
+Wetter und Status-Pings gehen im Devserver ins Leere (die Pfade liegen auf dem
+Server) – die Karten zeigen dann ihren Fallback.
 
 ## Deployment
 
