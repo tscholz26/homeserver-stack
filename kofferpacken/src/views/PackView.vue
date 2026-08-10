@@ -47,7 +47,16 @@ const groups = computed(() =>
       const all = store.itemsByCategory.value[category.id] ?? []
       const relevant = all.filter((i) => !skippedSet.value.has(i.id))
       const missing = relevant.filter((i) => !packedSet.value.has(i.id))
-      const visible = chooseMode.value ? all : onlyMissing.value ? missing : relevant
+      const base = chooseMode.value ? all : onlyMissing.value ? missing : relevant
+      // Eingepacktes sinkt ans Ende der Kategorie, damit oben steht, was noch
+      // fehlt. Innerhalb beider Blöcke bleibt die Reihenfolge der Packliste,
+      // ein wieder enthakter Gegenstand springt also an seinen Platz zurück.
+      const visible = chooseMode.value
+        ? base
+        : [
+            ...base.filter((i) => !packedSet.value.has(i.id)),
+            ...base.filter((i) => packedSet.value.has(i.id)),
+          ]
       return {
         category,
         packedCount: relevant.length - missing.length,
