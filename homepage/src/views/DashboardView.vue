@@ -57,20 +57,23 @@ const cpu = computed(() => {
   }
 })
 
-// RAPL misst nur das CPU-Paket. Das ehrlich hinschreiben, statt eine Zahl für
-// den ganzen Rechner zu behaupten, die der Zähler nicht kennt.
+// RAPL misst nur CPU und Speichercontroller. Der Rest des Rechners hat keinen
+// Zähler, deshalb steht hier eine Schätzung – und zwar sichtbar als solche.
+const watt = (value: number) =>
+  value.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+
 const power = computed(() => {
   const values = info.value?.power
   if (!values) return null
+  const efficiency = Math.round(values.psuEfficiency * 100)
   return {
     value:
-      values.watts === null
-        ? 'messe …'
-        : `${values.watts.toLocaleString('de-DE', {
-            minimumFractionDigits: 1,
-            maximumFractionDigits: 1,
-          })} W`,
-    hint: `Nur CPU-Paket (${values.zone ?? 'RAPL'}).\nOhne Platten, Board und Netzteil.`,
+      values.estimatedTotalWatts === null ? 'messe …' : `≈ ${watt(values.estimatedTotalWatts)} W`,
+    hint:
+      `Gemessen: ${values.cpuWatts === null ? '–' : watt(values.cpuWatts)} W ` +
+      `(${values.zones.join(' + ')})\n` +
+      `Geschätzt: + ${values.baselineWatts} W für Board, Platten und Lüfter, ` +
+      `Netzteil ${efficiency} %`,
   }
 })
 

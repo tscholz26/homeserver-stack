@@ -32,7 +32,13 @@ const systemPayload = {
     system: { totalBytes: 54 * GIB, usedBytes: 49 * GIB, freeBytes: 2 * GIB },
     data: { totalBytes: 916 * GIB, usedBytes: 205 * GIB, freeBytes: 666 * GIB },
   },
-  power: { watts: 12.4, zone: 'package-0' },
+  power: {
+    cpuWatts: 12.4,
+    estimatedTotalWatts: 36.8,
+    baselineWatts: 20,
+    psuEfficiency: 0.88,
+    zones: ['package-0', 'dram'],
+  },
   containers: {
     running: 2,
     total: 3,
@@ -147,14 +153,18 @@ describe('DashboardView', () => {
     wrapper.unmount()
   })
 
-  it('nennt beim Stromverbrauch dazu, dass nur das CPU-Paket gemessen wird', async () => {
+  it('zeigt den geschätzten Gesamtverbrauch und dazu den gemessenen Anteil', async () => {
     stubApi()
     const wrapper = await mountDashboard()
     await flushPromises()
 
     const power = wrapper.findAll('.meter').find((meter) => meter.text().includes('Stromverbrauch'))
-    expect(power?.text()).toContain('12,4 W')
-    expect(power?.text()).toContain('CPU-Paket')
+    // Die Schätzung steht groß da, mit Tilde als Hinweis darauf
+    expect(power?.text()).toContain('≈ 36,8 W')
+    // und der gemessene Teil mit seinen Zonen daneben
+    expect(power?.text()).toContain('Gemessen: 12,4 W')
+    expect(power?.text()).toContain('package-0 + dram')
+    expect(power?.text()).toContain('20 W für Board, Platten und Lüfter')
 
     wrapper.unmount()
   })

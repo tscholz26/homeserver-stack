@@ -136,30 +136,58 @@ let cpuUsagePercent = null
 
 // ── Stromverbrauch ───────────────────────────────────────────────────────────
 // Intel RAPL zählt verbrauchte Mikrojoule hoch; Watt ist die Differenz pro
-// Sekunde. Das ist ausdrücklich nur das CPU-Paket, nicht der ganze Rechner –
-// Platten, Board und Netzteilverluste sieht der Zähler nicht.
-function raplZone() {
+// Sekunde. Gemessen werden das CPU-Paket und – falls vorhanden – der
+// Speichercontroller. `core` und `uncore` bleiben außen vor, die stecken schon
+// im Paketwert.
+//
+// Alles andere im Rechner (Board, Chipsatz, Platten, Lüfter, Netzwerk) hat
+// keinen Zähler. Dafür kommt eine Grundlast dazu, und zum Schluss teilen wir
+// durch den Netzteil-Wirkungsgrad, weil an der Dose mehr ankommt als die
+// Bauteile ziehen. Beide Werte sind Schätzungen und über die Umgebung
+// einstellbar – mit einem Steckdosenmessgerät lässt sich das kalibrieren.
+const BASE_POWER_WATTS = Number(process.env.BASE_POWER_WATTS ?? 20)
+const PSU_EFFICIENCY = Number(process.env.PSU_EFFICIENCY ?? 0.88)
+
+function raplZones() {
+  const zones = []
   try {
     const packages = readdirSync(POWERCAP).filter((name) => /^intel-rapl:\d+$/.test(name))
-    return packages[0] ? join(POWERCAP, packages[0]) : null
+    for (const pkg of packages) {
+      const base = join(POWERCAP, pkg)
+      zones.push({
+        path: base,
+        name: read(join(base, 'name'))?.trim() ?? pkg,
+        max: Number(read(join(base, 'max_energy_range_uj'))),
+      })
+      try {
+        const subs = readdirSync(base).filter((name) => /^intel-rapl:\d+:\d+$/.test(name))
+        for (const sub of subs) {
+          const path = join(base, sub)
+          const name = read(join(path, 'name'))?.trim()
+          if (name === 'dram') {
+            zones.push({ path, name, max: Number(read(join(path, 'max_energy_range_uj'))) })
+          }
+        }
+      } catch {
+        // Unterzonen sind optional
+      }
+    }
   } catch {
-    return null
+    // Kein RAPL vorhanden – dann bleibt die Karte leer
   }
+  return zones
 }
 
-const RAPL = raplZone()
-const RAPL_NAME = RAPL ? read(join(RAPL, 'name'))?.trim() : null
-const RAPL_MAX = RAPL ? Number(read(join(RAPL, 'max_energy_range_uj'))) : null
+const RAPL_ZONES = raplZones()
 
-function energyMicrojoules() {
-  if (!RAPL) return null
-  const value = Number(read(join(RAPL, 'energy_uj')))
+function energyOf(zone) {
+  const value = Number(read(join(zone.path, 'energy_uj')))
   return Number.isFinite(value) ? value : null
 }
 
-let previousEnergy = energyMicrojoules()
+let previousEnergy = new Map(RAPL_ZONES.map((zone) => [zone.path, energyOf(zone)]))
 let previousEnergyAt = Date.now()
-let watts = null
+let cpuWatts = null
 
 setInterval(() => {
   const current = cpuTicks()
@@ -170,16 +198,25 @@ setInterval(() => {
   }
   previousTicks = current
 
-  const energy = energyMicrojoules()
   const now = Date.now()
-  if (energy !== null && previousEnergy !== null) {
-    // Der Zähler läuft irgendwann über und beginnt wieder bei 0
-    let delta = energy - previousEnergy
-    if (delta < 0 && Number.isFinite(RAPL_MAX)) delta += RAPL_MAX
-    const seconds = (now - previousEnergyAt) / 1000
-    if (delta >= 0 && seconds > 0) watts = Math.round((delta / 1_000_000 / seconds) * 10) / 10
+  const seconds = (now - previousEnergyAt) / 1000
+  let sum = 0
+  let measured = false
+  for (const zone of RAPL_ZONES) {
+    const energy = energyOf(zone)
+    const before = previousEnergy.get(zone.path)
+    if (energy !== null && before !== null && before !== undefined && seconds > 0) {
+      // Der Zähler läuft irgendwann über und beginnt wieder bei 0
+      let delta = energy - before
+      if (delta < 0 && Number.isFinite(zone.max)) delta += zone.max
+      if (delta >= 0) {
+        sum += delta / 1_000_000 / seconds
+        measured = true
+      }
+    }
+    previousEnergy.set(zone.path, energy)
   }
-  previousEnergy = energy
+  if (measured) cpuWatts = Math.round(sum * 10) / 10
   previousEnergyAt = now
 }, 5000)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -422,7 +459,19 @@ app.get('/api/system', async (_req, res) => {
     cpu: { model, cores, load: loadAverage(), usagePercent: cpuUsagePercent, tempC: temperature() },
     memory: memory(),
     disks: disks(),
-    power: RAPL ? { watts, zone: RAPL_NAME } : null,
+    power:
+      RAPL_ZONES.length > 0
+        ? {
+            cpuWatts,
+            estimatedTotalWatts:
+              cpuWatts === null
+                ? null
+                : Math.round(((cpuWatts + BASE_POWER_WATTS) / PSU_EFFICIENCY) * 10) / 10,
+            baselineWatts: BASE_POWER_WATTS,
+            psuEfficiency: PSU_EFFICIENCY,
+            zones: RAPL_ZONES.map((zone) => zone.name),
+          }
+        : null,
     containers,
     dockerError,
   })

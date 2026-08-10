@@ -40,8 +40,17 @@ export interface SystemInfo {
     swapUsedBytes: number | null
   } | null
   disks: { system: DiskInfo | null; data: DiskInfo | null }
-  /** Nur das CPU-Paket (Intel RAPL), nicht der ganze Rechner */
-  power: { watts: number | null; zone: string | null } | null
+  /**
+   * `cpuWatts` ist gemessen (Intel RAPL), `estimatedTotalWatts` rechnet die
+   * Grundlast des übrigen Rechners und den Netzteil-Wirkungsgrad dazu.
+   */
+  power: {
+    cpuWatts: number | null
+    estimatedTotalWatts: number | null
+    baselineWatts: number
+    psuEfficiency: number
+    zones: string[]
+  } | null
   containers: { running: number; total: number; list: Container[] } | null
   dockerError: string | null
 }
