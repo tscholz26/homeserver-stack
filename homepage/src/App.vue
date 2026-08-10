@@ -40,10 +40,32 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
         <p class="lead">Wo möchtest du hin?</p>
       </div>
 
-      <div class="card clock">
+      <!-- Die Uhr führt raus zum Google-Kalender -->
+      <a
+        class="card clock"
+        href="https://calendar.google.com"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <p class="label">
+          Kalender
+          <svg
+            viewBox="0 0 24 24"
+            width="12"
+            height="12"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.4"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M7 17 17 7M9 7h8v8" />
+          </svg>
+        </p>
         <p class="time">{{ time }}</p>
         <p class="date">{{ date }}</p>
-      </div>
+      </a>
     </header>
 
     <main>
@@ -137,8 +159,22 @@ h1 {
 }
 
 .clock {
+  --accent: var(--violet);
   text-align: right;
   min-width: 12rem;
+}
+
+.clock .label {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  margin: 0 0 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
 }
 
 .time {
