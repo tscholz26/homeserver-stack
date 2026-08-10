@@ -34,9 +34,17 @@ Serverwerte auf einen Blick, alle fünf Sekunden aktualisiert:
 - **Läuft seit** – Uptime des Hosts, nicht des Containers
 - **CPU** – Auslastung in Prozent, Load-Average 1/5/15, Temperatur, Modell und
   Kernzahl
+- **Stromverbrauch** – Watt des CPU-Pakets aus dem RAPL-Energiezähler.
+  Ausdrücklich **nicht** der ganze Rechner: Platten, Board und Netzteilverluste
+  kennt der Zähler nicht, ein Gesamtwert wäre geraten
 - **Arbeitsspeicher** – belegt/gesamt, verfügbar, Swap
-- **Speicherplatz** – belegt/gesamt der Systemplatte inklusive Docker-Images
-- **Docker-Container** – Name, Image, Zustand und Laufzeit aller Container
+- **Systemplatte** – belegt/gesamt von `/`, inklusive Docker-Images
+- **Datenplatte** – belegt/gesamt von `/dev/sda1` (`/home/tristans/data`), wo die
+  Nextcloud-Daten liegen
+- **Docker-Container** – Name, Image, Zustand, Laufzeit sowie RAM, CPU,
+  Neustart-Zähler und Healthcheck-Status je Container
+- **Verfügbarkeit** – Zeitleiste der letzten 24 Stunden pro Dienst mit
+  Verfügbarkeit in Prozent
 
 Balken werden ab 70 % gelb und ab 90 % rot (`toneFor` in
 [src/composables/useSystem.ts](src/composables/useSystem.ts)).
@@ -57,9 +65,30 @@ Balken werden ab 70 % gelb und ab 90 % rot (`toneFor` in
   Systemplatte. Liegt Dockers `data-root` woanders, zeigt die Karte diese Platte
 - **CPU-Auslastung** als Differenz zweier `/proc/stat`-Messungen im 5-Sekunden-
   Takt; ein einzelner Blick liefert nur Summen seit dem Boot
+- **Stromverbrauch** aus `/sys/devices/virtual/powercap/intel-rapl/intel-rapl:0/energy_uj`.
+  Der Zähler läuft in Mikrojoule hoch, Watt ist die Differenz pro Sekunde
+  (Überlauf bei `max_energy_range_uj` wird abgefangen). Die Datei ist
+  root-only (0400); im Container läuft der Server als root, deshalb geht es.
+  Gemountet wird das `powercap`-Verzeichnis, weil die Volume-Kurzschreibweise an
+  den Doppelpunkten im Zonenpfad scheitert
+- **Datenplatte** per `statfs` auf `/home/tristans/data/.dashboard-df` – ein
+  leeres Verzeichnis, das nur dafür existiert. So kommt der Container an die
+  Belegung von `/dev/sda1`, ohne die Nextcloud-Daten sehen zu können
 - **Container** über den `docker-socket-proxy`, der nur `GET /containers`
   durchlässt. Der Docker-Socket direkt im Webcontainer wäre Root-Zugriff auf den
-  Host; über den Proxy sind `stop`, `exec`, `/images` und `/info` mit 403 dicht
+  Host; über den Proxy sind `stop`, `exec`, `/images` und `/info` mit 403 dicht.
+  RAM, CPU, Neustarts und Health kommen aus `/containers/<id>/json` und
+  `/containers/<id>/stats`. Ein stats-Abruf dauert rund eine Sekunde (Docker
+  misst intern zweimal), deshalb sammelt ein Hintergrundlauf die Werte einmal
+  pro Minute und die API gibt den letzten Stand aus
+- **Verfügbarkeit**: alle 60 Sekunden geht eine HTTPS-Anfrage über Caddy an
+  `/status.php`, `/skat/` und `/koffer/` – mit dem echten Hostnamen im SNI, also
+  genau der Weg eines Besuchers, womit auch ein Proxy-Problem auffällt. Alles
+  unter HTTP 500 gilt als „läuft". Die Messpunkte landen in
+  `data/uptime.json` (atomar geschrieben, 48 Stunden Vorhaltezeit) und werden
+  vom Server zu 96 Abschnitten zusammengefasst.
+  **Der Verlauf beginnt mit dem ersten Start dieser Version** – rückwirkend gibt
+  es keine Daten, die Leiste füllt sich erst über den Tag
 
 ### Die Seite ist öffentlich
 

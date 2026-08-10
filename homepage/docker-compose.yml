@@ -21,6 +21,14 @@ services:
       - /proc/sys/kernel/osrelease:/host/proc/osrelease:ro
       - /etc/os-release:/host/os-release:ro
       - /sys/devices/virtual/thermal:/host/thermal:ro
+      # RAPL-Energiezähler für den Stromverbrauch (Pfad ohne Doppelpunkte, die
+      # kann der Volume-Kurzschreibweise nicht verarbeiten)
+      - /sys/devices/virtual/powercap:/host/powercap:ro
+      # Leeres Verzeichnis auf der Datenplatte: nur damit statfs deren Belegung
+      # messen kann, ohne dass die Nextcloud-Daten im Container liegen
+      - /home/tristans/data/.dashboard-df:/host/datadisk:ro
+      # Verlauf der Dienst-Verfügbarkeit, soll Rebuilds überleben
+      - ./data:/app/data
 
     networks:
       - caddy-network

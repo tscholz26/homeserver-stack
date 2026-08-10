@@ -5,6 +5,16 @@ export interface Container {
   image: string
   state: string
   status: string
+  restarts: number | null
+  health: string | null
+  memoryBytes: number | null
+  cpuPercent: number | null
+}
+
+export interface DiskInfo {
+  totalBytes: number
+  freeBytes: number
+  usedBytes: number
 }
 
 export interface SystemInfo {
@@ -29,7 +39,9 @@ export interface SystemInfo {
     swapTotalBytes: number | null
     swapUsedBytes: number | null
   } | null
-  disk: { totalBytes: number; freeBytes: number; usedBytes: number } | null
+  disks: { system: DiskInfo | null; data: DiskInfo | null }
+  /** Nur das CPU-Paket (Intel RAPL), nicht der ganze Rechner */
+  power: { watts: number | null; zone: string | null } | null
   containers: { running: number; total: number; list: Container[] } | null
   dockerError: string | null
 }
@@ -59,6 +71,39 @@ export function useSystem() {
   onUnmounted(() => clearInterval(timer))
 
   return { info, failed, reload: load }
+}
+
+export type UptimeState = 'up' | 'down' | 'partial' | 'none'
+
+export interface UptimeReport {
+  recordedSince: string
+  windowHours: number
+  sampleCount: number
+  intervalSeconds: number
+  services: { id: string; states: UptimeState[]; availability: number | null }[]
+}
+
+const UPTIME_REFRESH_MS = 60_000
+
+/** Der Verfügbarkeits-Verlauf ändert sich langsam, also seltener abfragen. */
+export function useUptime() {
+  const report = ref<UptimeReport | null>(null)
+
+  async function load() {
+    try {
+      const response = await fetch(`${import.meta.env.BASE_URL}api/uptime`, { cache: 'no-store' })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      report.value = await response.json()
+    } catch {
+      // Bleibt beim letzten Stand; die Karte zeigt dann einfach nichts Neues
+    }
+  }
+
+  load()
+  const timer = setInterval(load, UPTIME_REFRESH_MS)
+  onUnmounted(() => clearInterval(timer))
+
+  return { report }
 }
 
 export function formatUptime(seconds: number | null): string {

@@ -37,3 +37,7 @@ __screenshots__/
 
 # Vite
 *.timestamp-*-*.mjs
+
+# Aufgezeichneter Verfügbarkeits-Verlauf
+data/uptime.json
+data/uptime.json.tmp

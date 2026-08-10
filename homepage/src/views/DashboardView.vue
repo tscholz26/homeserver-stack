@@ -1,9 +1,18 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import StatMeter from '@/components/StatMeter.vue'
-import { formatBytes, formatBytesPair, formatUptime, useSystem } from '@/composables/useSystem'
+import UptimeChart from '@/components/UptimeChart.vue'
+import {
+  formatBytes,
+  formatBytesPair,
+  formatUptime,
+  useSystem,
+  useUptime,
+  type DiskInfo,
+} from '@/composables/useSystem'
 
 const { info, failed, reload } = useSystem()
+const { report } = useUptime()
 
 const percent = (used: number, total: number) =>
   total > 0 ? Math.round((used / total) * 100) : null
@@ -22,15 +31,19 @@ const memory = computed(() => {
   }
 })
 
-const disk = computed(() => {
-  const values = info.value?.disk
+function diskCard(values: DiskInfo | null | undefined, what: string) {
   if (!values) return null
   return {
     value: formatBytesPair(values.usedBytes, values.totalBytes),
     percent: percent(values.usedBytes, values.totalBytes),
-    hint: `${formatBytes(values.freeBytes)} frei – Systemplatte inklusive Docker-Images`,
+    hint: `${formatBytes(values.freeBytes)} frei – ${what}`,
   }
-})
+}
+
+const systemDisk = computed(() =>
+  diskCard(info.value?.disks.system, 'Systemplatte mit Docker-Images'),
+)
+const dataDisk = computed(() => diskCard(info.value?.disks.data, 'Datenplatte für Nextcloud'))
 
 const cpu = computed(() => {
   const values = info.value?.cpu
@@ -41,6 +54,23 @@ const cpu = computed(() => {
     value: values.usagePercent === null ? 'messe …' : `${values.usagePercent} %`,
     percent: values.usagePercent,
     hint: `${load}${temp}\n${values.model ?? ''}${values.cores ? ` · ${values.cores} Kerne` : ''}`,
+  }
+})
+
+// RAPL misst nur das CPU-Paket. Das ehrlich hinschreiben, statt eine Zahl für
+// den ganzen Rechner zu behaupten, die der Zähler nicht kennt.
+const power = computed(() => {
+  const values = info.value?.power
+  if (!values) return null
+  return {
+    value:
+      values.watts === null
+        ? 'messe …'
+        : `${values.watts.toLocaleString('de-DE', {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1,
+          })} W`,
+    hint: `Nur CPU-Paket (${values.zone ?? 'RAPL'}).\nOhne Platten, Board und Netzteil.`,
   }
 })
 
@@ -109,6 +139,13 @@ const updatedAt = computed(() =>
           :hint="cpu.hint"
         />
         <StatMeter
+          v-if="power"
+          label="Stromverbrauch"
+          :value="power.value"
+          :percent="null"
+          :hint="power.hint"
+        />
+        <StatMeter
           v-if="memory"
           label="Arbeitsspeicher"
           :value="memory.value"
@@ -116,11 +153,18 @@ const updatedAt = computed(() =>
           :hint="memory.hint"
         />
         <StatMeter
-          v-if="disk"
-          label="Speicherplatz"
-          :value="disk.value"
-          :percent="disk.percent"
-          :hint="disk.hint"
+          v-if="systemDisk"
+          label="Systemplatte"
+          :value="systemDisk.value"
+          :percent="systemDisk.percent"
+          :hint="systemDisk.hint"
+        />
+        <StatMeter
+          v-if="dataDisk"
+          label="Datenplatte"
+          :value="dataDisk.value"
+          :percent="dataDisk.percent"
+          :hint="dataDisk.hint"
         />
       </section>
 
@@ -136,15 +180,47 @@ const updatedAt = computed(() =>
           Container-Liste nicht abrufbar: {{ info.dockerError }}
         </p>
 
-        <ul v-else-if="info.containers">
-          <li v-for="container in info.containers.list" :key="container.name">
-            <span class="dot" :class="container.state" />
-            <span class="name">{{ container.name }}</span>
-            <span class="image">{{ container.image }}</span>
-            <span class="status">{{ container.status }}</span>
-          </li>
-        </ul>
+        <template v-else-if="info.containers">
+          <ul>
+            <li class="head">
+              <span />
+              <span>Name</span>
+              <span>Image</span>
+              <span class="num">RAM</span>
+              <span class="num">CPU</span>
+              <span class="status">Laufzeit</span>
+            </li>
+            <li v-for="container in info.containers.list" :key="container.name">
+              <span class="dot" :class="container.state" />
+              <span class="name">
+                {{ container.name }}
+                <span v-if="container.health" class="badge" :class="container.health">
+                  {{ container.health === 'healthy' ? 'gesund' : container.health }}
+                </span>
+                <span v-if="container.restarts" class="badge warn">
+                  {{ container.restarts }}× neu gestartet
+                </span>
+              </span>
+              <span class="image">{{ container.image }}</span>
+              <span class="num">{{
+                container.memoryBytes === null ? '–' : formatBytes(container.memoryBytes)
+              }}</span>
+              <span class="num">{{
+                container.cpuPercent === null
+                  ? '–'
+                  : `${container.cpuPercent.toLocaleString('de-DE', {
+                      maximumFractionDigits: 1,
+                    })} %`
+              }}</span>
+              <span class="status">{{ container.status }}</span>
+            </li>
+          </ul>
+
+          <p class="foot">RAM und CPU pro Container werden jede Minute gemessen.</p>
+        </template>
       </section>
+
+      <UptimeChart :report="report" />
     </template>
 
     <p v-else class="notice">Lade Systemwerte …</p>
@@ -235,9 +311,10 @@ h1 {
   }
 }
 
+/* 17rem, damit die sechs Karten 3+3 stehen statt 4+2 */
 .stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
   gap: 1rem;
 }
 
@@ -271,7 +348,7 @@ h1 {
 
 .containers li {
   display: grid;
-  grid-template-columns: auto minmax(7rem, 1fr) minmax(0, 1.4fr) auto;
+  grid-template-columns: auto minmax(7rem, 1.3fr) minmax(0, 1.2fr) 4.5rem 3.5rem auto;
   align-items: center;
   gap: 0.7rem;
   padding: 0.55rem 0;
@@ -279,9 +356,17 @@ h1 {
   font-size: 0.88rem;
 }
 
+.containers li.head {
+  padding-top: 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 .containers li:last-child {
   border-bottom: 0;
-  padding-bottom: 0;
 }
 
 .dot {
@@ -310,15 +395,49 @@ h1 {
   overflow-wrap: anywhere;
 }
 
+.badge {
+  display: inline-block;
+  margin-left: 0.35rem;
+  border-radius: 999px;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+  border: 1px solid color-mix(in srgb, #15803d 35%, transparent);
+  background: color-mix(in srgb, #15803d 10%, transparent);
+  color: #15803d;
+}
+
+.badge.warn,
+.badge.unhealthy,
+.badge.starting {
+  border-color: color-mix(in srgb, #b45309 40%, transparent);
+  background: color-mix(in srgb, #b45309 10%, transparent);
+  color: #b45309;
+}
+
 .image,
-.status {
+.status,
+.num {
   color: var(--muted);
   overflow-wrap: anywhere;
+}
+
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .status {
   text-align: right;
   white-space: nowrap;
+}
+
+.foot {
+  margin: 0.9rem 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
 }
 
 .notice {
@@ -334,16 +453,24 @@ h1 {
   margin-top: 0.5rem;
 }
 
-/* Auf dem Handy passt keine Tabelle – Status unter den Namen */
-@media (max-width: 34rem) {
+/* Auf dem Handy passt keine Tabelle – Image und Laufzeit unter den Namen */
+@media (max-width: 44rem) {
   .containers li {
-    grid-template-columns: auto 1fr;
+    grid-template-columns: auto 1fr auto auto;
     row-gap: 0.15rem;
   }
 
-  .image,
+  .containers li.head {
+    display: none;
+  }
+
+  .image {
+    grid-column: 2 / -1;
+    font-size: 0.8rem;
+  }
+
   .status {
-    grid-column: 2;
+    grid-column: 2 / -1;
     text-align: left;
     font-size: 0.8rem;
     white-space: normal;
