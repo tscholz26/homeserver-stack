@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import type { ServiceId } from '@/services'
+import type { PlannedId, ServiceId } from '@/services'
 
-defineProps<{ id: ServiceId; size?: number }>()
+// Auch die geplanten Dienste haben schon ein Zeichen
+defineProps<{ id: ServiceId | PlannedId; size?: number }>()
 </script>
 
 <template>
@@ -26,6 +27,22 @@ defineProps<{ id: ServiceId; size?: number }>()
       />
       <path d="M12 14.4V19" />
       <path d="M9.6 20.3h4.8" />
+    </template>
+
+    <!-- Einkaufswagen -->
+    <template v-else-if="id === 'einkaufsliste'">
+      <path d="M3 4h2l2.4 10.4a2 2 0 0 0 2 1.6h7.2a2 2 0 0 0 2-1.6L20 7H6" />
+      <circle cx="10" cy="20" r="1.4" />
+      <circle cx="17" cy="20" r="1.4" />
+    </template>
+
+    <!-- Zahnkranz mit Kette -->
+    <template v-else-if="id === 'verschleiss'">
+      <circle cx="12" cy="12" r="7" />
+      <circle cx="12" cy="12" r="2.4" />
+      <path
+        d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"
+      />
     </template>
 
     <!-- Koffer -->

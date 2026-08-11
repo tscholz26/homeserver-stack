@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
 import ServiceTile from '@/components/ServiceTile.vue'
+import ServiceIcon from '@/components/ServiceIcon.vue'
 import WeatherCard from '@/components/WeatherCard.vue'
 import SunCard from '@/components/SunCard.vue'
 import StatusCard from '@/components/StatusCard.vue'
 import { useClock } from '@/composables/useClock'
 import { useWeather } from '@/composables/useWeather'
 import { useStatus } from '@/composables/useStatus'
-import { services } from '@/services'
+import { planned, services } from '@/services'
 
 const { now, time, date, greeting } = useClock()
 const { weather, failed } = useWeather()
@@ -77,6 +78,16 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
           :status="statuses[service.id]"
           :shortcut="index + 1"
         />
+      </section>
+
+      <section class="soon" aria-label="Geplant">
+        <RouterLink v-for="entry in planned" :key="entry.id" class="plan" :to="`/bald/${entry.id}`">
+          <span class="plan-icon"><ServiceIcon :id="entry.id" :size="20" /></span>
+          <span class="plan-text">
+            <span class="plan-name">{{ entry.name }}</span>
+            <span class="plan-note">{{ entry.tagline }} · geplant</span>
+          </span>
+        </RouterLink>
       </section>
 
       <section class="widgets" aria-label="Auf dem Server">
@@ -203,6 +214,61 @@ h1 {
   grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
   gap: 1rem;
   margin-top: 1rem;
+}
+
+/* Geplantes: leiser als die echten Kacheln, gestrichelt und flach */
+.soon {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0.7rem;
+  margin-top: 0.7rem;
+}
+
+.plan {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  border: 1px dashed var(--line);
+  border-radius: 1rem;
+  padding: 0.7rem 0.9rem;
+  text-decoration: none;
+  color: var(--muted);
+  transition:
+    border-color 0.25s ease,
+    color 0.25s ease;
+}
+
+.plan:hover,
+.plan:focus-visible {
+  border-color: color-mix(in srgb, var(--violet) 45%, transparent);
+  color: var(--text);
+}
+
+.plan-icon {
+  display: grid;
+  place-items: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 0.7rem;
+  border: 1px dashed var(--line);
+  flex-shrink: 0;
+}
+
+.plan-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.plan-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.plan-note {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 /* Kacheln und Karten laufen leicht versetzt ein */

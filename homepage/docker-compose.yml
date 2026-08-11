@@ -10,7 +10,8 @@ services:
       # Stromverbrauchs. Messbar ist nur der CPU-Anteil (RAPL), der Rest wird
       # damit hochgerechnet – siehe README.
       # - BASE_POWER_WATTS=19.5
-      # - PSU_EFFICIENCY=0.78
+      # - PSU_EFFICIENCY=0.8
+      # - PRICE_PER_KWH=0.22
 
     # Nur einzelne Dateien statt ganzer Bäume: /proc als Ganzes würde auch die
     # Umgebungsvariablen aller Prozesse enthalten (Passwörter), /sys und die

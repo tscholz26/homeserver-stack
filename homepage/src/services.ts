@@ -38,3 +38,28 @@ export const services: Service[] = [
     ping: '/koffer/',
   },
 ]
+
+/** Noch nicht gebaut: eigene Kacheln, die auf eine Platzhalterseite führen. */
+export type PlannedId = 'einkaufsliste' | 'verschleiss'
+
+export interface PlannedService {
+  id: PlannedId
+  name: string
+  tagline: string
+  description: string
+}
+
+export const planned: PlannedService[] = [
+  {
+    id: 'einkaufsliste',
+    name: 'Einkaufsliste',
+    tagline: 'Gemeinsam',
+    description: 'Eine Liste für alle, auf jedem Gerät gleich – zum Abhaken im Laden.',
+  },
+  {
+    id: 'verschleiss',
+    name: 'Verschleiß',
+    tagline: 'Rennrad',
+    description: 'Welches Teil wie viele Kilometer hat, mit Statistiken aus den Strava-Fahrten.',
+  },
+]

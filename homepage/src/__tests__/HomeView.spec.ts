@@ -39,6 +39,7 @@ async function mountHome() {
     routes: [
       { path: '/', component: HomeView },
       { path: '/dashboard', component: { template: '<div />' } },
+      { path: '/bald/:id?', component: { template: '<div />' } },
     ],
   })
   router.push('/')
@@ -89,6 +90,25 @@ describe('HomeView', () => {
 
     expect(wrapper.find('a.status').attributes('href')).toBe('/dashboard')
     expect(wrapper.find('a.clock').attributes('href')).toBe('https://calendar.google.com')
+
+    wrapper.unmount()
+  })
+
+  it('zeigt geplante Dienste als eigene Kacheln zur Platzhalterseite', async () => {
+    stubFetch()
+    const wrapper = await mountHome()
+    await flushPromises()
+
+    const links = wrapper.findAll('a.plan')
+    expect(links.map((link) => link.attributes('href'))).toEqual([
+      '/bald/einkaufsliste',
+      '/bald/verschleiss',
+    ])
+    expect(wrapper.text()).toContain('Einkaufsliste')
+    expect(wrapper.text()).toContain('Verschleiß')
+    // Sie dürfen nicht als echte Dienste gezählt oder angepingt werden
+    expect(wrapper.findAll('a.tile')).toHaveLength(3)
+    expect(wrapper.text()).toContain('Alles läuft')
 
     wrapper.unmount()
   })

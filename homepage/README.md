@@ -100,6 +100,10 @@ Balken werden ab 70 % gelb und ab 90 % rot (`toneFor` in
   | Lüfter (CPU + Gehäuse) | ~1,5 W | typisch für zwei 12-V-Lüfter im Leerlauf |
   | **Summe → `BASE_POWER_WATTS`** | **19,5 W** | |
 
+  `PRICE_PER_KWH` steht auf **0,22** und dient nur der Umrechnung in Euro pro
+  Jahr (Dauerbetrieb: W ÷ 1000 × 8760 h × Preis). Alle drei Werte lassen sich in
+  der `docker-compose.yml` setzen.
+
   `PSU_EFFICIENCY` steht auf **0,80**. 80 Plus zertifiziert erst ab 20 % Last
   (Bronze: 82 % bei 20 %), unterhalb davon gar nichts – dieser Rechner zieht im
   Leerlauf nur einen Bruchteil der Netzteilleistung, und OEM-Netzteile liegen in
