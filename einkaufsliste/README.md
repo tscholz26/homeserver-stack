@@ -24,10 +24,16 @@ Handys gleichzeitig abgehakt. Erreichbar unter
 - **Abhaken** rutscht den Artikel ans Ende seiner Kategorie (ausgegraut,
   durchgestrichen); **„Einkauf beenden“** löscht alles Abgehakte und lässt
   liegen, was nicht im Laden war
-- **Korrektur in der Liste**: ein Tipp auf den Artikelnamen öffnet Name und
-  Kategorie zum Ändern. „Kategorie fürs nächste Mal merken“ schreibt sie
-  zugleich in den Katalog – falsch einsortiert wird also nur einmal
-- **Verwaltung**: nicht zugeordnete Artikel nachpflegen und Listen verwalten
+- **Korrektur in der Liste**: ein Tipp auf den Artikelnamen macht aus der Zeile
+  ein Eingabefeld – Name, Menge und Kategorie. Eine geänderte Kategorie wandert
+  immer auch in den Katalog, falsch einsortiert wird also nur einmal. Über
+  „Schreibweise für ein anderes Wort“ lässt sich der Name stattdessen an einen
+  vorhandenen Artikel hängen
+- **Märkte**: pro kategorisierter Liste beliebig viele Filialen mit eigener
+  Kategorie-Reihenfolge; der aktive Markt wird in der Verwaltung gewählt und
+  taucht beim Einkaufen nicht auf
+- **Verwaltung**: nicht zugeordnete Artikel nachpflegen, Märkte und Listen
+  verwalten
 - **Live-Sync**: jede Änderung geht als einzelner Request an den Server, der
   sie auf den zentralen Stand anwendet und ihn per Server-Sent Events sofort an
   alle offenen Geräte schickt
@@ -67,9 +73,10 @@ Baustein bedeutet, ohne ein Problem zu lösen, das es gibt.
 | GET | `/api/state` | kompletter Stand inkl. Kategorien und Katalog |
 | GET | `/api/events` | Server-Sent Events: nach jeder Änderung der neue Stand |
 | POST / PUT / DELETE | `/api/lists[/:id]` | Liste anlegen / umbenennen / löschen |
-| PUT | `/api/lists/:id/store-profile` | aktives Ladenprofil setzen (`null` = Standard) |
+| PUT | `/api/lists/:id/store-profile` | aktiven Markt setzen (`null` = Standard-Reihenfolge) |
+| POST / PUT / DELETE | `/api/store-profiles[/:id]` | Markt anlegen / umbenennen bzw. umsortieren / löschen |
 | POST | `/api/lists/:id/items` | Artikel eintragen (Kategorie kommt aus dem Browser) |
-| PUT | `/api/lists/:id/items/:itemId` | Name und/oder Kategorie korrigieren |
+| PUT | `/api/lists/:id/items/:itemId` | Name, Menge und/oder Kategorie korrigieren |
 | POST | `/api/lists/:id/items/:itemId/check` | `{ done }` setzen |
 | DELETE | `/api/lists/:id/items/:itemId` | Artikel entfernen |
 | POST | `/api/lists/:id/finish` | „Einkauf beenden“: Abgehaktes löschen |
@@ -91,8 +98,12 @@ also nirgends doppelt im Code:
 Was in der Verwaltung zugeordnet wird, landet in derselben Struktur unter
 `catalog` in `data/state.json` und steht bei der Suche **vor** dem Seed. Der
 Seed selbst bleibt im git und kann jederzeit erweitert werden (danach einmal
-`docker compose up -d --build`). Bereits eingetragene Artikel in den Listen
-werden durch eine neue Zuordnung nicht rückwirkend geändert.
+`docker compose up -d --build`).
+
+Eine neue Zuordnung zieht die Artikel mit, die deswegen gerade unter
+„Sonstiges“ liegen (`applyToUnmatchedItems` in [server.js](server.js)) – sonst
+müsste man dieselbe Entscheidung in der Liste ein zweites Mal treffen. Artikel,
+deren Kategorie von Hand gesetzt wurde, bleiben unangetastet.
 
 Für einen unbekannten Namen gibt es zwei Wege:
 
@@ -107,16 +118,16 @@ Die Vorschläge unter „Schreibweise eines vorhandenen Artikels“ kommen aus
 Eintippen: „Hafermilch“ schlägt Vollmilch vor, ohne dass es dort automatisch
 einsortiert würde.
 
-### Ladenprofile (vorbereitet, noch ohne UI)
+### Märkte
 
-Verschiedene Filialen haben verschiedene Wege durch den Laden. Die
-Kategorie-Reihenfolge steht deshalb nirgends fest verdrahtet:
+Verschiedene Filialen haben verschiedene Wege durch den Laden. Ein Markt ist
+deshalb nichts weiter als eine eigene Kategorie-Reihenfolge:
 
 ```jsonc
 // data/state.json
 "storeProfiles": [
   {
-    "id": "rewe-felsenkeller",
+    "id": "…",
     "name": "Rewe Felsenkeller",
     "listId": "<id der Liste>",
     "categoryOrder": ["obst_gemuese", "fleisch_wurst", "milch_kuehlwaren"]
@@ -126,12 +137,11 @@ Kategorie-Reihenfolge steht deshalb nirgends fest verdrahtet:
 
 `categoryOrderFor()` in
 [useEinkaufStore.ts](src/composables/useEinkaufStore.ts) zieht die Kategorien
-des aktiven Profils nach vorn, hängt alles nicht Genannte in
-Standard-Reihenfolge an und `sonstiges` ganz ans Ende – die Anzeige läuft also
-schon heute über diesen Pfad. Es fehlt nur die Oberfläche zum Anlegen der
-Profile und der „Ich kaufe gerade hier ein“-Umschalter; welches Profil gilt,
-steht pro Liste in `storeProfileId` und ist über
-`PUT /api/lists/:id/store-profile` setzbar.
+des aktiven Marktes nach vorn, hängt alles nicht Genannte in
+Standard-Reihenfolge an und `sonstiges` ganz ans Ende. Neue Kategorien im Seed
+tauchen dadurch auch in bestehenden Märkten auf, ohne dass dort etwas
+nachgetragen werden muss. Welcher Markt gilt, steht pro Liste in
+`storeProfileId`; die Einkaufsansicht zeigt davon bewusst nichts.
 
 ## Entwicklung
 

@@ -37,6 +37,52 @@ function alsSchreibweise(id: string, name: string, ziel: string) {
   delete aliasZiel[id]
 }
 
+// ── Märkte ────────────────────────────────────────────────────────────────────
+// Kategorie-Reihenfolge pro Filiale. Beim Einkaufen taucht davon nichts auf,
+// dort zählt nur, was hier als aktiv eingestellt ist.
+const kategorisierteListen = computed(() =>
+  store.state.lists.filter((l) => l.type === 'kategorisiert'),
+)
+
+const marktOffen = reactive<Record<string, boolean>>({})
+const marktNamen = reactive<Record<string, string>>({})
+const neuerMarkt = reactive<Record<string, string>>({})
+
+/** Reihenfolge des Profils, ergänzt um alles, was noch nicht drinsteht. */
+function reihenfolge(profileId: string): string[] {
+  const profil = store.state.storeProfiles.find((p) => p.id === profileId)
+  const front = (profil?.categoryOrder ?? []).filter((id) => id !== 'sonstiges')
+  return [...front, ...store.state.defaultCategoryOrder.filter((id) => !front.includes(id))]
+}
+
+function schieben(profileId: string, index: number, richtung: -1 | 1) {
+  const order = reihenfolge(profileId)
+  const ziel = index + richtung
+  if (ziel < 0 || ziel >= order.length) return
+  const [raus] = order.splice(index, 1)
+  order.splice(ziel, 0, raus as string)
+  store.updateStoreProfile(profileId, { categoryOrder: order })
+}
+
+function marktAnlegen(listId: string) {
+  const liste = store.state.lists.find((l) => l.id === listId)
+  const name = (neuerMarkt[listId] ?? '').trim()
+  if (!liste || !name) return
+  store.addStoreProfile(liste, name)
+  neuerMarkt[listId] = ''
+}
+
+function marktUmbenennen(profileId: string, alterName: string) {
+  const neu = (marktNamen[profileId] ?? '').trim()
+  if (!neu || neu === alterName) return
+  store.updateStoreProfile(profileId, { name: neu })
+}
+
+function marktLoeschen(profileId: string, name: string) {
+  if (!confirm(`Markt „${name}“ löschen?`)) return
+  store.removeStoreProfile(profileId)
+}
+
 // ── Listen ────────────────────────────────────────────────────────────────────
 const namen = reactive<Record<string, string>>({})
 const neuerName = ref('')
@@ -68,8 +114,8 @@ function anlegen() {
       <h2>Nicht zugeordnete Artikel</h2>
       <p class="hinweis">
         Alles, was beim Hinzufügen nicht im Katalog stand. Entweder als eigener Artikel in eine
-        Kategorie – oder als weitere Schreibweise eines Artikels, den es schon gibt. Bereits
-        eingetragene Artikel in den Listen bleiben, wo sie sind.
+        Kategorie – oder als weitere Schreibweise eines Artikels, den es schon gibt. Was deswegen
+        gerade unter „Sonstiges“ liegt, rutscht dabei gleich mit.
       </p>
 
       <p v-if="!store.unmatched.value.length" class="leer">
@@ -153,6 +199,90 @@ function anlegen() {
       </ul>
     </section>
 
+    <!-- ── Märkte ──────────────────────────────────────────────────────────── -->
+    <section v-for="liste in kategorisierteListen" :key="liste.id">
+      <h2>Märkte für {{ liste.name }}</h2>
+      <p class="hinweis">
+        Jede Filiale hat ihren eigenen Weg durch den Laden. Der aktive Markt bestimmt, in welcher
+        Reihenfolge die Kategorien beim Einkaufen stehen.
+      </p>
+
+      <div class="card offen">
+        <label class="aktiv">
+          <span>Ich kaufe gerade ein bei</span>
+          <select
+            :value="liste.storeProfileId ?? ''"
+            @change="
+              store.selectStoreProfile(liste, ($event.target as HTMLSelectElement).value || null)
+            "
+          >
+            <option value="">Standard-Reihenfolge</option>
+            <option v-for="p in store.profilesFor(liste)" :key="p.id" :value="p.id">
+              {{ p.name }}
+            </option>
+          </select>
+        </label>
+      </div>
+
+      <ul class="karten">
+        <li v-for="p in store.profilesFor(liste)" :key="p.id" class="card offen">
+          <div class="zeile">
+            <input
+              :value="marktNamen[p.id] ?? p.name"
+              :aria-label="`Name von ${p.name}`"
+              @input="marktNamen[p.id] = ($event.target as HTMLInputElement).value"
+              @blur="marktUmbenennen(p.id, p.name)"
+              @keyup.enter="marktUmbenennen(p.id, p.name)"
+            />
+            <button type="button" class="loeschen" @click="marktLoeschen(p.id, p.name)">
+              Löschen
+            </button>
+          </div>
+
+          <button type="button" class="schalter" @click="marktOffen[p.id] = !marktOffen[p.id]">
+            {{ marktOffen[p.id] ? '– ' : '+ ' }}Reihenfolge der Kategorien
+          </button>
+
+          <ol v-if="marktOffen[p.id]" class="reihenfolge">
+            <li v-for="(id, index) in reihenfolge(p.id)" :key="id">
+              <span class="kat">
+                {{ store.categoryById.value[id]?.emoji }}
+                {{ store.categoryById.value[id]?.label ?? id }}
+              </span>
+              <button
+                type="button"
+                :disabled="index === 0"
+                :aria-label="`${store.categoryById.value[id]?.label} nach oben`"
+                @click="schieben(p.id, index, -1)"
+              >
+                ▲
+              </button>
+              <button
+                type="button"
+                :disabled="index === reihenfolge(p.id).length - 1"
+                :aria-label="`${store.categoryById.value[id]?.label} nach unten`"
+                @click="schieben(p.id, index, 1)"
+              >
+                ▼
+              </button>
+            </li>
+          </ol>
+        </li>
+      </ul>
+
+      <form class="card offen" @submit.prevent="marktAnlegen(liste.id)">
+        <div class="zeile">
+          <input
+            :value="neuerMarkt[liste.id] ?? ''"
+            placeholder="Neuer Markt, z. B. Rewe Felsenkeller"
+            aria-label="Name des neuen Marktes"
+            @input="neuerMarkt[liste.id] = ($event.target as HTMLInputElement).value"
+          />
+          <button type="submit" class="primaer">Anlegen</button>
+        </div>
+      </form>
+    </section>
+
     <!-- ── Listen ──────────────────────────────────────────────────────────── -->
     <section>
       <h2>Listen</h2>
@@ -194,8 +324,8 @@ function anlegen() {
     </section>
 
     <p class="fuss">
-      Die Kategorie eines einzelnen Artikels lässt sich direkt in der Liste ändern: auf den Namen
-      tippen.
+      Kategorie, Menge und Schreibweise eines einzelnen Artikels lassen sich auch direkt in der
+      Liste ändern: auf den Namen tippen.
     </p>
   </div>
 </template>
@@ -375,6 +505,54 @@ input[type='radio'] {
   color: var(--red);
   font-size: 0.85rem;
   cursor: pointer;
+}
+
+.aktiv {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.reihenfolge {
+  list-style: none;
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  counter-reset: schritt;
+}
+
+.reihenfolge li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.1rem;
+  border-top: 1px solid var(--line);
+}
+
+.reihenfolge .kat {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.88rem;
+}
+
+.reihenfolge button {
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  background: white;
+  color: var(--muted);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.reihenfolge button:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 .fuss {

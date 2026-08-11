@@ -296,6 +296,60 @@ app.put('/api/lists/:listId/store-profile', (req, res) => {
   })
 })
 
+// ── Ladenprofile ──────────────────────────────────────────────────────────────
+// Ein Profil ist die Reihenfolge der Kategorien in einer Filiale. Ohne Profil
+// gilt die Standard-Reihenfolge aus seed/kategorien.json.
+app.post('/api/store-profiles', (req, res) => {
+  const p = req.body
+  if (!p || typeof p.id !== 'string' || typeof p.name !== 'string' || !p.name.trim()) {
+    return res.status(400).json({ error: 'Invalid payload' })
+  }
+  mutate(req, res, (state) => {
+    if (state.storeProfiles.some((x) => x.id === p.id)) return
+    if (!state.lists.some((l) => l.id === p.listId)) {
+      return { reject: { status: 404, error: 'Liste nicht gefunden.' } }
+    }
+    state.storeProfiles.push(
+      normalizeProfile({
+        id: p.id,
+        name: p.name.trim(),
+        listId: p.listId,
+        categoryOrder: Array.isArray(p.categoryOrder) ? p.categoryOrder : DEFAULT_CATEGORY_ORDER,
+      }),
+    )
+  })
+})
+
+app.put('/api/store-profiles/:id', (req, res) => {
+  const { name, categoryOrder } = req.body || {}
+  if (name !== undefined && (typeof name !== 'string' || !name.trim())) {
+    return res.status(400).json({ error: 'Invalid payload' })
+  }
+  if (categoryOrder !== undefined && !Array.isArray(categoryOrder)) {
+    return res.status(400).json({ error: 'Invalid payload' })
+  }
+  mutate(req, res, (state) => {
+    const profile = state.storeProfiles.find((x) => x.id === req.params.id)
+    if (!profile) return { reject: { status: 404, error: 'Markt nicht gefunden.' } }
+    if (name !== undefined) profile.name = name.trim()
+    if (categoryOrder !== undefined) {
+      profile.categoryOrder = categoryOrder.filter(
+        (id) => CATEGORY_IDS.has(id) && id !== 'sonstiges',
+      )
+    }
+  })
+})
+
+app.delete('/api/store-profiles/:id', (req, res) => {
+  mutate(req, res, (state) => {
+    state.storeProfiles = state.storeProfiles.filter((x) => x.id !== req.params.id)
+    // Listen, die gerade auf diesem Markt standen, fallen auf den Standard
+    for (const list of state.lists) {
+      if (list.storeProfileId === req.params.id) list.storeProfileId = null
+    }
+  })
+})
+
 // ── Artikel ───────────────────────────────────────────────────────────────────
 // Die Zuordnung zur Kategorie passiert im Browser (Katalog + Fuzzy-Matching),
 // der Server hält nur fest, was dabei herauskam.
@@ -335,8 +389,11 @@ app.post('/api/lists/:listId/items', (req, res) => {
 // Korrektur direkt in der Liste: Name und/oder Kategorie. Eine von Hand
 // gesetzte Kategorie gilt als zugeordnet, der ◌-Badge verschwindet also.
 app.put('/api/lists/:listId/items/:itemId', (req, res) => {
-  const { name, categoryId } = req.body || {}
+  const { name, quantity, categoryId } = req.body || {}
   if (name !== undefined && (typeof name !== 'string' || !name.trim())) {
+    return res.status(400).json({ error: 'Invalid payload' })
+  }
+  if (quantity !== undefined && typeof quantity !== 'string') {
     return res.status(400).json({ error: 'Invalid payload' })
   }
   if (categoryId !== undefined && !CATEGORY_IDS.has(categoryId)) {
@@ -346,6 +403,7 @@ app.put('/api/lists/:listId/items/:itemId', (req, res) => {
     const item = list.items.find((x) => x.id === req.params.itemId)
     if (!item) return { reject: { status: 404, error: 'Artikel nicht gefunden.' } }
     if (name !== undefined) item.name = name.trim()
+    if (quantity !== undefined) item.quantity = quantity.trim()
     if (categoryId !== undefined) {
       item.categoryId = categoryId
       item.matched = true
@@ -379,6 +437,23 @@ app.post('/api/lists/:listId/finish', (req, res) => {
 })
 
 // ── Katalog & nicht zugeordnete Artikel ───────────────────────────────────────
+// Wird ein Name neu zugeordnet, sollen die Artikel, die deshalb in „Sonstiges“
+// gelandet sind, gleich mitwandern – sonst müsste man dieselbe Zuordnung in der
+// Liste ein zweites Mal von Hand machen. Von Hand einsortierte Artikel
+// (matched) bleiben unangetastet.
+function applyToUnmatchedItems(state, name, categoryId) {
+  const key = normalize(name)
+  for (const list of state.lists) {
+    if (list.type !== 'kategorisiert') continue
+    for (const item of list.items) {
+      if (!item.matched && normalize(item.name) === key) {
+        item.categoryId = categoryId
+        item.matched = true
+      }
+    }
+  }
+}
+
 // Ordnet einen bisher unbekannten Artikelnamen einer Kategorie zu. Bereits in
 // den Listen stehende Einträge bleiben absichtlich unverändert.
 app.post('/api/catalog', (req, res) => {
@@ -402,6 +477,7 @@ app.post('/api/catalog', (req, res) => {
     state.catalog = state.catalog.filter((e) => normalize(e.name) !== key)
     state.catalog.push({ name: clean, aliases: [...gemerkt], category_id: categoryId })
     state.unmatched = state.unmatched.filter((u) => normalize(u.name) !== key)
+    applyToUnmatchedItems(state, clean, categoryId)
   })
 })
 
@@ -434,6 +510,7 @@ app.post('/api/catalog/alias', (req, res) => {
       category_id: eintrag.category_id,
     })
     state.unmatched = state.unmatched.filter((u) => normalize(u.name) !== aliasKey)
+    applyToUnmatchedItems(state, sauber, eintrag.category_id)
   })
 })
 

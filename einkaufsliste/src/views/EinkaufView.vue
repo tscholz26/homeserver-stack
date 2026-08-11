@@ -37,18 +37,23 @@ function entfernen(itemId: string) {
 }
 
 /**
- * Korrektur aus der Zeile heraus. „Merken“ schreibt die Kategorie zusätzlich in
- * den Katalog, damit derselbe Artikel beim nächsten Mal gleich richtig landet –
- * nacheinander, damit die zweite Antwort nicht die erste überholt.
+ * Korrektur aus der Zeile heraus. Eine geänderte Kategorie wandert immer auch
+ * in den Katalog, damit derselbe Artikel beim nächsten Mal gleich richtig
+ * landet – nacheinander, damit die zweite Antwort nicht die erste überholt.
  */
 async function speichern(
   itemId: string,
-  changes: { name: string; categoryId?: string },
-  merken: boolean,
+  changes: { name: string; quantity: string; categoryId?: string },
 ) {
   if (!liste.value) return
   await store.updateItem(liste.value, itemId, changes)
-  if (merken && changes.categoryId) await store.assignCategory(changes.name, changes.categoryId)
+  // Eine von Hand gewählte Kategorie gilt ab jetzt auch für den Katalog
+  if (changes.categoryId) await store.assignCategory(changes.name, changes.categoryId)
+}
+
+/** „Das ist eigentlich …“: der Name wird Schreibweise eines Katalogartikels. */
+function schreibweise(name: string, artikel: string) {
+  store.addAlias(artikel, name)
 }
 
 // Nur kategorisierte Listen dürfen umsortiert werden
@@ -161,9 +166,12 @@ onBeforeUnmount(() => beobachter?.disconnect())
             :key="item.id"
             :item="item"
             :categories="kategorienZurAuswahl"
+            :catalog="store.state.catalog"
+            :catalog-names="store.catalogNames.value"
             @check="haken(item.id, $event)"
             @remove="entfernen(item.id)"
-            @save="(changes, merken) => speichern(item.id, changes, merken)"
+            @save="speichern(item.id, $event)"
+            @alias="schreibweise(item.name, $event)"
           />
         </ul>
       </section>
@@ -176,9 +184,12 @@ onBeforeUnmount(() => beobachter?.disconnect())
         :key="item.id"
         :item="item"
         :categories="kategorienZurAuswahl"
+        :catalog="store.state.catalog"
+        :catalog-names="store.catalogNames.value"
         @check="haken(item.id, $event)"
         @remove="entfernen(item.id)"
-        @save="(changes, merken) => speichern(item.id, changes, merken)"
+        @save="speichern(item.id, $event)"
+        @alias="schreibweise(item.name, $event)"
       />
     </ul>
 
@@ -301,7 +312,7 @@ onBeforeUnmount(() => beobachter?.disconnect())
 }
 
 .menge {
-  width: 4.6rem;
+  width: 6.9rem;
   flex-shrink: 0;
   text-align: center;
 }

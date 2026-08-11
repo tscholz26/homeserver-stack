@@ -203,10 +203,15 @@ function createStore() {
    * Korrektur direkt in der Liste: Name und/oder Kategorie. Eine von Hand
    * gesetzte Kategorie gilt als zugeordnet, der ◌-Badge geht damit weg.
    */
-  function updateItem(list: List, itemId: string, changes: { name?: string; categoryId?: string }) {
+  function updateItem(
+    list: List,
+    itemId: string,
+    changes: { name?: string; quantity?: string; categoryId?: string },
+  ) {
     const item = list.items.find((i) => i.id === itemId)
     if (!item) return
     if (changes.name !== undefined) item.name = changes.name.trim()
+    if (changes.quantity !== undefined) item.quantity = changes.quantity.trim()
     if (changes.categoryId !== undefined) {
       item.categoryId = changes.categoryId
       item.matched = true
@@ -230,6 +235,38 @@ function createStore() {
   function finishShopping(list: List) {
     list.items = list.items.filter((i) => !i.done)
     return sendChange(`/lists/${list.id}/finish`, 'POST')
+  }
+
+  // ── Märkte (Ladenprofile) ──────────────────────────────────────────────────
+  function profilesFor(list: List): StoreProfile[] {
+    return state.storeProfiles.filter((p) => p.listId === list.id)
+  }
+
+  function addStoreProfile(list: List, name: string) {
+    return sendChange('/store-profiles', 'POST', {
+      id: createId(),
+      name: name.trim(),
+      listId: list.id,
+      // Startpunkt ist die Standard-Reihenfolge, danach wird sie umsortiert
+      categoryOrder: state.defaultCategoryOrder,
+    })
+  }
+
+  function updateStoreProfile(
+    profileId: string,
+    changes: { name?: string; categoryOrder?: string[] },
+  ) {
+    return sendChange(`/store-profiles/${profileId}`, 'PUT', changes)
+  }
+
+  function removeStoreProfile(profileId: string) {
+    return sendChange(`/store-profiles/${profileId}`, 'DELETE')
+  }
+
+  /** Welcher Markt für eine Liste gilt; null = Standard-Reihenfolge. */
+  function selectStoreProfile(list: List, profileId: string | null) {
+    list.storeProfileId = profileId
+    return sendChange(`/lists/${list.id}/store-profile`, 'PUT', { storeProfileId: profileId })
   }
 
   // ── Kategorien & Reihenfolge ───────────────────────────────────────────────
@@ -312,6 +349,11 @@ function createStore() {
     setDone,
     removeItem,
     finishShopping,
+    profilesFor,
+    addStoreProfile,
+    updateStoreProfile,
+    removeStoreProfile,
+    selectStoreProfile,
     categoryById,
     categoryOrderFor,
     groupsFor,

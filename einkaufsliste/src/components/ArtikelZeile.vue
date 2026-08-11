@@ -1,29 +1,40 @@
 <script setup lang="ts">
-import { nextTick, ref, useTemplateRef } from 'vue'
+import { computed, nextTick, ref, useTemplateRef } from 'vue'
 import type { Category, Item } from '@/composables/useEinkaufStore'
+import { suggestCatalogEntries, type CatalogEntry } from '@/utils/matching'
 
 const props = defineProps<{
   item: Item
   /** Leer bei flachen Listen: dort gibt es nichts umzusortieren. */
   categories: Category[]
+  catalog: CatalogEntry[]
+  catalogNames: string[]
 }>()
 
 const emit = defineEmits<{
   check: [done: boolean]
   remove: []
-  save: [changes: { name: string; categoryId?: string }, merken: boolean]
+  save: [changes: { name: string; quantity: string; categoryId?: string }]
+  alias: [artikel: string]
 }>()
 
 const offen = ref(false)
 const name = ref('')
+const quantity = ref('')
 const categoryId = ref('')
-const merken = ref(true)
+const aliasOffen = ref(false)
+const aliasZiel = ref('')
 const nameFeld = useTemplateRef<HTMLInputElement>('nameFeld')
 
-function bearbeiten() {
+// Vorschläge für „das ist eigentlich …“ – aus dem Namen, wie er dasteht
+const vorschlaege = computed(() => suggestCatalogEntries(props.item.name, props.catalog))
+
+function oeffnen() {
   name.value = props.item.name
+  quantity.value = props.item.quantity
   categoryId.value = props.item.categoryId
-  merken.value = true
+  aliasOffen.value = false
+  aliasZiel.value = ''
   offen.value = true
   nextTick(() => nameFeld.value?.focus())
 }
@@ -31,21 +42,26 @@ function bearbeiten() {
 function speichern() {
   const sauber = name.value.trim()
   if (!sauber) return
-  const kategorieGeaendert =
-    props.categories.length > 0 && categoryId.value !== props.item.categoryId
-  emit(
-    'save',
-    { name: sauber, categoryId: kategorieGeaendert ? categoryId.value : undefined },
-    // Merken lohnt nur, wenn eine Kategorie wirklich korrigiert wurde
-    merken.value && kategorieGeaendert,
-  )
+  emit('save', {
+    name: sauber,
+    quantity: quantity.value.trim(),
+    // Eine von Hand gewählte Kategorie wird immer auch im Katalog gemerkt
+    categoryId: categoryId.value !== props.item.categoryId ? categoryId.value : undefined,
+  })
+  offen.value = false
+}
+
+function alsSchreibweise(artikel: string) {
+  if (!artikel.trim()) return
+  emit('alias', artikel.trim())
   offen.value = false
 }
 </script>
 
 <template>
-  <li class="zeile" :class="{ erledigt: item.done, offen }">
-    <div class="haupt">
+  <li class="zeile" :class="{ erledigt: item.done, aktiv: offen }">
+    <!-- Zugeklappt: Haken, Name, Menge. Ein Tipp auf den Namen klappt auf. -->
+    <div v-if="!offen" class="haupt">
       <label class="haken">
         <input
           type="checkbox"
@@ -55,10 +71,9 @@ function speichern() {
         <span class="box" aria-hidden="true"></span>
       </label>
 
-      <!-- Tippen auf den Namen öffnet die Korrektur (falsche Kategorie, Tippfehler) -->
-      <button type="button" class="text" @click="offen ? (offen = false) : bearbeiten()">
+      <button type="button" class="text" @click="oeffnen">
         {{ item.name }}
-        <!-- Nicht im Katalog gefunden: in der Verwaltung nachpflegbar -->
+        <!-- Nicht im Katalog gefunden: unten zuordenbar -->
         <span v-if="!item.matched" class="badge" title="Nicht zugeordnet">◌</span>
       </button>
 
@@ -67,17 +82,64 @@ function speichern() {
       <button type="button" class="weg" title="Artikel entfernen" @click="emit('remove')">×</button>
     </div>
 
-    <form v-if="offen" class="bearbeiten" @submit.prevent="speichern">
-      <input ref="nameFeld" v-model="name" aria-label="Name" />
+    <!-- Aufgeklappt: dieselbe Zeile, nur als Eingabe – der Name steht nicht doppelt da -->
+    <form v-else class="bearbeiten" @submit.prevent="speichern">
+      <div class="felder">
+        <input ref="nameFeld" v-model="name" class="name" aria-label="Artikel" />
+        <input v-model="quantity" class="anzahl" placeholder="Menge" aria-label="Menge" />
+      </div>
+
       <select v-if="categories.length" v-model="categoryId" aria-label="Kategorie">
         <option v-for="k in categories" :key="k.id" :value="k.id">
           {{ k.emoji }} {{ k.label }}
         </option>
       </select>
-      <label v-if="categories.length" class="merken">
-        <input v-model="merken" type="checkbox" />
-        Kategorie fürs nächste Mal merken
-      </label>
+
+      <button
+        v-if="categories.length"
+        type="button"
+        class="schalter"
+        @click="aliasOffen = !aliasOffen"
+      >
+        {{ aliasOffen ? '– ' : '+ ' }}Schreibweise für ein anderes Wort
+      </button>
+
+      <div v-if="aliasOffen" class="alias">
+        <p class="hinweis">
+          „{{ item.name }}“ wird als weitere Schreibweise gemerkt und übernimmt dessen Kategorie.
+        </p>
+        <div v-if="vorschlaege.length" class="chips">
+          <button
+            v-for="v in vorschlaege"
+            :key="v.name"
+            type="button"
+            class="chip"
+            @click="alsSchreibweise(v.name)"
+          >
+            {{ v.name }}
+          </button>
+        </div>
+        <div class="zeile-alias">
+          <input
+            v-model="aliasZiel"
+            :list="`katalog-${item.id}`"
+            placeholder="Artikel suchen …"
+            aria-label="Artikel, zu dem das gehört"
+          />
+          <datalist :id="`katalog-${item.id}`">
+            <option v-for="n in catalogNames" :key="n" :value="n" />
+          </datalist>
+          <button
+            type="button"
+            class="ok"
+            :disabled="!aliasZiel"
+            @click="alsSchreibweise(aliasZiel)"
+          >
+            Merken
+          </button>
+        </div>
+      </div>
+
       <div class="knoepfe">
         <button type="button" class="ab" @click="offen = false">Abbrechen</button>
         <button type="submit" class="ok">Speichern</button>
@@ -183,31 +245,86 @@ function speichern() {
   opacity: 0.6;
 }
 
-.offen {
+.aktiv {
   background: color-mix(in srgb, var(--violet) 5%, transparent);
 }
 
 .bearbeiten {
   display: grid;
   gap: 0.5rem;
-  padding: 0 0.9rem 0.8rem;
+  padding: 0.7rem 0.9rem 0.8rem;
 }
 
-.bearbeiten input:not([type='checkbox']),
+.felder {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.bearbeiten input,
 .bearbeiten select {
-  width: 100%;
+  min-width: 0;
   padding: 0.5rem 0.6rem;
   border: 1px solid var(--line);
   border-radius: 0.6rem;
   background: white;
 }
 
-.merken {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  color: var(--muted);
+.felder .name {
+  flex: 1;
+}
+
+.felder .anzahl {
+  width: 6.9rem;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.schalter {
+  justify-self: start;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--violet);
   font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.alias {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.hinweis {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.chip {
+  padding: 0.3rem 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--violet) 30%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--violet) 8%, white);
+  color: var(--violet);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.zeile-alias {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.zeile-alias input {
+  flex: 1;
 }
 
 .knoepfe {
@@ -218,6 +335,7 @@ function speichern() {
 
 .ab,
 .ok {
+  flex-shrink: 0;
   padding: 0.45rem 0.9rem;
   border-radius: 0.6rem;
   font-weight: 700;
@@ -234,5 +352,11 @@ function speichern() {
   border: none;
   background: var(--violet);
   color: white;
+}
+
+.ok:disabled {
+  background: color-mix(in srgb, var(--muted) 25%, white);
+  color: var(--muted);
+  cursor: default;
 }
 </style>
