@@ -92,6 +92,10 @@ function follow(event: MouseEvent) {
   --accent: #b45309;
 }
 
+.tile.einkaufsliste {
+  --accent: #7c3aed;
+}
+
 /* Farbiger Schein am Zeiger, sichtbar erst beim Überfahren */
 .glow {
   position: absolute;

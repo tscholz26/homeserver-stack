@@ -399,6 +399,7 @@ const WATCHED = [
   { id: 'nextcloud', path: '/status.php' },
   { id: 'donnerskat', path: '/skat/' },
   { id: 'kofferpacken', path: '/koffer/' },
+  { id: 'einkaufsliste', path: '/einkauf/' },
 ]
 
 function probe(path) {
