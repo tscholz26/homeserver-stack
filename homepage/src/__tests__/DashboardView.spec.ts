@@ -255,8 +255,17 @@ describe('DashboardView', () => {
 
     const dialog = wrapper.find('dialog')
     expect(dialog.text()).toContain('CPU-Auslastung')
-    expect(dialog.text()).toContain('Ø 60 min')
     expect(dialog.find('polyline').exists()).toBe(true)
+
+    // Der Schnitt gilt für den angezeigten Zeitraum, nicht stur für 60 Minuten:
+    // 65 Punkte mit 50 % und 25 mit 0 % ergeben 36 %
+    expect(dialog.text()).toMatch(/Ø \d+ min/)
+    expect(dialog.text()).toContain('36 %')
+
+    // Die Achse endet knapp über dem Maximum von 50 %, nicht bei 100 %
+    const labels = dialog.findAll('.grid text').map((entry) => entry.text())
+    expect(labels).toContain('60')
+    expect(labels).not.toContain('100')
 
     wrapper.unmount()
   })
@@ -290,9 +299,14 @@ describe('DashboardView', () => {
     expect(wrapper.find('dialog').text()).toMatch(/6[01] Messpunkte/)
     expect(wrapper.find('dialog').text()).toContain('letzte 60 min')
 
+    // In der letzten Stunde stehen alle Punkte auf 50 %, also auch der Schnitt
+    expect(wrapper.find('dialog').text()).toContain('Ø 60 min')
+    expect(wrapper.find('dialog').text()).toContain('50 %')
+
     // 8 Std umfasst die 90 Minuten des Verlaufs komplett
     await button('8 Std')?.trigger('click')
     expect(wrapper.find('dialog').text()).toContain('letzte 8 Std')
+    expect(wrapper.find('dialog').text()).toContain('Ø 8 Std')
     expect(wrapper.find('dialog').text()).toContain('90 Messpunkte')
 
     wrapper.unmount()

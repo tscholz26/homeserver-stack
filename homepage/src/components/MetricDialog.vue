@@ -40,11 +40,11 @@ watch(
 
 const CONFIG: Record<
   MetricName,
-  { title: string; unit: string; key: MetricKey; fixedMax: number | null }
+  { title: string; unit: string; key: MetricKey; cap: number | null }
 > = {
-  cpu: { title: 'CPU-Auslastung', unit: '%', key: 'cpu', fixedMax: 100 },
-  memory: { title: 'Arbeitsspeicher', unit: '%', key: 'mem', fixedMax: 100 },
-  power: { title: 'Stromverbrauch', unit: 'W', key: 'watts', fixedMax: null },
+  cpu: { title: 'CPU-Auslastung', unit: '%', key: 'cpu', cap: 100 },
+  memory: { title: 'Arbeitsspeicher', unit: '%', key: 'mem', cap: 100 },
+  power: { title: 'Stromverbrauch', unit: 'W', key: 'watts', cap: null },
 }
 
 const config = computed(() => (props.metric ? CONFIG[props.metric] : null))
@@ -76,7 +76,8 @@ const stats = computed(() => {
   const values = series.value.map((point) => point.value)
   return {
     now: values[values.length - 1] ?? 0,
-    hour: averageOverBy(props.history?.points, 60, valueOf),
+    // Der Schnitt gilt für das, was gerade oben eingestellt ist
+    mean: values.reduce((sum, value) => sum + value, 0) / values.length,
     min: Math.min(...values),
     max: Math.max(...values),
     count: values.length,
@@ -103,21 +104,36 @@ const range = computed(() => {
   return { from, now, span: now - from }
 })
 
-const spanLabel = computed(() => {
+const spanText = computed(() => {
   const minutes = Math.round(range.value.span / 60_000)
-  if (minutes < 90) return `letzte ${minutes} min`
-  const hours = Math.round(minutes / 60)
-  return `letzte ${hours} Std`
+  if (minutes < 120) return `${minutes} min`
+  return `${Math.round(minutes / 60)} Std`
 })
+
+// Die Achse endet knapp über dem höchsten Wert, sonst liegt die Kurve platt am
+// Boden. Die Schrittweite kommt aus einer Liste runder Zahlen und wird so
+// gewählt, dass höchstens sieben Linien entstehen.
+const NICE_STEPS = [0.5, 1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000]
+
+function axis(peak: number, cap: number | null) {
+  const headroom = Math.max(peak * 1.15, peak + 1, cap === null ? 5 : 10)
+  const target = cap === null ? headroom : Math.min(cap, headroom)
+  for (const step of NICE_STEPS) {
+    const max = Math.ceil(target / step) * step
+    if (max / step <= 7) return { max, step }
+  }
+  return { max: target, step: target / 4 }
+}
 
 const scale = computed(() => {
   const { from, now, span } = range.value
   const peak = series.value.reduce((highest, point) => Math.max(highest, point.value), 0)
-  const max = config.value?.fixedMax ?? Math.max(10, Math.ceil((peak * 1.15) / 5) * 5)
+  const { max, step } = axis(peak, config.value?.cap ?? null)
   const plotWidth = BOX.width - BOX.left - BOX.right
   const plotHeight = BOX.height - BOX.top - BOX.bottom
   return {
     max,
+    step,
     x: (t: number) => BOX.left + ((t - from) / span) * plotWidth,
     y: (value: number) => BOX.top + plotHeight - (Math.min(value, max) / max) * plotHeight,
     baseline: BOX.top + plotHeight,
@@ -143,12 +159,14 @@ const area = computed(() => {
   ].join(' ')
 })
 
-const gridLines = computed(() =>
-  [0, 0.25, 0.5, 0.75, 1].map((share) => ({
-    value: scale.value.max * share,
-    y: scale.value.y(scale.value.max * share),
-  })),
-)
+const gridLines = computed(() => {
+  const { max, step } = scale.value
+  const lines = []
+  for (let value = 0; value <= max + step / 2; value += step) {
+    lines.push({ value, y: scale.value.y(value) })
+  }
+  return lines
+})
 
 const timeLabels = computed(() =>
   [0, 0.5, 1].map((share) => {
@@ -172,7 +190,7 @@ const format = (value: number) =>
     <div v-if="config" class="sheet">
       <header>
         <div>
-          <p class="label">Verlauf · {{ spanLabel }}</p>
+          <p class="label">Verlauf · letzte {{ spanText }}</p>
           <h2>{{ config.title }}</h2>
         </div>
         <div class="controls">
@@ -225,10 +243,8 @@ const format = (value: number) =>
             <strong>{{ format(stats.now) }} {{ config.unit }}</strong>
           </li>
           <li>
-            <span>Ø 60 min</span>
-            <strong>{{
-              stats.hour === null ? '–' : `${format(stats.hour)} ${config.unit}`
-            }}</strong>
+            <span>Ø {{ spanText }}</span>
+            <strong>{{ format(stats.mean) }} {{ config.unit }}</strong>
           </li>
           <li>
             <span>Minimum</span>

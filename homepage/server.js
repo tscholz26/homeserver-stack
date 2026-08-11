@@ -149,7 +149,7 @@ let cpuUsagePercent = null
 // liegt. Beides ist über die Umgebung einstellbar und mit einem
 // Steckdosenmessgerät einmalig kalibrierbar.
 const BASE_POWER_WATTS = Number(process.env.BASE_POWER_WATTS ?? 19.5)
-const PSU_EFFICIENCY = Number(process.env.PSU_EFFICIENCY ?? 0.78)
+const PSU_EFFICIENCY = Number(process.env.PSU_EFFICIENCY ?? 0.8)
 
 // Mehr als das ist auf diesem Rechner nicht messbar: kein
 // /sys/class/power_supply, keine power*-Datei in hwmon, kein IPMI, keine USV,

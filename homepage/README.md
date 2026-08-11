@@ -47,7 +47,9 @@ Serverwerte auf einen Blick, alle fünf Sekunden aktualisiert:
 - **Verlauf**: CPU, Arbeitsspeicher und Stromverbrauch zeigen den Mittelwert der
   letzten 60 Minuten auf der Karte; ein Klick öffnet den Verlauf als Kurve mit
   Jetzt-, Ø-, Minimal- und Maximalwert, umschaltbar zwischen den letzten
-  60 Minuten, 8 Stunden und 24 Stunden
+  60 Minuten, 8 Stunden und 24 Stunden. Der Ø-Wert gilt jeweils für den
+  eingestellten Zeitraum, die Y-Achse endet knapp über dem Maximum darin (auf
+  den Karten selbst bleibt der Ø-Wert die letzte Stunde)
 
 Balken werden ab 70 % gelb und ab 90 % rot (`toneFor` in
 [src/composables/useSystem.ts](src/composables/useSystem.ts)).
@@ -95,7 +97,7 @@ Balken werden ab 70 % gelb und ab 90 % rot (`toneFor` in
   | Lüfter (CPU + Gehäuse) | ~1,5 W | typisch für zwei 12-V-Lüfter im Leerlauf |
   | **Summe → `BASE_POWER_WATTS`** | **19,5 W** | |
 
-  `PSU_EFFICIENCY` steht auf **0,78**. 80 Plus zertifiziert erst ab 20 % Last
+  `PSU_EFFICIENCY` steht auf **0,80**. 80 Plus zertifiziert erst ab 20 % Last
   (Bronze: 82 % bei 20 %), unterhalb davon gar nichts – dieser Rechner zieht im
   Leerlauf nur einen Bruchteil der Netzteilleistung, und OEM-Netzteile liegen in
   diesem Bereich typisch bei Mitte bis Ende 70 %.
