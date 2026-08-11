@@ -54,12 +54,12 @@ export const planned: PlannedService[] = [
     id: 'einkaufsliste',
     name: 'Einkaufsliste',
     tagline: 'Gemeinsam',
-    description: 'Eine Liste für alle, auf jedem Gerät gleich – zum Abhaken im Laden.',
+    description: '-',
   },
   {
     id: 'verschleiss',
     name: 'Verschleiß',
     tagline: 'Rennrad',
-    description: 'Welches Teil wie viele Kilometer hat, mit Statistiken aus den Strava-Fahrten.',
+    description: '-',
   },
 ]
