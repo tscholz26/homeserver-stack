@@ -5,8 +5,10 @@ services:
     restart: unless-stopped
 
     volumes:
+      # Der Live-Stand (Listen, Katalog, Märkte) …
       - ./data:/app/data
-      - ./backups:/app/backups
+      # … und die Kopie von Katalog und Märkten, die im git liegt
+      - ./export:/app/export
 
     networks:
       - caddy-network

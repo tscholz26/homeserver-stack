@@ -1,14 +1,5 @@
 import express from 'express'
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  renameSync,
-  unlinkSync,
-  writeFileSync,
-} from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -16,12 +7,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const DATA_DIR = join(__dirname, 'data')
 const STATE_FILE = join(DATA_DIR, 'state.json')
 const SEED_DIR = join(__dirname, 'seed')
-const BACKUPS_DIR = join(__dirname, 'backups')
-const KEEP_BACKUPS = 30
+const EXPORT_DIR = join(__dirname, 'export')
+const EXPORT_FILE = join(EXPORT_DIR, 'katalog.json')
 const PORT = Number(process.env.PORT) || 2608
 
 mkdirSync(DATA_DIR, { recursive: true })
-mkdirSync(BACKUPS_DIR, { recursive: true })
+mkdirSync(EXPORT_DIR, { recursive: true })
 
 // ── Seed ──────────────────────────────────────────────────────────────────────
 // Kategorien und Basiskatalog liegen als Datei im Image und sind damit die
@@ -38,46 +29,6 @@ const CATEGORY_IDS = new Set(SEED_CATEGORIES.map((c) => c.id))
 const DEFAULT_CATEGORY_ORDER = SEED_CATEGORIES.map((c) => c.id).filter((id) => id !== 'sonstiges')
 
 const LIST_TYPES = new Set(['kategorisiert', 'flach'])
-
-// ── Tägliches Backup ──────────────────────────────────────────────────────────
-// Anders als bei den anderen Apps liegen die Backups im git (siehe README):
-// Katalog und Listen ändern sich selten, und ein Stand pro Tag ohne echte
-// Änderung wäre nur Rauschen in der Historie.
-function letztesBackup() {
-  const dateien = readdirSync(BACKUPS_DIR)
-    .filter((f) => f.startsWith('state_') && f.endsWith('.json'))
-    .sort()
-  const letzte = dateien.at(-1)
-  return letzte ? readFileSync(join(BACKUPS_DIR, letzte), 'utf8') : null
-}
-
-function runBackup() {
-  if (!existsSync(STATE_FILE)) return
-  try {
-    if (readFileSync(STATE_FILE, 'utf8') === letztesBackup()) {
-      console.log('[einkaufsliste] Backup übersprungen – nichts geändert')
-      return
-    }
-
-    const now = new Date()
-    const pad = (n) => String(n).padStart(2, '0')
-    const ts = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`
-    copyFileSync(STATE_FILE, join(BACKUPS_DIR, `state_${ts}.json`))
-
-    const old = readdirSync(BACKUPS_DIR)
-      .filter((f) => f.startsWith('state_') && f.endsWith('.json'))
-      .sort()
-      .slice(0, -KEEP_BACKUPS)
-    for (const file of old) unlinkSync(join(BACKUPS_DIR, file))
-
-    console.log(`[einkaufsliste] Backup gespeichert (${KEEP_BACKUPS} werden aufbewahrt)`)
-  } catch (err) {
-    console.error('[einkaufsliste] Backup fehlgeschlagen:', err.message)
-  }
-}
-
-runBackup()
-setInterval(runBackup, 24 * 60 * 60 * 1000)
 
 // ── State ─────────────────────────────────────────────────────────────────────
 function createId() {
@@ -171,12 +122,67 @@ function writeState(data) {
   const tmp = `${STATE_FILE}.tmp`
   writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf8')
   renameSync(tmp, STATE_FILE)
+  exportKatalog(data)
+}
+
+// ── Katalog fürs git ──────────────────────────────────────────────────────────
+// Die eigentliche Einkaufsliste ist ersetzbar, Katalog und Märkte sind es nicht:
+// die stecken in Monaten Nachpflege. Deshalb liegen genau die beiden in einer
+// eigenen Datei, die – anders als data/ – ins git gehört und den Rechner damit
+// verlassen kann.
+let letzterExport = existsSync(EXPORT_FILE) ? readFileSync(EXPORT_FILE, 'utf8') : null
+
+function exportInhalt(state) {
+  return `${JSON.stringify({ catalog: state.catalog, storeProfiles: state.storeProfiles }, null, 2)}\n`
+}
+
+function exportKatalog(state) {
+  try {
+    const inhalt = exportInhalt(state)
+    if (inhalt === letzterExport) return
+    const tmp = `${EXPORT_FILE}.tmp`
+    writeFileSync(tmp, inhalt, 'utf8')
+    renameSync(tmp, EXPORT_FILE)
+    letzterExport = inhalt
+    console.log('[einkaufsliste] Katalog nach export/katalog.json geschrieben')
+  } catch (err) {
+    // Ein fehlgeschlagener Export darf die Änderung selbst nicht kippen
+    console.error('[einkaufsliste] Export fehlgeschlagen:', err.message)
+  }
+}
+
+/**
+ * Umgekehrter Weg: ohne data/state.json (neuer Rechner, geleertes Volume)
+ * kommen Katalog und Märkte aus dem git zurück. Die Listen sind dann leer –
+ * genau die sind auch das Ersetzbare.
+ */
+function restoreAusExport(state) {
+  if (!existsSync(EXPORT_FILE)) return
+  try {
+    const gesichert = JSON.parse(readFileSync(EXPORT_FILE, 'utf8'))
+    if (Array.isArray(gesichert.catalog)) state.catalog = gesichert.catalog
+    if (Array.isArray(gesichert.storeProfiles)) {
+      // Die Listen sind neu und haben neue IDs; Märkte hängen an der ersten
+      // kategorisierten Liste, statt ins Leere zu zeigen.
+      const ziel = state.lists.find((l) => l.type === 'kategorisiert')
+      state.storeProfiles = gesichert.storeProfiles
+        .map((p) => normalizeProfile({ ...p, listId: ziel?.id }))
+        .filter((p) => p.listId)
+    }
+    console.log(`[einkaufsliste] Katalog aus dem git übernommen (${state.catalog.length} Artikel)`)
+  } catch (err) {
+    console.error('[einkaufsliste] Export nicht lesbar:', err.message)
+  }
 }
 
 // Beim allerersten Start einmal festschreiben: sonst würde jeder Aufruf neue
 // IDs für die beiden Standardlisten erfinden, und zwei Geräte hätten
 // unterschiedliche Listen vor sich.
-if (!existsSync(STATE_FILE)) writeState(defaultState())
+if (!existsSync(STATE_FILE)) {
+  const start = defaultState()
+  restoreAusExport(start)
+  writeState(start)
+}
 
 /**
  * Der Katalog in data/state.json ist die Wahrheit; der Seed liefert nur nach,
@@ -207,6 +213,14 @@ function seedNachziehen() {
 }
 
 seedNachziehen()
+
+// Einmal beim Start, damit export/katalog.json auch dann aktuell ist, wenn seit
+// dem letzten Deploy niemand etwas geändert hat.
+try {
+  exportKatalog(readState())
+} catch (err) {
+  console.error('[einkaufsliste] Export beim Start fehlgeschlagen:', err.message)
+}
 
 function publicState(state) {
   return {

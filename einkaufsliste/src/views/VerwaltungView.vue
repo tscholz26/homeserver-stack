@@ -509,7 +509,9 @@ function anlegen() {
       </ul>
 
       <form class="card offen" @submit.prevent="artikelAnlegen">
-        <div class="zeile">
+        <!-- Auf dem Handy untereinander: ein Auswahlfeld mit „Gekühlte
+             Convenience-Produkte“ passt neben ein Textfeld nicht auf 360 px -->
+        <div class="zeile felder">
           <input
             v-model="neuerArtikel"
             placeholder="Neuer Artikel"
@@ -542,6 +544,9 @@ function anlegen() {
 <style scoped>
 .seite {
   padding: 0.8rem 0 2rem;
+  /* Nichts darf quer aus dem Handy herausragen */
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 section + section {
@@ -618,6 +623,24 @@ h2 {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  /* Alles darf umbrechen, statt die Seite breiter zu machen als das Display */
+  flex-wrap: wrap;
+}
+
+.zeile > input,
+.zeile > select {
+  flex: 1 1 9rem;
+}
+
+.felder {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 26rem) {
+  .felder {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 input,
@@ -727,10 +750,16 @@ input[type='radio'] {
 
 .aktiv {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.4rem 0.6rem;
   color: var(--muted);
   font-size: 0.85rem;
+}
+
+.aktiv select {
+  flex: 1 1 12rem;
+  min-width: 0;
 }
 
 .reihenfolge {

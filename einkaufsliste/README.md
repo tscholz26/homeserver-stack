@@ -65,10 +65,10 @@ Katalogartikel** seine Kategorie kam; die Detailansicht schreibt es hin.
 
 - Frontend: Vue 3 + TypeScript + Vite (Base-Pfad `/einkauf/`)
 - Backend: Express ([server.js](server.js)), Port 2608
-- Persistenz: `data/state.json`, atomar geschrieben (temporäre Datei +
-  `rename`)
+- Persistenz: `data/state.json` (atomar geschrieben), Katalog und Märkte
+  zusätzlich in `export/katalog.json` fürs git
 
-### Wo die Listen liegen und was sie rettet
+### Wo die Daten liegen und was sie rettet
 
 Jede Änderung landet sofort in `data/state.json`. Das Verzeichnis ist als
 Volume vom Host in den Container gehängt (`./data:/app/data`), liegt also
@@ -77,27 +77,23 @@ Daten unberührt. Geschrieben wird über eine temporäre Datei plus `rename`, ei
 Absturz mitten im Schreiben kann die Datei also nicht halb beschriftet
 hinterlassen.
 
-Dazu kommt ein Stand pro Tag in `backups/` (ebenfalls Volume, 30 Stände) –
-**aber nur, wenn sich seit dem letzten Backup etwas geändert hat**. Bei einer
-Einkaufsliste passiert wochenweise nichts, und identische Stände wären nur
-Rauschen.
+Zwei Dinge sind darin nicht ersetzbar: der **Katalog** und die **Märkte** –
+beides steckt in Monaten Nachpflege. Die aktuelle Einkaufsliste ist es dagegen
+schon (im Zweifel tippt man sie neu). Deshalb schreibt der Server nach jeder
+Änderung eine Kopie genau dieser beiden nach
+[export/katalog.json](export/katalog.json) – und **diese Datei liegt im git**:
 
-Diese Backups sollen laut Absprache ins git, damit sie nicht nur auf derselben
-Platte liegen wie das Original. Solange dieses Repo öffentlich auf GitHub liegt,
-sind sie in [.gitignore](.gitignore) noch ausgenommen – ein Backup ist die
-komplette Einkaufsliste. Ist das Repo privat, reicht es, die Zeile `backups/`
-dort zu löschen.
+```sh
+git add einkaufsliste/export/katalog.json && git commit -m "Katalogstand"
+```
 
-### Warum JSON und keine Datenbank
+Fehlt `data/state.json` beim Start (neuer Rechner, geleertes Volume), holt sich
+der Server Katalog und Märkte von dort zurück; die Listen sind dann leer.
+Nachgeladen aus dem Seed wird anschließend nur, was auch dort noch fehlt.
 
-Alle Schreibzugriffe laufen durch **einen** Node-Prozess, und jede Änderung ist
-ein synchrones Lesen → Ändern → Schreiben ohne `await` dazwischen. Zwei
-gleichzeitige Anfragen können sich deshalb nicht überlappen; die
-Einzeländerungs-API (nie ein PUT des ganzen Stands) sorgt zusätzlich dafür, dass
-zwei Geräte einander nicht überschreiben. Der Datenumfang – zwei Nutzer, ein
-paar Dutzend Artikel, 179 Katalogeinträge – liegt um Größenordnungen unter dem,
-wo eine Datenbank etwas beitragen würde. SQLite hätte hier nur einen weiteren
-Baustein bedeutet, ohne ein Problem zu lösen, das es gibt.
+Ein regelmäßiges Backup des ganzen Stands gibt es damit bewusst nicht mehr – es
+hätte nur die Einkaufsliste zusätzlich gesichert, dafür aber die komplette Liste
+mit ins (öffentliche) Repo gezogen. Das alte Verzeichnis `backups/` kann weg.
 
 ### API
 
@@ -130,8 +126,9 @@ also nirgends doppelt im Code:
 - [seed/artikelkatalog.json](seed/artikelkatalog.json) – `{ name, aliases,
   category_id }`.
 
-Der Katalog in `data/state.json` ist die Wahrheit. Beim ersten Start wird er
-aus dem Seed befüllt, danach liefert der Seed nur noch nach, was dort fehlt –
+Der Katalog in `data/state.json` ist die Wahrheit (gesichert in
+`export/katalog.json`). Beim ersten Start wird er aus dem Seed befüllt, danach
+liefert der Seed nur noch nach, was dort fehlt –
 also genau die Artikel, die mit einem Update dazukommen. Gelöschte Artikel
 bleiben gelöscht (`removedSeedNames`), sonst stünden sie nach jedem Neustart
 wieder da.
@@ -202,5 +199,5 @@ docker compose up -d --build
 
 Der Container `einkaufsliste` hängt im `caddy-network`; Caddy leitet
 `/einkauf/*` per `handle_path` dorthin weiter (siehe
-[caddy/Caddyfile](../caddy/Caddyfile)). `data/` und `backups/` liegen als
-Volumes auf dem Host und überleben jeden Rebuild.
+[caddy/Caddyfile](../caddy/Caddyfile)). `data/` und `export/` liegen als Volumes
+auf dem Host und überleben jeden Rebuild.

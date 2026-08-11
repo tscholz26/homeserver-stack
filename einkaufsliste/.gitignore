@@ -38,11 +38,10 @@ __screenshots__/
 # Vite
 *.timestamp-*-*.mjs
 
-# Der Live-Stand liegt auf dem Host.
+# Der Live-Stand liegt auf dem Host – er enthält auch die aktuelle
+# Einkaufsliste, und die hat im (öffentlichen) Repo nichts verloren.
+# Katalog und Märkte stehen dafür in export/katalog.json, die ins git gehört.
 data/state.json
 
-# Die Backups sollen ins git (sie ändern sich selten, siehe README) – ABER:
-# dieses Repo liegt öffentlich auf github.com/tscholz26/homeserver-stack, und
-# ein Backup ist die komplette Einkaufsliste. Diese Zeile löschen, sobald das
-# Repo privat ist; der Server legt die Stände unabhängig davon an.
+# Reste der früheren Backups; das Verzeichnis kann weg
 backups/
