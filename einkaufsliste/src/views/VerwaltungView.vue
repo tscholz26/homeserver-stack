@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onUpdated, reactive, ref } from 'vue'
+import Sortable from 'sortablejs'
 import { useEinkaufStore, type ListType } from '@/composables/useEinkaufStore'
-import { suggestCatalogEntries, type CatalogEntry } from '@/utils/matching'
+import { normalize, suggestCatalogEntries, type CatalogEntry } from '@/utils/matching'
 
 const store = useEinkaufStore()
 
@@ -55,12 +56,59 @@ function reihenfolge(profileId: string): string[] {
   return [...front, ...store.state.defaultCategoryOrder.filter((id) => !front.includes(id))]
 }
 
-function schieben(profileId: string, index: number, richtung: -1 | 1) {
+// Angefasst wird nur am Griff; SortableJS bringt die Touch-Unterstützung mit,
+// die HTML5-Drag-and-drop auf dem Handy fehlt (wie in der Kofferpackliste).
+const sortListen = new Map<string, HTMLElement>()
+const ziehend = ref(false)
+let sortables: Sortable[] = []
+
+function setSortListe(profileId: string, el: unknown) {
+  if (el instanceof HTMLElement) sortListen.set(profileId, el)
+  else sortListen.delete(profileId)
+}
+
+// SortableJS verschiebt den Knoten selbst; das machen wir rückgängig und lassen
+// Vue aus dem Zustand neu zeichnen, damit beides nicht auseinanderläuft.
+function undoDomMove(evt: Sortable.SortableEvent) {
+  evt.from.insertBefore(evt.item, evt.from.children[evt.oldIndex ?? 0] ?? null)
+}
+
+function buildSortables() {
+  for (const s of sortables) s.destroy()
+  sortables = []
+  for (const [profileId, el] of sortListen) {
+    sortables.push(
+      new Sortable(el, {
+        draggable: '.kat-zeile',
+        handle: '.griff',
+        animation: 150,
+        onStart: () => (ziehend.value = true),
+        onEnd: (evt) => {
+          ziehend.value = false
+          undoDomMove(evt)
+          if (evt.oldIndex != null && evt.newIndex != null) {
+            schieben(profileId, evt.oldIndex, evt.newIndex)
+          }
+        },
+      }),
+    )
+  }
+}
+
+onUpdated(() => {
+  if (!ziehend.value) buildSortables()
+})
+
+onBeforeUnmount(() => {
+  for (const s of sortables) s.destroy()
+  sortables = []
+})
+
+function schieben(profileId: string, von: number, nach: number) {
   const order = reihenfolge(profileId)
-  const ziel = index + richtung
-  if (ziel < 0 || ziel >= order.length) return
-  const [raus] = order.splice(index, 1)
-  order.splice(ziel, 0, raus as string)
+  if (von === nach || von < 0 || nach < 0 || von >= order.length || nach >= order.length) return
+  const [raus] = order.splice(von, 1)
+  order.splice(nach, 0, raus as string)
   store.updateStoreProfile(profileId, { categoryOrder: order })
 }
 
@@ -96,7 +144,31 @@ async function nochmalPruefen() {
 }
 
 // ── Katalog ───────────────────────────────────────────────────────────────────
-// Nur die eigenen Ergänzungen; der mitgelieferte Katalog bleibt, wie er ist.
+// Der komplette Katalog, nicht nur die eigenen Ergänzungen. Bei 300 Artikeln
+// führt nur die Suche zum Ziel, deshalb zeigt die Liste ohne Suchbegriff nichts.
+const suche = ref('')
+const TREFFER_MAX = 40
+
+const treffer = computed(() => {
+  const q = normalize(suche.value)
+  if (!q) return []
+  return store.sortedCatalog.value.filter(
+    (e) => normalize(e.name).includes(q) || e.aliases.some((a) => normalize(a).includes(q)),
+  )
+})
+
+const neuerArtikel = ref('')
+const neuerArtikelKategorie = ref('')
+
+function artikelAnlegen() {
+  const name = neuerArtikel.value.trim()
+  if (!name || !neuerArtikelKategorie.value) return
+  store.saveCatalogEntry({ name, aliases: [], category_id: neuerArtikelKategorie.value })
+  suche.value = name
+  neuerArtikel.value = ''
+  neuerArtikelKategorie.value = ''
+}
+
 const neueSchreibweise = reactive<Record<string, string>>({})
 
 function kategorieSetzen(eintrag: CatalogEntry, categoryId: string) {
@@ -115,35 +187,8 @@ function schreibweiseHinzufuegen(eintrag: CatalogEntry) {
 }
 
 function eintragVerwerfen(name: string) {
-  if (!confirm(`„${name}“ aus den eigenen Ergänzungen entfernen?`)) return
+  if (!confirm(`„${name}“ aus dem Katalog löschen?`)) return
   store.removeCatalogEntry(name)
-}
-
-// Notausgang für alles, was die Knöpfe oben nicht hergeben
-const rohOffen = ref(false)
-const rohText = ref('')
-const rohFehler = ref('')
-
-function rohOeffnen() {
-  rohText.value = JSON.stringify(store.state.ownCatalog, null, 2)
-  rohFehler.value = ''
-  rohOffen.value = !rohOffen.value
-}
-
-async function rohSpeichern() {
-  let daten: unknown
-  try {
-    daten = JSON.parse(rohText.value)
-  } catch (err) {
-    rohFehler.value = `Kein gültiges JSON: ${(err as Error).message}`
-    return
-  }
-  if (!Array.isArray(daten)) {
-    rohFehler.value = 'Erwartet wird eine Liste von Einträgen.'
-    return
-  }
-  rohFehler.value = ''
-  if ((await store.replaceOwnCatalog(daten as CatalogEntry[])) === true) rohOffen.value = false
 }
 
 // ── Listen ────────────────────────────────────────────────────────────────────
@@ -320,28 +365,13 @@ function anlegen() {
             {{ marktOffen[p.id] ? '– ' : '+ ' }}Reihenfolge der Kategorien
           </button>
 
-          <ol v-if="marktOffen[p.id]" class="reihenfolge">
-            <li v-for="(id, index) in reihenfolge(p.id)" :key="id">
+          <ol v-if="marktOffen[p.id]" :ref="(el) => setSortListe(p.id, el)" class="reihenfolge">
+            <li v-for="id in reihenfolge(p.id)" :key="id" class="kat-zeile">
+              <span class="griff" title="Verschieben">⠿</span>
               <span class="kat">
                 {{ store.categoryById.value[id]?.emoji }}
                 {{ store.categoryById.value[id]?.label ?? id }}
               </span>
-              <button
-                type="button"
-                :disabled="index === 0"
-                :aria-label="`${store.categoryById.value[id]?.label} nach oben`"
-                @click="schieben(p.id, index, -1)"
-              >
-                ▲
-              </button>
-              <button
-                type="button"
-                :disabled="index === reihenfolge(p.id).length - 1"
-                :aria-label="`${store.categoryById.value[id]?.label} nach unten`"
-                @click="schieben(p.id, index, 1)"
-              >
-                ▼
-              </button>
             </li>
           </ol>
         </li>
@@ -402,24 +432,33 @@ function anlegen() {
 
     <!-- ── Katalog ─────────────────────────────────────────────────────────── -->
     <section>
-      <h2>Katalog: eigene Ergänzungen</h2>
+      <h2>Katalog</h2>
       <p class="hinweis">
-        Alles, was hier steht, überlagert den mitgelieferten Katalog. Ein Eintrag lässt sich
-        entfernen – dann gilt wieder die Auslieferung.
+        {{ store.state.catalog.length }} Artikel entscheiden, in welche Kategorie ein eingetippter
+        Name wandert. Suchen, dann Kategorie oder Schreibweisen anpassen.
       </p>
 
-      <p v-if="!store.state.ownCatalog.length" class="leer">
-        Noch nichts ergänzt – es gilt überall der mitgelieferte Katalog.
-      </p>
+      <div class="card offen">
+        <input
+          v-model="suche"
+          type="search"
+          placeholder="Artikel oder Schreibweise suchen …"
+          aria-label="Katalog durchsuchen"
+        />
+        <p v-if="suche && !treffer.length" class="leer">Nichts gefunden.</p>
+        <p v-else-if="treffer.length > TREFFER_MAX" class="leer">
+          {{ treffer.length }} Treffer – die ersten {{ TREFFER_MAX }} stehen unten.
+        </p>
+      </div>
 
-      <ul v-else class="karten">
-        <li v-for="eintrag in store.state.ownCatalog" :key="eintrag.name" class="card offen">
+      <ul v-if="treffer.length" class="karten">
+        <li v-for="eintrag in treffer.slice(0, TREFFER_MAX)" :key="eintrag.name" class="card offen">
           <div class="kopf">
             <span class="name">{{ eintrag.name }}</span>
             <button
               type="button"
               class="weg"
-              title="Eigenen Eintrag verwerfen"
+              title="Artikel aus dem Katalog löschen"
               @click="eintragVerwerfen(eintrag.name)"
             >
               ×
@@ -469,22 +508,28 @@ function anlegen() {
         </li>
       </ul>
 
-      <button type="button" class="schalter" @click="rohOeffnen">
-        {{ rohOffen ? '– ' : '+ ' }}Notfall: Rohdaten bearbeiten
-      </button>
-
-      <div v-if="rohOffen" class="card offen">
-        <p class="hinweis">
-          Die eigenen Einträge als JSON. Eine leere Liste (<code>[]</code>) setzt alles auf den
-          mitgelieferten Katalog zurück.
-        </p>
-        <textarea v-model="rohText" rows="12" spellcheck="false" aria-label="Katalog als JSON" />
-        <p v-if="rohFehler" class="fehler">{{ rohFehler }}</p>
-        <div class="zeile rechts">
-          <button type="button" class="loeschen" @click="rohOffen = false">Abbrechen</button>
-          <button type="button" class="primaer" @click="rohSpeichern">Speichern</button>
+      <form class="card offen" @submit.prevent="artikelAnlegen">
+        <div class="zeile">
+          <input
+            v-model="neuerArtikel"
+            placeholder="Neuer Artikel"
+            aria-label="Name des neuen Artikels"
+          />
+          <select v-model="neuerArtikelKategorie" aria-label="Kategorie des neuen Artikels">
+            <option value="">Kategorie …</option>
+            <option v-for="k in waehlbareKategorien" :key="k.id" :value="k.id">
+              {{ k.emoji }} {{ k.label }}
+            </option>
+          </select>
         </div>
-      </div>
+        <button
+          type="submit"
+          class="primaer"
+          :disabled="!neuerArtikel.trim() || !neuerArtikelKategorie"
+        >
+          Artikel anlegen
+        </button>
+      </form>
     </section>
 
     <p class="fuss">
@@ -711,21 +756,27 @@ input[type='radio'] {
   font-size: 0.88rem;
 }
 
-.reihenfolge button {
-  width: 2rem;
-  height: 2rem;
+.griff {
   flex-shrink: 0;
-  border: 1px solid var(--line);
-  border-radius: 0.5rem;
-  background: white;
+  padding: 0.4rem 0.5rem;
   color: var(--muted);
+  font-size: 1.05rem;
   line-height: 1;
-  cursor: pointer;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
 }
 
-.reihenfolge button:disabled {
-  opacity: 0.35;
-  cursor: default;
+.griff:active {
+  cursor: grabbing;
+}
+
+.sortable-ghost {
+  opacity: 0.4;
+}
+
+.sortable-chosen {
+  background: color-mix(in srgb, var(--violet) 8%, transparent);
 }
 
 .nachtraeglich {

@@ -99,8 +99,12 @@ function defaultState() {
       { id: createId(), name: 'Lebensmittel', type: 'kategorisiert', items: [] },
       { id: createId(), name: 'Drogerie', type: 'flach', items: [] },
     ],
-    // Nur die selbst ergänzten Artikel; der Basiskatalog kommt aus dem Seed
+    // Der komplette Katalog, beim ersten Start aus dem Seed befüllt und danach
+    // in der Verwaltung frei bearbeitbar
     catalog: [],
+    // Aus dem Seed gelöschte Artikel: sonst wären sie beim nächsten Start
+    // wieder da (siehe seedNachziehen)
+    removedSeedNames: [],
     unmatched: [],
     // Kategorie-Reihenfolge pro Filiale, gepflegt in der Verwaltung
     storeProfiles: [],
@@ -153,6 +157,7 @@ function readState() {
   return {
     lists: Array.isArray(parsed.lists) ? parsed.lists.map(normalizeList) : [],
     catalog: Array.isArray(parsed.catalog) ? parsed.catalog : [],
+    removedSeedNames: Array.isArray(parsed.removedSeedNames) ? parsed.removedSeedNames : [],
     unmatched: Array.isArray(parsed.unmatched) ? parsed.unmatched : [],
     storeProfiles: Array.isArray(parsed.storeProfiles)
       ? parsed.storeProfiles.map(normalizeProfile)
@@ -173,17 +178,42 @@ function writeState(data) {
 // unterschiedliche Listen vor sich.
 if (!existsSync(STATE_FILE)) writeState(defaultState())
 
-// Was der Client sieht: gespeicherter Stand plus die Seed-Daten. Eigene
-// Katalog-Einträge stehen vorn, damit sie bei gleichem Namen gewinnen.
+/**
+ * Der Katalog in data/state.json ist die Wahrheit; der Seed liefert nur nach,
+ * was dort noch fehlt. Beim ersten Start ist das der komplette Seed, später
+ * genau die Artikel, die mit einem Update dazugekommen sind – gelöschte bleiben
+ * gelöscht.
+ */
+function seedNachziehen() {
+  // Eine kaputte state.json darf den Start nicht verhindern – dann meldet sich
+  // stattdessen jeder API-Aufruf mit dem Fehler.
+  let state
+  try {
+    state = readState()
+  } catch (err) {
+    console.error('[einkaufsliste] Seed-Abgleich übersprungen:', err.message)
+    return
+  }
+  const bekannt = new Set([
+    ...state.catalog.map((e) => normalize(e.name)),
+    ...state.removedSeedNames.map(normalize),
+  ])
+  const fehlend = SEED_CATALOG.filter((e) => !bekannt.has(normalize(e.name)))
+  if (fehlend.length === 0) return
+
+  state.catalog = [...state.catalog, ...fehlend.map((e) => ({ ...e, aliases: [...e.aliases] }))]
+  writeState(state)
+  console.log(`[einkaufsliste] ${fehlend.length} Artikel aus dem Seed übernommen`)
+}
+
+seedNachziehen()
+
 function publicState(state) {
   return {
     lists: state.lists,
     categories: SEED_CATEGORIES,
     defaultCategoryOrder: DEFAULT_CATEGORY_ORDER,
-    catalog: [...state.catalog, ...SEED_CATALOG],
-    // Nur die eigenen Einträge – die Verwaltung darf nur die ändern, der Seed
-    // ist Auslieferungszustand und bleibt, wie er ist.
-    ownCatalog: state.catalog,
+    catalog: state.catalog,
     unmatched: state.unmatched,
     storeProfiles: state.storeProfiles,
   }
@@ -449,6 +479,22 @@ app.delete('/api/lists/:listId/items/:itemId', (req, res) => {
   })
 })
 
+// Handsortierung in flachen Listen: der Client schickt die neue Reihenfolge der
+// IDs. Was fehlt (weil ein anderes Gerät gerade etwas eingetragen hat), bleibt
+// hinten stehen, statt verloren zu gehen.
+app.put('/api/lists/:listId/order', (req, res) => {
+  const { itemIds } = req.body || {}
+  if (!Array.isArray(itemIds) || itemIds.some((id) => typeof id !== 'string')) {
+    return res.status(400).json({ error: 'Invalid payload' })
+  }
+  mutateList(req, res, (list) => {
+    const rang = new Map(itemIds.map((id, index) => [id, index]))
+    list.items = [...list.items].sort(
+      (a, b) => (rang.get(a.id) ?? Infinity) - (rang.get(b.id) ?? Infinity),
+    )
+  })
+})
+
 // „Einkauf beenden“: abgehakte Artikel raus, der Rest bleibt liegen
 app.post('/api/lists/:listId/finish', (req, res) => {
   mutateList(req, res, (list) => {
@@ -490,7 +536,7 @@ app.post('/api/catalog', (req, res) => {
     const key = normalize(clean)
     // Schon vorhandene Schreibweisen bleiben erhalten – auch die eines
     // Seed-Artikels, der hier nur eine andere Kategorie bekommt.
-    const vorher = [...state.catalog, ...SEED_CATALOG].find((e) => normalize(e.name) === key)
+    const vorher = state.catalog.find((e) => normalize(e.name) === key)
     const gemerkt = new Set([
       ...(vorher?.aliases ?? []),
       ...(Array.isArray(aliases) ? aliases.filter((a) => typeof a === 'string') : []),
@@ -512,7 +558,7 @@ app.post('/api/catalog/alias', (req, res) => {
   }
   mutate(req, res, (state) => {
     const key = normalize(name)
-    const eintrag = [...state.catalog, ...SEED_CATALOG].find((e) => normalize(e.name) === key)
+    const eintrag = state.catalog.find((e) => normalize(e.name) === key)
     if (!eintrag) return { reject: { status: 404, error: 'Artikel nicht im Katalog.' } }
 
     const sauber = alias.trim()
@@ -535,8 +581,8 @@ app.post('/api/catalog/alias', (req, res) => {
   })
 })
 
-// Einen eigenen Katalogeintrag überschreiben: Kategorie ändern oder eine
-// Schreibweise wieder loswerden, die versehentlich hier gelandet ist.
+// Einen Katalogeintrag überschreiben: Kategorie ändern oder eine Schreibweise
+// wieder loswerden, die versehentlich dort gelandet ist.
 function pruefeEintrag(e) {
   if (!e || typeof e.name !== 'string' || !e.name.trim()) return 'Name fehlt'
   if (typeof e.category_id !== 'string' || !CATEGORY_IDS.has(e.category_id)) {
@@ -567,8 +613,8 @@ app.put('/api/catalog', (req, res) => {
   })
 })
 
-// Zurück auf den Seed: der eigene Eintrag verschwindet, der mitgelieferte
-// Artikel gilt wieder (oder der Name ist danach gar nicht mehr im Katalog).
+// Artikel aus dem Katalog werfen. Kam er aus dem Seed, wird das vermerkt –
+// sonst stünde er beim nächsten Start wieder da.
 app.delete('/api/catalog', (req, res) => {
   const { name } = req.body || {}
   if (typeof name !== 'string' || !name.trim()) {
@@ -577,20 +623,9 @@ app.delete('/api/catalog', (req, res) => {
   mutate(req, res, (state) => {
     const key = normalize(name)
     state.catalog = state.catalog.filter((e) => normalize(e.name) !== key)
-  })
-})
-
-// Notausgang: alle eigenen Katalogeinträge auf einmal ersetzen. Der Seed bleibt
-// unangetastet, ein leeres Array setzt also alles auf Auslieferungszustand.
-app.put('/api/catalog/raw', (req, res) => {
-  const { catalog } = req.body || {}
-  if (!Array.isArray(catalog)) return res.status(400).json({ error: 'Erwartet wird eine Liste' })
-  for (const eintrag of catalog) {
-    const fehler = pruefeEintrag(eintrag)
-    if (fehler) return res.status(400).json({ error: fehler })
-  }
-  mutate(req, res, (state) => {
-    state.catalog = catalog.map(sauberEintrag)
+    if (SEED_CATALOG.some((e) => normalize(e.name) === key)) {
+      state.removedSeedNames.push(name.trim())
+    }
   })
 })
 

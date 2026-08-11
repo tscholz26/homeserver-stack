@@ -7,8 +7,8 @@ Handys gleichzeitig abgehakt. Erreichbar unter
 
 ## Funktionen
 
-- **Listen** frei konfigurierbar (anlegen, umbenennen, löschen). Zwei sind
-  vorgegeben: „Lebensmittel“ (`kategorisiert`) und „Drogerie“ (`flach`)
+- **Listen** frei konfigurierbar (anlegen, umbenennen, löschen – in der
+  Verwaltung; die Tab-Leiste ist nur zum Wechseln da). Zwei sind vorgegeben: „Lebensmittel“ (`kategorisiert`) und „Drogerie“ (`flach`)
   - `kategorisiert`: Artikel werden nach Kategorie gruppiert und in
     Supermarkt-Reihenfolge angezeigt, mit klebender Kategorie-Überschrift
   - `flach`: schlichte Liste ohne Kategorie-Überbau
@@ -26,9 +26,13 @@ Handys gleichzeitig abgehakt. Erreichbar unter
   liegen, was nicht im Laden war
 - **Korrektur in der Liste**: ein Tipp auf den Artikelnamen macht aus der Zeile
   ein Eingabefeld – Name, Menge und Kategorie. Eine geänderte Kategorie wandert
-  immer auch in den Katalog, falsch einsortiert wird also nur einmal. Über
+  immer auch in den Katalog, falsch einsortiert wird also nur einmal. Wird nur
+  der **Name** verbessert, fragt der Katalog noch einmal nach: aus „Pizzateif“
+  wird „Pizzateig“ samt Rückfrage, ob der Artikel ins passende Regal soll. Über
   „Schreibweise für ein anderes Wort“ lässt sich der Name stattdessen an einen
   vorhandenen Artikel hängen
+- **Handsortierung** in Listen ohne Kategorien: Artikel am Griff ⠿ an die
+  richtige Stelle ziehen (SortableJS, damit es auch auf dem Handy geht)
 - **Kompakte Ansicht**: der Knopf in der Fußleiste blendet die
   Kategorie-Überschriften aus. Sortiert wird weiter nach Laden-Reihenfolge, nur
   sammelt sich das Abgehakte dann am Ende der ganzen Liste statt am Fuß jeder
@@ -37,7 +41,7 @@ Handys gleichzeitig abgehakt. Erreichbar unter
   Kategorie-Reihenfolge; der aktive Markt wird in der Verwaltung gewählt und
   taucht beim Einkaufen nicht auf
 - **Verwaltung**: nicht zugeordnete Artikel nachpflegen, Märkte und Listen
-  verwalten, eigene Katalogeinträge korrigieren (inkl. Notausgang für Rohdaten)
+  verwalten, den kompletten Katalog durchsuchen und korrigieren
 - **Live-Sync**: jede Änderung geht als einzelner Request an den Server, der
   sie auf den zentralen Stand anwendet und ihn per Server-Sent Events sofort an
   alle offenen Geräte schickt
@@ -108,11 +112,11 @@ Baustein bedeutet, ohne ein Problem zu lösen, das es gibt.
 | PUT | `/api/lists/:id/items/:itemId` | Name, Menge und/oder Kategorie korrigieren |
 | POST | `/api/lists/:id/items/:itemId/check` | `{ done }` setzen |
 | DELETE | `/api/lists/:id/items/:itemId` | Artikel entfernen |
+| PUT | `/api/lists/:id/order` | neue Reihenfolge der Artikel (Handsortierung) |
 | POST | `/api/lists/:id/finish` | „Einkauf beenden“: Abgehaktes löschen |
 | POST | `/api/catalog` | `{ name, category_id }` dauerhaft zuordnen |
 | POST | `/api/catalog/alias` | `{ name, alias }` – Schreibweise an einen Artikel hängen |
-| PUT / DELETE | `/api/catalog` | eigenen Eintrag überschreiben / verwerfen |
-| PUT | `/api/catalog/raw` | alle eigenen Einträge ersetzen (Notausgang, `[]` = zurücksetzen) |
+| PUT / DELETE | `/api/catalog` | Artikel anlegen bzw. überschreiben / löschen |
 | DELETE | `/api/unmatched/:id` | nicht zugeordneten Namen verwerfen |
 
 ### Kategorien und Katalog
@@ -126,33 +130,32 @@ also nirgends doppelt im Code:
 - [seed/artikelkatalog.json](seed/artikelkatalog.json) – `{ name, aliases,
   category_id }`.
 
-Was in der Verwaltung zugeordnet wird, landet in derselben Struktur unter
-`catalog` in `data/state.json` und steht bei der Suche **vor** dem Seed. Der
-Seed selbst bleibt im git und kann jederzeit erweitert werden (danach einmal
-`docker compose up -d --build`).
+Der Katalog in `data/state.json` ist die Wahrheit. Beim ersten Start wird er
+aus dem Seed befüllt, danach liefert der Seed nur noch nach, was dort fehlt –
+also genau die Artikel, die mit einem Update dazukommen. Gelöschte Artikel
+bleiben gelöscht (`removedSeedNames`), sonst stünden sie nach jedem Neustart
+wieder da.
 
-Eine neue Zuordnung zieht die Artikel mit, die deswegen gerade unter
-„Sonstiges“ liegen (`applyToUnmatchedItems` in [server.js](server.js)) – sonst
-müsste man dieselbe Entscheidung in der Liste ein zweites Mal treffen. Artikel,
-deren Kategorie von Hand gesetzt wurde, bleiben unangetastet.
+In der Verwaltung steht deshalb der **komplette** Katalog: suchen, Kategorie
+umstellen, Schreibweisen ergänzen oder wegwerfen, Artikel anlegen oder löschen.
+Ohne Suchbegriff zeigt die Liste nichts – bei 300 Artikeln führt nur die Suche
+zum Ziel.
 
 Für einen unbekannten Namen gibt es zwei Wege:
 
 - **eigener Artikel**: Kategorie wählen → neuer Katalogeintrag
 - **Schreibweise eines vorhandenen Artikels** („Zuchini“ → Zucchini): der
-  Eintrag wandert als Alias an den bestehenden Artikel. Betrifft es einen
-  Seed-Artikel, entsteht dabei eine eigene Kopie in `data/state.json`, die den
-  Seed überdeckt – der Seed selbst bleibt unangetastet.
+  Eintrag wandert als Alias an den bestehenden Artikel.
 
-Verfahren kann man sich dabei: In der Verwaltung steht unter **„Katalog: eigene
-Ergänzungen“** jeder selbst angelegte Eintrag mit seinen Schreibweisen. Einzelne
-Schreibweisen lassen sich dort wegwerfen, die Kategorie ändern oder der ganze
-Eintrag verwerfen – dann gilt wieder der mitgelieferte Katalog. Für alles
-andere gibt es darunter ein Textfeld mit den Rohdaten.
+Eine neue Zuordnung zieht die Artikel mit, die deswegen gerade unter
+„Sonstiges“ liegen (`applyToUnmatchedItems` in [server.js](server.js)) – sonst
+müsste man dieselbe Entscheidung in der Liste ein zweites Mal treffen. Artikel,
+deren Kategorie von Hand gesetzt wurde, bleiben unangetastet. Wächst der Katalog
+später, holt „Nochmal zuordnen“ in der Verwaltung den Rest nach.
 
 Die Vorschläge unter „Schreibweise eines vorhandenen Artikels“ kommen aus
 `suggestCatalogEntries()` und sind absichtlich lockerer als das Matching beim
-Eintippen: „Hafermilch“ schlägt Vollmilch vor, ohne dass es dort automatisch
+Eintippen: „Kokosjoghurt“ schlägt Joghurt vor, ohne dass es dort automatisch
 einsortiert würde.
 
 ### Märkte
@@ -172,6 +175,8 @@ deshalb nichts weiter als eine eigene Kategorie-Reihenfolge:
 ]
 ```
 
+Angelegt und sortiert werden Märkte in der Verwaltung (Reihenfolge per Griff
+⠿ ziehen), ausgewählt ebenfalls dort – die Einkaufsansicht zeigt davon nichts.
 `categoryOrderFor()` in
 [useEinkaufStore.ts](src/composables/useEinkaufStore.ts) zieht die Kategorien
 des aktiven Marktes nach vorn, hängt alles nicht Genannte in

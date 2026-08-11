@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, useTemplateRef } from 'vue'
 import type { Category, Item } from '@/composables/useEinkaufStore'
-import { suggestCatalogEntries, type CatalogEntry } from '@/utils/matching'
+import { findCatalogMatch, suggestCatalogEntries, type CatalogEntry } from '@/utils/matching'
 
 const props = defineProps<{
   item: Item
@@ -9,12 +9,14 @@ const props = defineProps<{
   categories: Category[]
   catalog: CatalogEntry[]
   catalogNames: string[]
+  /** Flache Listen lassen sich von Hand sortieren – dann gibt es einen Griff. */
+  sortierbar?: boolean
 }>()
 
 const emit = defineEmits<{
   check: [done: boolean]
   remove: []
-  save: [changes: { name: string; quantity: string; categoryId?: string }]
+  save: [changes: { name: string; quantity: string; categoryId?: string; merken?: boolean }]
   alias: [artikel: string]
 }>()
 
@@ -42,11 +44,38 @@ function oeffnen() {
 function speichern() {
   const sauber = name.value.trim()
   if (!sauber) return
+
+  // Von Hand gewählte Kategorie: gilt und wird im Katalog gemerkt
+  if (categoryId.value !== props.item.categoryId) {
+    emit('save', {
+      name: sauber,
+      quantity: quantity.value.trim(),
+      categoryId: categoryId.value,
+      merken: true,
+    })
+    offen.value = false
+    return
+  }
+
+  // Nur der Name geändert: der Katalog wird noch einmal gefragt. Aus „Pizzateif“
+  // wird so „Pizzateig“ samt Regal, statt in Sonstiges liegen zu bleiben.
+  let neueKategorie: string | undefined
+  if (props.categories.length && sauber !== props.item.name) {
+    const match = findCatalogMatch(sauber, props.catalog)
+    if (match && match.category_id !== props.item.categoryId) {
+      const label = props.categories.find((k) => k.id === match.category_id)?.label
+      if (confirm(`„${sauber}“ steht im Katalog unter „${label}“. Dorthin verschieben?`)) {
+        neueKategorie = match.category_id
+      }
+    }
+  }
+
   emit('save', {
     name: sauber,
     quantity: quantity.value.trim(),
-    // Eine von Hand gewählte Kategorie wird immer auch im Katalog gemerkt
-    categoryId: categoryId.value !== props.item.categoryId ? categoryId.value : undefined,
+    categoryId: neueKategorie,
+    // Kam aus dem Katalog – da muss nichts dazugelernt werden
+    merken: false,
   })
   offen.value = false
 }
@@ -62,6 +91,8 @@ function alsSchreibweise(artikel: string) {
   <li class="zeile" :class="{ erledigt: item.done, aktiv: offen }">
     <!-- Zugeklappt: Haken, Name, Menge. Ein Tipp auf den Namen klappt auf. -->
     <div v-if="!offen" class="haupt">
+      <span v-if="sortierbar" class="griff" title="Verschieben">⠿</span>
+
       <label class="haken">
         <input
           type="checkbox"
@@ -167,6 +198,22 @@ function alsSchreibweise(artikel: string) {
   align-items: center;
   gap: 0.7rem;
   padding: 0.65rem 0.9rem;
+}
+
+.griff {
+  flex-shrink: 0;
+  margin: -0.2rem -0.3rem -0.2rem -0.2rem;
+  padding: 0.4rem 0.35rem;
+  color: color-mix(in srgb, var(--muted) 55%, transparent);
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.griff:active {
+  cursor: grabbing;
 }
 
 .haken {

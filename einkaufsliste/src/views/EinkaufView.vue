@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, onUpdated, ref, useTemplateRef } from 'vue'
+import Sortable from 'sortablejs'
 import { useEinkaufStore } from '@/composables/useEinkaufStore'
 import ArtikelZeile from '@/components/ArtikelZeile.vue'
 
@@ -42,12 +43,13 @@ function entfernen(itemId: string) {
  */
 async function speichern(
   itemId: string,
-  changes: { name: string; quantity: string; categoryId?: string },
+  changes: { name: string; quantity: string; categoryId?: string; merken?: boolean },
 ) {
   if (!liste.value) return
-  await store.updateItem(liste.value, itemId, changes)
-  // Eine von Hand gewählte Kategorie gilt ab jetzt auch für den Katalog
-  if (changes.categoryId) await store.assignCategory(changes.name, changes.categoryId)
+  const { merken, ...rest } = changes
+  await store.updateItem(liste.value, itemId, rest)
+  // Nur eine von Hand gewählte Kategorie ist etwas Neues für den Katalog
+  if (merken && rest.categoryId) await store.assignCategory(rest.name, rest.categoryId)
 }
 
 /** „Das ist eigentlich …“: der Name wird Schreibweise eines Katalogartikels. */
@@ -64,6 +66,41 @@ function einkaufBeenden() {
   if (liste.value) store.finishShopping(liste.value)
 }
 
+// Flache Listen lassen sich von Hand sortieren: angefasst wird nur der Griff.
+const flacheListe = useTemplateRef<HTMLElement>('flacheListe')
+const ziehend = ref(false)
+let sortable: Sortable | undefined
+
+function buildSortable() {
+  sortable?.destroy()
+  sortable = undefined
+  if (!flacheListe.value || liste.value?.type !== 'flach') return
+  sortable = new Sortable(flacheListe.value, {
+    draggable: '.zeile',
+    handle: '.griff',
+    animation: 150,
+    onStart: () => (ziehend.value = true),
+    onEnd: (evt) => {
+      ziehend.value = false
+      // SortableJS hat den Knoten selbst verschoben – zurücksetzen und Vue neu
+      // zeichnen lassen, damit DOM und Zustand nicht auseinanderlaufen.
+      evt.from.insertBefore(evt.item, evt.from.children[evt.oldIndex ?? 0] ?? null)
+      if (liste.value && evt.oldIndex != null && evt.newIndex != null) {
+        store.moveItem(liste.value, evt.oldIndex, evt.newIndex)
+      }
+    },
+  })
+}
+
+onUpdated(() => {
+  if (!ziehend.value) buildSortable()
+})
+
+onBeforeUnmount(() => {
+  sortable?.destroy()
+  sortable = undefined
+})
+
 // Die Kategorie-Überschriften kleben unter der Kopfzeile aus Tabs und
 // Eingabezeile – deren Höhe wächst mit der Zahl der Listen, also gemessen
 // statt geraten.
@@ -72,6 +109,7 @@ const kopfHoehe = ref(0)
 let beobachter: ResizeObserver | undefined
 
 onMounted(() => {
+  buildSortable()
   if (!kopf.value || typeof ResizeObserver === 'undefined') return
   beobachter = new ResizeObserver(([eintrag]) => {
     kopfHoehe.value = eintrag?.contentRect.height ?? 0
@@ -151,11 +189,12 @@ onBeforeUnmount(() => beobachter?.disconnect())
     </template>
 
     <!-- Flach oder kompakt: eine Reihe ohne Kategorie-Überbau -->
-    <ul v-else class="artikel-liste card einzeln">
+    <ul v-else ref="flacheListe" class="artikel-liste card einzeln">
       <ArtikelZeile
         v-for="item in liste.type === 'kategorisiert' ? kompaktListe : flach"
         :key="item.id"
         :item="item"
+        :sortierbar="liste.type === 'flach' && !item.done"
         :categories="kategorienZurAuswahl"
         :catalog="store.state.catalog"
         :catalog-names="store.catalogNames.value"
@@ -318,6 +357,14 @@ onBeforeUnmount(() => beobachter?.disconnect())
 
 .artikel-liste :deep(.zeile:first-child) {
   border-top: none;
+}
+
+.artikel-liste :deep(.sortable-ghost) {
+  opacity: 0.4;
+}
+
+.artikel-liste :deep(.sortable-chosen) {
+  background: color-mix(in srgb, var(--violet) 8%, transparent);
 }
 
 .einzeln {

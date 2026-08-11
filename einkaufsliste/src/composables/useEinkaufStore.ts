@@ -50,7 +50,6 @@ export interface AppState {
   categories: Category[]
   defaultCategoryOrder: string[]
   catalog: CatalogEntry[]
-  ownCatalog: CatalogEntry[]
   unmatched: UnmatchedEntry[]
   storeProfiles: StoreProfile[]
 }
@@ -86,7 +85,6 @@ function createStore() {
     categories: [],
     defaultCategoryOrder: [],
     catalog: [],
-    ownCatalog: [],
     unmatched: [],
     storeProfiles: [],
   })
@@ -99,7 +97,6 @@ function createStore() {
     state.categories = data.categories ?? []
     state.defaultCategoryOrder = data.defaultCategoryOrder ?? []
     state.catalog = data.catalog ?? []
-    state.ownCatalog = data.ownCatalog ?? []
     state.unmatched = data.unmatched ?? []
     state.storeProfiles = data.storeProfiles ?? []
   }
@@ -315,9 +312,24 @@ function createStore() {
       }))
   }
 
-  /** Flache Liste: eine einzige Reihe ohne Kategorie-Überbau. */
+  /**
+   * Flache Liste: eine einzige Reihe ohne Kategorie-Überbau, in der von Hand
+   * gezogenen Reihenfolge. Abgehaktes rutscht trotzdem ans Ende.
+   */
   function flatItems(list: List): Item[] {
-    return sortItems(list.items)
+    return [...list.items].sort((a, b) => Number(a.done) - Number(b.done))
+  }
+
+  /** Neue Reihenfolge nach dem Ziehen (nur flache Listen). */
+  function moveItem(list: List, from: number, to: number) {
+    const sichtbar = flatItems(list)
+    if (from === to || from < 0 || to < 0 || from >= sichtbar.length || to >= sichtbar.length) {
+      return
+    }
+    const [raus] = sichtbar.splice(from, 1)
+    sichtbar.splice(to, 0, raus!)
+    list.items = sichtbar
+    return sendChange(`/lists/${list.id}/order`, 'PUT', { itemIds: sichtbar.map((i) => i.id) })
   }
 
   // Kompakte Ansicht: keine Kategorie-Überschriften, aber weiter in
@@ -378,19 +390,14 @@ function createStore() {
     return getroffen
   }
 
-  /** Eigenen Katalogeintrag überschreiben (Kategorie, Schreibweisen). */
+  /** Katalogeintrag anlegen oder überschreiben (Kategorie, Schreibweisen). */
   function saveCatalogEntry(entry: CatalogEntry) {
     return sendChange('/catalog', 'PUT', entry)
   }
 
-  /** Eigenen Eintrag verwerfen – danach gilt wieder der mitgelieferte Katalog. */
+  /** Artikel aus dem Katalog werfen; kam er aus dem Seed, bleibt er weg. */
   function removeCatalogEntry(name: string) {
     return sendChange('/catalog', 'DELETE', { name })
-  }
-
-  /** Notausgang: alle eigenen Einträge auf einmal ersetzen. */
-  function replaceOwnCatalog(catalog: CatalogEntry[]) {
-    return sendChange('/catalog/raw', 'PUT', { catalog })
   }
 
   /** Hängt eine Schreibweise an einen bestehenden Katalogartikel. */
@@ -401,6 +408,11 @@ function createStore() {
   function dismissUnmatched(id: string) {
     return sendChange(`/unmatched/${id}`, 'DELETE')
   }
+
+  /** Der Katalog alphabetisch – so steht er in der Verwaltung. */
+  const sortedCatalog = computed(() =>
+    [...state.catalog].sort((a, b) => a.name.localeCompare(b.name, 'de')),
+  )
 
   /** Alle Artikelnamen für die Auswahl beim Anlegen einer Schreibweise. */
   const catalogNames = computed(() =>
@@ -431,6 +443,7 @@ function createStore() {
     categoryOrderFor,
     groupsFor,
     flatItems,
+    moveItem,
     kompakt,
     toggleKompakt,
     compactItems,
@@ -441,9 +454,9 @@ function createStore() {
     rematchAll,
     saveCatalogEntry,
     removeCatalogEntry,
-    replaceOwnCatalog,
     dismissUnmatched,
     catalogNames,
+    sortedCatalog,
     refresh,
   }
 }
