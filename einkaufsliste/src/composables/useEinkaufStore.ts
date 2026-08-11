@@ -11,7 +11,6 @@ export interface Item {
   /** false = beim Hinzufügen nicht im Katalog gefunden (◌-Badge) */
   matched: boolean
   done: boolean
-  addedBy: string
   addedAt: string
 }
 
@@ -51,7 +50,6 @@ export interface AppState {
   catalog: CatalogEntry[]
   unmatched: UnmatchedEntry[]
   storeProfiles: StoreProfile[]
-  settings: { users: string[] }
 }
 
 export interface CategoryGroup {
@@ -59,7 +57,6 @@ export interface CategoryGroup {
   items: Item[]
 }
 
-const USER_KEY = 'einkauf:user'
 const LIST_KEY = 'einkauf:liste'
 
 let singleton: ReturnType<typeof createStore> | undefined
@@ -87,7 +84,6 @@ function createStore() {
     catalog: [],
     unmatched: [],
     storeProfiles: [],
-    settings: { users: [] },
   })
 
   const API_BASE = `${import.meta.env.BASE_URL}api`
@@ -100,7 +96,6 @@ function createStore() {
     state.catalog = data.catalog ?? []
     state.unmatched = data.unmatched ?? []
     state.storeProfiles = data.storeProfiles ?? []
-    state.settings = data.settings ?? { users: [] }
   }
 
   async function refresh() {
@@ -154,34 +149,6 @@ function createStore() {
     }
   }
 
-  // ── Nutzer ─────────────────────────────────────────────────────────────────
-  // Kein Login, nur „wer tippt hier gerade“: gespeichert wird der Platz in den
-  // Einstellungen, damit ein umbenannter Nutzer sich nicht neu wählen muss.
-  const gespeicherterNutzer = Number(localStorage.getItem(USER_KEY))
-  const userIndex = ref<number | null>(
-    Number.isInteger(gespeicherterNutzer) && localStorage.getItem(USER_KEY) !== null
-      ? gespeicherterNutzer
-      : null,
-  )
-
-  const userName = computed(() =>
-    userIndex.value === null ? '' : (state.settings.users[userIndex.value] ?? ''),
-  )
-
-  function chooseUser(index: number) {
-    userIndex.value = index
-    localStorage.setItem(USER_KEY, String(index))
-  }
-
-  function forgetUser() {
-    userIndex.value = null
-    localStorage.removeItem(USER_KEY)
-  }
-
-  function setUserNames(names: string[]) {
-    return sendChange('/settings/users', 'PUT', { users: names })
-  }
-
   // ── Listen ─────────────────────────────────────────────────────────────────
   const activeListId = ref<string>(localStorage.getItem(LIST_KEY) ?? '')
 
@@ -225,12 +192,26 @@ function createStore() {
       categoryId: match?.category_id ?? 'sonstiges',
       matched: list.type === 'flach' || match !== null,
       done: false,
-      addedBy: userName.value,
       addedAt: new Date().toISOString(),
     }
 
     list.items.push(item)
     return sendChange(`/lists/${list.id}/items`, 'POST', item)
+  }
+
+  /**
+   * Korrektur direkt in der Liste: Name und/oder Kategorie. Eine von Hand
+   * gesetzte Kategorie gilt als zugeordnet, der ◌-Badge geht damit weg.
+   */
+  function updateItem(list: List, itemId: string, changes: { name?: string; categoryId?: string }) {
+    const item = list.items.find((i) => i.id === itemId)
+    if (!item) return
+    if (changes.name !== undefined) item.name = changes.name.trim()
+    if (changes.categoryId !== undefined) {
+      item.categoryId = changes.categoryId
+      item.matched = true
+    }
+    return sendChange(`/lists/${list.id}/items/${itemId}`, 'PUT', changes)
   }
 
   function setDone(list: List, itemId: string, done: boolean) {
@@ -302,19 +283,24 @@ function createStore() {
     return sendChange('/catalog', 'POST', { name, category_id: categoryId })
   }
 
+  /** Hängt eine Schreibweise an einen bestehenden Katalogartikel. */
+  function addAlias(name: string, alias: string) {
+    return sendChange('/catalog/alias', 'POST', { name, alias })
+  }
+
   function dismissUnmatched(id: string) {
     return sendChange(`/unmatched/${id}`, 'DELETE')
   }
+
+  /** Alle Artikelnamen für die Auswahl beim Anlegen einer Schreibweise. */
+  const catalogNames = computed(() =>
+    [...new Set(state.catalog.map((e) => e.name))].sort((a, b) => a.localeCompare(b, 'de')),
+  )
 
   return {
     loading,
     error,
     state,
-    userIndex,
-    userName,
-    chooseUser,
-    forgetUser,
-    setUserNames,
     activeList,
     activeListId,
     selectList,
@@ -322,6 +308,7 @@ function createStore() {
     renameList,
     removeList,
     addItem,
+    updateItem,
     setDone,
     removeItem,
     finishShopping,
@@ -331,7 +318,9 @@ function createStore() {
     flatItems,
     unmatched,
     assignCategory,
+    addAlias,
     dismissUnmatched,
+    catalogNames,
     refresh,
   }
 }

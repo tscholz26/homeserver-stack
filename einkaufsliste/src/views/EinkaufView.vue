@@ -36,6 +36,26 @@ function entfernen(itemId: string) {
   if (liste.value) store.removeItem(liste.value, itemId)
 }
 
+/**
+ * Korrektur aus der Zeile heraus. „Merken“ schreibt die Kategorie zusätzlich in
+ * den Katalog, damit derselbe Artikel beim nächsten Mal gleich richtig landet –
+ * nacheinander, damit die zweite Antwort nicht die erste überholt.
+ */
+async function speichern(
+  itemId: string,
+  changes: { name: string; categoryId?: string },
+  merken: boolean,
+) {
+  if (!liste.value) return
+  await store.updateItem(liste.value, itemId, changes)
+  if (merken && changes.categoryId) await store.assignCategory(changes.name, changes.categoryId)
+}
+
+// Nur kategorisierte Listen dürfen umsortiert werden
+const kategorienZurAuswahl = computed(() =>
+  liste.value?.type === 'kategorisiert' ? store.state.categories : [],
+)
+
 function einkaufBeenden() {
   if (liste.value) store.finishShopping(liste.value)
 }
@@ -140,8 +160,10 @@ onBeforeUnmount(() => beobachter?.disconnect())
             v-for="item in gruppe.items"
             :key="item.id"
             :item="item"
+            :categories="kategorienZurAuswahl"
             @check="haken(item.id, $event)"
             @remove="entfernen(item.id)"
+            @save="(changes, merken) => speichern(item.id, changes, merken)"
           />
         </ul>
       </section>
@@ -153,8 +175,10 @@ onBeforeUnmount(() => beobachter?.disconnect())
         v-for="item in flach"
         :key="item.id"
         :item="item"
+        :categories="kategorienZurAuswahl"
         @check="haken(item.id, $event)"
         @remove="entfernen(item.id)"
+        @save="(changes, merken) => speichern(item.id, changes, merken)"
       />
     </ul>
 

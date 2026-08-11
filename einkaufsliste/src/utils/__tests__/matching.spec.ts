@@ -1,7 +1,13 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { findCatalogMatch, levenshtein, normalize, type CatalogEntry } from '@/utils/matching'
+import {
+  findCatalogMatch,
+  levenshtein,
+  normalize,
+  suggestCatalogEntries,
+  type CatalogEntry,
+} from '@/utils/matching'
 
 // Gegen den echten Katalog testen: die Fallstricke stecken in den Aliasen
 const catalog = JSON.parse(
@@ -65,5 +71,26 @@ describe('findCatalogMatch', () => {
   it('rät bei sehr kurzen Eingaben nicht', () => {
     // „xyz“ läge über die Distanz sonst neben zig Einträgen
     expect(findCatalogMatch('xyz', catalog)).toBeNull()
+  })
+})
+
+describe('suggestCatalogEntries', () => {
+  it('schlägt für ein Kompositum die verwandten Artikel vor', () => {
+    // Automatisch zugeordnet wird hier nichts, vorgeschlagen schon
+    expect(findCatalogMatch('Hafermilch', catalog)).toBeNull()
+    const namen = suggestCatalogEntries('Hafermilch', catalog).map((e) => e.name)
+    expect(namen).toContain('Vollmilch')
+  })
+
+  it('sortiert den ähnlichsten Artikel nach vorn', () => {
+    expect(suggestCatalogEntries('Zuchhini', catalog)[0]?.name).toBe('Zucchini')
+  })
+
+  it('bleibt bei Fremdem knapp und zufällig ähnliches fällt raus', () => {
+    // „Lauch“ steckt nun einmal drin – „Paprikapulver“ hat dagegen nichts damit
+    // zu tun und darf nicht über die reine Wortlänge hereinrutschen
+    const namen = suggestCatalogEntries('Fahrradschlauch', catalog).map((e) => e.name)
+    expect(namen).toEqual(['Lauch'])
+    expect(suggestCatalogEntries('ab', catalog)).toEqual([])
   })
 })

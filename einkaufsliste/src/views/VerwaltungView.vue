@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import { useEinkaufStore, type ListType } from '@/composables/useEinkaufStore'
+import { suggestCatalogEntries } from '@/utils/matching'
 
 const store = useEinkaufStore()
 
@@ -17,6 +18,23 @@ function zuordnen(id: string, name: string) {
   if (!categoryId) return
   store.assignCategory(name, categoryId)
   delete auswahl[id]
+}
+
+// ── Schreibweisen ─────────────────────────────────────────────────────────────
+// Zweiter Weg für einen unbekannten Namen: statt eines neuen Artikels wird er
+// eine weitere Schreibweise eines vorhandenen („Zuchini“ → Zucchini).
+const aliasOffen = reactive<Record<string, boolean>>({})
+const aliasZiel = reactive<Record<string, string>>({})
+
+function vorschlaege(name: string) {
+  return suggestCatalogEntries(name, store.state.catalog)
+}
+
+function alsSchreibweise(id: string, name: string, ziel: string) {
+  if (!ziel.trim()) return
+  store.addAlias(ziel, name)
+  delete aliasOffen[id]
+  delete aliasZiel[id]
 }
 
 // ── Listen ────────────────────────────────────────────────────────────────────
@@ -41,28 +59,6 @@ function anlegen() {
   neuerName.value = ''
   neuerTyp.value = 'kategorisiert'
 }
-
-// ── Namen ─────────────────────────────────────────────────────────────────────
-const nutzer = ref<string[]>([])
-const nutzerGespeichert = ref(false)
-
-function nutzerFeld(index: number): string {
-  return nutzer.value[index] ?? store.state.settings.users[index] ?? ''
-}
-
-function setzeNutzer(index: number, wert: string) {
-  const kopie = [...store.state.settings.users]
-  kopie[index] = wert
-  nutzer.value = kopie
-  nutzerGespeichert.value = false
-}
-
-async function nutzerSpeichern() {
-  const werte = [nutzerFeld(0), nutzerFeld(1)]
-  if (werte.some((w) => !w.trim())) return
-  nutzerGespeichert.value = (await store.setUserNames(werte)) === true
-  nutzer.value = []
-}
 </script>
 
 <template>
@@ -71,9 +67,9 @@ async function nutzerSpeichern() {
     <section>
       <h2>Nicht zugeordnete Artikel</h2>
       <p class="hinweis">
-        Alles, was beim Hinzufügen nicht im Katalog stand. Einmal zugeordnet, landet der Name
-        künftig automatisch in der passenden Kategorie – bereits eingetragene Artikel bleiben, wo
-        sie sind.
+        Alles, was beim Hinzufügen nicht im Katalog stand. Entweder als eigener Artikel in eine
+        Kategorie – oder als weitere Schreibweise eines Artikels, den es schon gibt. Bereits
+        eingetragene Artikel in den Listen bleiben, wo sie sind.
       </p>
 
       <p v-if="!store.unmatched.value.length" class="leer">
@@ -94,6 +90,7 @@ async function nutzerSpeichern() {
               ×
             </button>
           </div>
+
           <div class="zeile">
             <select v-model="auswahl[eintrag.id]" :aria-label="`Kategorie für ${eintrag.name}`">
               <option value="">Kategorie wählen …</option>
@@ -109,6 +106,48 @@ async function nutzerSpeichern() {
             >
               Speichern
             </button>
+          </div>
+
+          <button
+            type="button"
+            class="schalter"
+            @click="aliasOffen[eintrag.id] = !aliasOffen[eintrag.id]"
+          >
+            {{ aliasOffen[eintrag.id] ? '– ' : '+ ' }}Schreibweise eines vorhandenen Artikels
+          </button>
+
+          <div v-if="aliasOffen[eintrag.id]" class="alias">
+            <!-- Vorschläge aus dem Katalog: ein Tipp genügt -->
+            <div v-if="vorschlaege(eintrag.name).length" class="chips">
+              <button
+                v-for="v in vorschlaege(eintrag.name)"
+                :key="v.name"
+                type="button"
+                class="chip"
+                @click="alsSchreibweise(eintrag.id, eintrag.name, v.name)"
+              >
+                {{ v.name }}
+              </button>
+            </div>
+            <div class="zeile">
+              <input
+                v-model="aliasZiel[eintrag.id]"
+                :list="`katalog-${eintrag.id}`"
+                placeholder="Artikel suchen …"
+                :aria-label="`Artikel, zu dem ${eintrag.name} gehört`"
+              />
+              <datalist :id="`katalog-${eintrag.id}`">
+                <option v-for="n in store.catalogNames.value" :key="n" :value="n" />
+              </datalist>
+              <button
+                type="button"
+                class="primaer"
+                :disabled="!aliasZiel[eintrag.id]"
+                @click="alsSchreibweise(eintrag.id, eintrag.name, aliasZiel[eintrag.id] ?? '')"
+              >
+                Merken
+              </button>
+            </div>
           </div>
         </li>
       </ul>
@@ -154,37 +193,10 @@ async function nutzerSpeichern() {
       </form>
     </section>
 
-    <!-- ── Namen ───────────────────────────────────────────────────────────── -->
-    <section>
-      <h2>Namen</h2>
-      <p class="hinweis">
-        Die beiden Namen zur Auswahl beim ersten Öffnen. Sie stehen später an jedem Artikel, der
-        eingetragen wird.
-      </p>
-      <form class="card offen" @submit.prevent="nutzerSpeichern">
-        <div class="zeile">
-          <input
-            :value="nutzerFeld(0)"
-            aria-label="Erster Name"
-            @input="setzeNutzer(0, ($event.target as HTMLInputElement).value)"
-          />
-          <input
-            :value="nutzerFeld(1)"
-            aria-label="Zweiter Name"
-            @input="setzeNutzer(1, ($event.target as HTMLInputElement).value)"
-          />
-        </div>
-        <div class="zeile">
-          <button type="submit" class="primaer">Namen speichern</button>
-          <span v-if="nutzerGespeichert" class="ok">gespeichert</span>
-        </div>
-      </form>
-
-      <p class="hinweis">
-        Angemeldet als <strong>{{ store.userName.value || '—' }}</strong>
-        <button type="button" class="wechseln" @click="store.forgetUser()">wechseln</button>
-      </p>
-    </section>
+    <p class="fuss">
+      Die Kategorie eines einzelnen Artikels lässt sich direkt in der Liste ändern: auf den Namen
+      tippen.
+    </p>
   </div>
 </template>
 
@@ -285,6 +297,39 @@ input[type='radio'] {
   padding: 0;
 }
 
+.schalter {
+  justify-self: start;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--violet);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.alias {
+  display: grid;
+  gap: 0.5rem;
+  padding-top: 0.1rem;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.chip {
+  padding: 0.3rem 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--violet) 30%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--violet) 8%, white);
+  color: var(--violet);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
 .typen {
   display: flex;
   gap: 0.9rem;
@@ -332,18 +377,10 @@ input[type='radio'] {
   cursor: pointer;
 }
 
-.wechseln {
-  margin-left: 0.4rem;
-  border: none;
-  background: transparent;
-  color: var(--violet);
-  font-size: 0.83rem;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.ok {
-  color: var(--green);
-  font-size: 0.83rem;
+.fuss {
+  margin: 1.8rem 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-align: center;
 }
 </style>

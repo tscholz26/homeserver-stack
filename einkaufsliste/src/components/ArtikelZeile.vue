@@ -1,43 +1,101 @@
 <script setup lang="ts">
-import type { Item } from '@/composables/useEinkaufStore'
+import { nextTick, ref, useTemplateRef } from 'vue'
+import type { Category, Item } from '@/composables/useEinkaufStore'
 
-defineProps<{ item: Item }>()
-const emit = defineEmits<{ check: [done: boolean]; remove: [] }>()
+const props = defineProps<{
+  item: Item
+  /** Leer bei flachen Listen: dort gibt es nichts umzusortieren. */
+  categories: Category[]
+}>()
+
+const emit = defineEmits<{
+  check: [done: boolean]
+  remove: []
+  save: [changes: { name: string; categoryId?: string }, merken: boolean]
+}>()
+
+const offen = ref(false)
+const name = ref('')
+const categoryId = ref('')
+const merken = ref(true)
+const nameFeld = useTemplateRef<HTMLInputElement>('nameFeld')
+
+function bearbeiten() {
+  name.value = props.item.name
+  categoryId.value = props.item.categoryId
+  merken.value = true
+  offen.value = true
+  nextTick(() => nameFeld.value?.focus())
+}
+
+function speichern() {
+  const sauber = name.value.trim()
+  if (!sauber) return
+  const kategorieGeaendert =
+    props.categories.length > 0 && categoryId.value !== props.item.categoryId
+  emit(
+    'save',
+    { name: sauber, categoryId: kategorieGeaendert ? categoryId.value : undefined },
+    // Merken lohnt nur, wenn eine Kategorie wirklich korrigiert wurde
+    merken.value && kategorieGeaendert,
+  )
+  offen.value = false
+}
 </script>
 
 <template>
-  <li class="zeile" :class="{ erledigt: item.done }">
-    <label class="haken">
-      <input
-        type="checkbox"
-        :checked="item.done"
-        @change="emit('check', ($event.target as HTMLInputElement).checked)"
-      />
-      <span class="box" aria-hidden="true"></span>
-    </label>
+  <li class="zeile" :class="{ erledigt: item.done, offen }">
+    <div class="haupt">
+      <label class="haken">
+        <input
+          type="checkbox"
+          :checked="item.done"
+          @change="emit('check', ($event.target as HTMLInputElement).checked)"
+        />
+        <span class="box" aria-hidden="true"></span>
+      </label>
 
-    <span class="text">
-      <span class="name">
+      <!-- Tippen auf den Namen öffnet die Korrektur (falsche Kategorie, Tippfehler) -->
+      <button type="button" class="text" @click="offen ? (offen = false) : bearbeiten()">
         {{ item.name }}
         <!-- Nicht im Katalog gefunden: in der Verwaltung nachpflegbar -->
         <span v-if="!item.matched" class="badge" title="Nicht zugeordnet">◌</span>
-      </span>
-      <span v-if="item.addedBy" class="von">von {{ item.addedBy }}</span>
-    </span>
+      </button>
 
-    <span v-if="item.quantity" class="menge">{{ item.quantity }}</span>
+      <span v-if="item.quantity" class="menge">{{ item.quantity }}</span>
 
-    <button type="button" class="weg" title="Artikel entfernen" @click="emit('remove')">×</button>
+      <button type="button" class="weg" title="Artikel entfernen" @click="emit('remove')">×</button>
+    </div>
+
+    <form v-if="offen" class="bearbeiten" @submit.prevent="speichern">
+      <input ref="nameFeld" v-model="name" aria-label="Name" />
+      <select v-if="categories.length" v-model="categoryId" aria-label="Kategorie">
+        <option v-for="k in categories" :key="k.id" :value="k.id">
+          {{ k.emoji }} {{ k.label }}
+        </option>
+      </select>
+      <label v-if="categories.length" class="merken">
+        <input v-model="merken" type="checkbox" />
+        Kategorie fürs nächste Mal merken
+      </label>
+      <div class="knoepfe">
+        <button type="button" class="ab" @click="offen = false">Abbrechen</button>
+        <button type="submit" class="ok">Speichern</button>
+      </div>
+    </form>
   </li>
 </template>
 
 <style scoped>
 .zeile {
+  border-top: 1px solid var(--line);
+}
+
+.haupt {
   display: flex;
   align-items: center;
   gap: 0.7rem;
   padding: 0.65rem 0.9rem;
-  border-top: 1px solid var(--line);
 }
 
 .haken {
@@ -77,19 +135,14 @@ const emit = defineEmits<{ check: [done: boolean]; remove: [] }>()
 .text {
   flex: 1;
   min-width: 0;
-}
-
-.name {
-  display: block;
+  padding: 0.15rem 0;
+  border: none;
+  background: transparent;
+  color: inherit;
   font-size: 1.02rem;
+  text-align: left;
   overflow-wrap: anywhere;
-}
-
-.von {
-  display: block;
-  margin-top: 0.05rem;
-  color: var(--muted);
-  font-size: 0.72rem;
+  cursor: pointer;
 }
 
 .badge {
@@ -121,13 +174,65 @@ const emit = defineEmits<{ check: [done: boolean]; remove: [] }>()
   cursor: pointer;
 }
 
-.erledigt .name {
+.erledigt .text {
   color: var(--muted);
   text-decoration: line-through;
 }
 
-.erledigt .menge,
-.erledigt .von {
+.erledigt .menge {
   opacity: 0.6;
+}
+
+.offen {
+  background: color-mix(in srgb, var(--violet) 5%, transparent);
+}
+
+.bearbeiten {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0 0.9rem 0.8rem;
+}
+
+.bearbeiten input:not([type='checkbox']),
+.bearbeiten select {
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  background: white;
+}
+
+.merken {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.knoepfe {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.ab,
+.ok {
+  padding: 0.45rem 0.9rem;
+  border-radius: 0.6rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ab {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+}
+
+.ok {
+  border: none;
+  background: var(--violet);
+  color: white;
 }
 </style>

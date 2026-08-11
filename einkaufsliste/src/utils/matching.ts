@@ -122,3 +122,51 @@ export function findCatalogMatch(input: string, catalog: CatalogEntry[]): Catalo
 
   return bestDistance <= MAX_DISTANCE ? distanceHit : null
 }
+
+/**
+ * Vorschläge für „welcher Artikel ist das denn?“ in der Verwaltung.
+ *
+ * Bewusst lockerer als {@link findCatalogMatch}: hier zählt jede Ähnlichkeit,
+ * auch mitten im Wort – „Hafermilch“ soll Vollmilch und Kokosmilch vorschlagen,
+ * ohne dass die Zuordnung beim Eintippen automatisch passieren würde.
+ */
+export function suggestCatalogEntries(
+  input: string,
+  catalog: CatalogEntry[],
+  limit = 4,
+): CatalogEntry[] {
+  const needle = normalize(input)
+  if (needle.length < 3) return []
+
+  const bewertet: { entry: CatalogEntry; score: number }[] = []
+  // Ein eigener Eintrag überdeckt den gleichnamigen aus dem Seed
+  const gesehen = new Set<string>()
+
+  for (const entry of catalog) {
+    const key = normalize(entry.name)
+    if (gesehen.has(key)) continue
+    gesehen.add(key)
+
+    let best = Infinity
+    for (const term of terms(entry)) {
+      // Enthalten ist der stärkere Hinweis. Sonst zählt die Distanz, aber nur
+      // bis zu einem Drittel des kürzeren Wortes – sonst gilt bei langen Namen
+      // irgendwann alles als ähnlich.
+      if (needle.includes(term) || term.includes(needle)) {
+        best = Math.min(best, 0.2 - Math.min(term.length, needle.length) / 100)
+        continue
+      }
+      const grenze = Math.max(2, Math.round(Math.min(needle.length, term.length) / 3))
+      const distance = levenshtein(needle, term, grenze)
+      if (distance <= grenze) {
+        best = Math.min(best, distance / Math.max(needle.length, term.length))
+      }
+    }
+    if (best <= 0.5) bewertet.push({ entry, score: best })
+  }
+
+  return bewertet
+    .sort((a, b) => a.score - b.score)
+    .slice(0, limit)
+    .map((x) => x.entry)
+}

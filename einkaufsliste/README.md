@@ -24,13 +24,18 @@ Handys gleichzeitig abgehakt. Erreichbar unter
 - **Abhaken** rutscht den Artikel ans Ende seiner Kategorie (ausgegraut,
   durchgestrichen); **„Einkauf beenden“** löscht alles Abgehakte und lässt
   liegen, was nicht im Laden war
-- **Verwaltung**: nicht zugeordnete Artikel nachpflegen (der Katalog wächst
-  dabei mit), Listen verwalten, die beiden Namen ändern
+- **Korrektur in der Liste**: ein Tipp auf den Artikelnamen öffnet Name und
+  Kategorie zum Ändern. „Kategorie fürs nächste Mal merken“ schreibt sie
+  zugleich in den Katalog – falsch einsortiert wird also nur einmal
+- **Verwaltung**: nicht zugeordnete Artikel nachpflegen und Listen verwalten
 - **Live-Sync**: jede Änderung geht als einzelner Request an den Server, der
   sie auf den zentralen Stand anwendet und ihn per Server-Sent Events sofort an
   alle offenen Geräte schickt
-- **Wer bist du?** einmalig beim ersten Öffnen; die Auswahl steht danach als
-  „von …“ an jedem eingetragenen Artikel
+
+Es gibt bewusst **keine Nutzerverwaltung**: beide teilen sich dieselben Listen,
+und wer etwas eingetragen hat, spielt beim Einkaufen keine Rolle. Falls doch
+einmal getrennte Listen gebraucht werden, ist das Muster aus
+[Kofferpacken](../kofferpacken) die Vorlage.
 
 Der Wortanfang bei der Teilstring-Suche ist der Unterschied zwischen „Bio
 Zitronen“ → Obst & Gemüse und „Fahrradschlauch“ → Lauch: deutsche Komposita
@@ -64,12 +69,13 @@ Baustein bedeutet, ohne ein Problem zu lösen, das es gibt.
 | POST / PUT / DELETE | `/api/lists[/:id]` | Liste anlegen / umbenennen / löschen |
 | PUT | `/api/lists/:id/store-profile` | aktives Ladenprofil setzen (`null` = Standard) |
 | POST | `/api/lists/:id/items` | Artikel eintragen (Kategorie kommt aus dem Browser) |
+| PUT | `/api/lists/:id/items/:itemId` | Name und/oder Kategorie korrigieren |
 | POST | `/api/lists/:id/items/:itemId/check` | `{ done }` setzen |
 | DELETE | `/api/lists/:id/items/:itemId` | Artikel entfernen |
 | POST | `/api/lists/:id/finish` | „Einkauf beenden“: Abgehaktes löschen |
 | POST | `/api/catalog` | `{ name, category_id }` dauerhaft zuordnen |
+| POST | `/api/catalog/alias` | `{ name, alias }` – Schreibweise an einen Artikel hängen |
 | DELETE | `/api/unmatched/:id` | nicht zugeordneten Namen verwerfen |
-| PUT | `/api/settings/users` | die beiden Namen setzen |
 
 ### Kategorien und Katalog
 
@@ -87,6 +93,19 @@ Was in der Verwaltung zugeordnet wird, landet in derselben Struktur unter
 Seed selbst bleibt im git und kann jederzeit erweitert werden (danach einmal
 `docker compose up -d --build`). Bereits eingetragene Artikel in den Listen
 werden durch eine neue Zuordnung nicht rückwirkend geändert.
+
+Für einen unbekannten Namen gibt es zwei Wege:
+
+- **eigener Artikel**: Kategorie wählen → neuer Katalogeintrag
+- **Schreibweise eines vorhandenen Artikels** („Zuchini“ → Zucchini): der
+  Eintrag wandert als Alias an den bestehenden Artikel. Betrifft es einen
+  Seed-Artikel, entsteht dabei eine eigene Kopie in `data/state.json`, die den
+  Seed überdeckt – der Seed selbst bleibt unangetastet.
+
+Die Vorschläge unter „Schreibweise eines vorhandenen Artikels“ kommen aus
+`suggestCatalogEntries()` und sind absichtlich lockerer als das Matching beim
+Eintippen: „Hafermilch“ schlägt Vollmilch vor, ohne dass es dort automatisch
+einsortiert würde.
 
 ### Ladenprofile (vorbereitet, noch ohne UI)
 

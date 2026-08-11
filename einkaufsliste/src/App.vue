@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { useEinkaufStore } from '@/composables/useEinkaufStore'
-import NutzerWahl from '@/components/NutzerWahl.vue'
 
 const store = useEinkaufStore()
 </script>
@@ -60,9 +59,6 @@ const store = useEinkaufStore()
       <RouterView v-if="!store.loading.value" />
       <p v-else class="laedt">Lädt …</p>
     </main>
-
-    <!-- Einmalige Frage beim ersten Öffnen; danach steht der Name im Browser -->
-    <NutzerWahl v-if="!store.loading.value && store.userIndex.value === null" />
   </div>
 </template>
 

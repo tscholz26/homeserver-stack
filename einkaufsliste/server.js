@@ -91,7 +91,6 @@ function defaultState() {
     // Kategorie-Reihenfolge pro Laden. Noch ohne UI: Profile werden vorerst von
     // Hand in data/state.json eingetragen, das Rendering nutzt sie schon.
     storeProfiles: [],
-    settings: { users: ['Tristan', 'Freundin'] },
   }
 }
 
@@ -104,7 +103,6 @@ function normalizeItem(i) {
     // false = beim Hinzufügen im Katalog nicht gefunden (◌-Badge)
     matched: i.matched !== false,
     done: i.done === true,
-    addedBy: typeof i.addedBy === 'string' ? i.addedBy : '',
     addedAt: typeof i.addedAt === 'string' ? i.addedAt : new Date().toISOString(),
   }
 }
@@ -144,12 +142,6 @@ function readState() {
     storeProfiles: Array.isArray(parsed.storeProfiles)
       ? parsed.storeProfiles.map(normalizeProfile)
       : [],
-    settings: {
-      users:
-        Array.isArray(parsed.settings?.users) && parsed.settings.users.length === 2
-          ? parsed.settings.users
-          : defaultState().settings.users,
-    },
   }
 }
 
@@ -176,7 +168,6 @@ function publicState(state) {
     catalog: [...state.catalog, ...SEED_CATALOG],
     unmatched: state.unmatched,
     storeProfiles: state.storeProfiles,
-    settings: state.settings,
   }
 }
 
@@ -341,6 +332,27 @@ app.post('/api/lists/:listId/items', (req, res) => {
   })
 })
 
+// Korrektur direkt in der Liste: Name und/oder Kategorie. Eine von Hand
+// gesetzte Kategorie gilt als zugeordnet, der ◌-Badge verschwindet also.
+app.put('/api/lists/:listId/items/:itemId', (req, res) => {
+  const { name, categoryId } = req.body || {}
+  if (name !== undefined && (typeof name !== 'string' || !name.trim())) {
+    return res.status(400).json({ error: 'Invalid payload' })
+  }
+  if (categoryId !== undefined && !CATEGORY_IDS.has(categoryId)) {
+    return res.status(400).json({ error: 'Unbekannte Kategorie' })
+  }
+  mutateList(req, res, (list) => {
+    const item = list.items.find((x) => x.id === req.params.itemId)
+    if (!item) return { reject: { status: 404, error: 'Artikel nicht gefunden.' } }
+    if (name !== undefined) item.name = name.trim()
+    if (categoryId !== undefined) {
+      item.categoryId = categoryId
+      item.matched = true
+    }
+  })
+})
+
 // Setzt den Haken (kein Umschalten), damit ein Doppeltipp oder eine langsame
 // Verbindung die Checkbox nicht in die falsche Richtung kippt.
 app.post('/api/lists/:listId/items/:itemId/check', (req, res) => {
@@ -380,13 +392,48 @@ app.post('/api/catalog', (req, res) => {
   mutate(req, res, (state) => {
     const clean = name.trim()
     const key = normalize(clean)
+    // Schon vorhandene Schreibweisen bleiben erhalten – auch die eines
+    // Seed-Artikels, der hier nur eine andere Kategorie bekommt.
+    const vorher = [...state.catalog, ...SEED_CATALOG].find((e) => normalize(e.name) === key)
+    const gemerkt = new Set([
+      ...(vorher?.aliases ?? []),
+      ...(Array.isArray(aliases) ? aliases.filter((a) => typeof a === 'string') : []),
+    ])
+    state.catalog = state.catalog.filter((e) => normalize(e.name) !== key)
+    state.catalog.push({ name: clean, aliases: [...gemerkt], category_id: categoryId })
+    state.unmatched = state.unmatched.filter((u) => normalize(u.name) !== key)
+  })
+})
+
+// Hängt eine weitere Schreibweise an einen bestehenden Artikel. Bei einem
+// Seed-Artikel entsteht dabei eine eigene Kopie in state.catalog, die den Seed
+// überdeckt – der Seed selbst bleibt unangetastet und aktualisierbar.
+app.post('/api/catalog/alias', (req, res) => {
+  const { name, alias } = req.body || {}
+  if (typeof name !== 'string' || !name.trim() || typeof alias !== 'string' || !alias.trim()) {
+    return res.status(400).json({ error: 'Invalid payload' })
+  }
+  mutate(req, res, (state) => {
+    const key = normalize(name)
+    const eintrag = [...state.catalog, ...SEED_CATALOG].find((e) => normalize(e.name) === key)
+    if (!eintrag) return { reject: { status: 404, error: 'Artikel nicht im Katalog.' } }
+
+    const sauber = alias.trim()
+    const aliasKey = normalize(sauber)
+    if (aliasKey === key) {
+      return { reject: { status: 409, error: 'Das ist der Artikelname selbst.' } }
+    }
+
+    const aliase = eintrag.aliases.filter((a) => normalize(a) !== aliasKey)
+    aliase.push(sauber)
+
     state.catalog = state.catalog.filter((e) => normalize(e.name) !== key)
     state.catalog.push({
-      name: clean,
-      aliases: Array.isArray(aliases) ? aliases.filter((a) => typeof a === 'string') : [],
-      category_id: categoryId,
+      name: eintrag.name,
+      aliases: aliase,
+      category_id: eintrag.category_id,
     })
-    state.unmatched = state.unmatched.filter((u) => normalize(u.name) !== key)
+    state.unmatched = state.unmatched.filter((u) => normalize(u.name) !== aliasKey)
   })
 })
 
@@ -394,21 +441,6 @@ app.post('/api/catalog', (req, res) => {
 app.delete('/api/unmatched/:id', (req, res) => {
   mutate(req, res, (state) => {
     state.unmatched = state.unmatched.filter((u) => u.id !== req.params.id)
-  })
-})
-
-// ── Einstellungen ─────────────────────────────────────────────────────────────
-app.put('/api/settings/users', (req, res) => {
-  const { users } = req.body || {}
-  if (
-    !Array.isArray(users) ||
-    users.length !== 2 ||
-    users.some((u) => typeof u !== 'string' || !u.trim())
-  ) {
-    return res.status(400).json({ error: 'Invalid payload' })
-  }
-  mutate(req, res, (state) => {
-    state.settings.users = users.map((u) => u.trim())
   })
 })
 
