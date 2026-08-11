@@ -16,8 +16,8 @@ describe('App', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('Eintragung')
-    expect(wrapper.text()).toContain('Spielerverwaltung')
-    expect(wrapper.text()).toContain('Uebersicht')
+    expect(wrapper.text()).toContain('Eintragen')
+    expect(wrapper.text()).toContain('Ergebnisse')
+    expect(wrapper.text()).toContain('Verwaltung')
   })
 })
