@@ -133,7 +133,11 @@ const BOX = { width: 640, height: 200, left: 46, right: 10, top: 10, bottom: 22 
 const range = computed(() => {
   const now = Date.now()
   if (choice.value === 'live') {
-    return { from: now - LIVE_SECONDS * 1000, now, span: LIVE_SECONDS * 1000 }
+    // Der rechte Rand ist der jüngste Messwert, nicht Date.now(): nur so hängt
+    // dieses computed am Puffer und das Fenster wandert jede Sekunde mit.
+    const span = LIVE_SECONDS * 1000
+    const newest = liveBuffer.value[liveBuffer.value.length - 1]?.t ?? now
+    return { from: newest - span, now: newest, span }
   }
 
   const chosen = minutes(choice.value)
