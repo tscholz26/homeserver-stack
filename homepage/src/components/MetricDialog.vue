@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import {
-  averageOver,
+  averageOverBy,
+  wattsOf,
   type MetricHistory,
   type MetricKey,
+  type MetricPoint,
   type SystemInfo,
 } from '@/composables/useSystem'
 
@@ -18,6 +20,9 @@ const props = defineProps<{
 const emit = defineEmits<{ close: [] }>()
 
 const dialog = ref<HTMLDialogElement | null>(null)
+
+// 'full' = alles, was aufgezeichnet ist (bis 24 Std), '60' = letzte Stunde
+const choice = ref<'60' | 'full'>('full')
 
 watch(
   () => props.metric,
@@ -38,31 +43,33 @@ const CONFIG: Record<
 
 const config = computed(() => (props.metric ? CONFIG[props.metric] : null))
 
-// Der Verlauf speichert die gemessenen CPU-Watt. Für die Anzeige rechnen wir
-// jeden Punkt mit dem aktuellen Modell auf den geschätzten Gesamtverbrauch
-// hoch – so bleibt die Datei roh und die Darstellung überall gleich.
-function toDisplay(value: number): number {
-  if (props.metric !== 'power' || !props.power) return value
-  return (value + props.power.baselineWatts) / props.power.psuEfficiency
+// Beim Strom gilt der Messwert der Steckdose, sonst der hochgerechnete
+// CPU-Anteil – dieselbe Regel wie auf der Karte.
+function valueOf(point: MetricPoint): number | null {
+  const key = config.value?.key
+  if (!key) return null
+  return props.metric === 'power' ? wattsOf(point, props.power) : point[key]
 }
 
-const series = computed(() => {
-  const key = config.value?.key
-  if (!key || !props.history) return []
+const all = computed(() => {
+  if (!props.history) return []
   return props.history.points
-    .map((point) => ({ t: point.t, value: point[key] }))
+    .map((point) => ({ t: point.t, value: valueOf(point) }))
     .filter((point): point is { t: number; value: number } => point.value !== null)
-    .map((point) => ({ t: point.t, value: toDisplay(point.value) }))
 })
 
+const series = computed(() =>
+  choice.value === 'full'
+    ? all.value
+    : all.value.filter((point) => point.t >= Date.now() - 60 * 60_000),
+)
+
 const stats = computed(() => {
-  const key = config.value?.key
-  if (!key || series.value.length === 0) return null
+  if (series.value.length === 0) return null
   const values = series.value.map((point) => point.value)
-  const mean = averageOver(props.history?.points, 60, key)
   return {
     now: values[values.length - 1] ?? 0,
-    hour: mean === null ? null : toDisplay(mean),
+    hour: averageOverBy(props.history?.points, 60, valueOf),
     min: Math.min(...values),
     max: Math.max(...values),
     count: values.length,
@@ -75,8 +82,10 @@ const BOX = { width: 640, height: 200, left: 46, right: 10, top: 10, bottom: 22 
 // über die vorhandenen Daten – sonst wäre die Kurve ein Strich am rechten Rand.
 // Mindestens 15 Minuten, damit die Achse nicht entartet.
 const range = computed(() => {
-  const window = (props.history?.windowHours ?? 24) * 3600_000
   const now = Date.now()
+  if (choice.value === '60') return { from: now - 60 * 60_000, now, span: 60 * 60_000 }
+
+  const window = (props.history?.windowHours ?? 24) * 3600_000
   const first = series.value[0]?.t
   const from =
     first === undefined ? now - window : Math.max(now - window, Math.min(first, now - 15 * 60_000))
@@ -155,11 +164,22 @@ const format = (value: number) =>
           <p class="label">Verlauf · {{ spanLabel }}</p>
           <h2>{{ config.title }}</h2>
         </div>
-        <button class="close" title="Schließen" @click="emit('close')">✕</button>
+        <div class="controls">
+          <div class="switch" role="group" aria-label="Zeitraum">
+            <button :class="{ active: choice === '60' }" @click="choice = '60'">60 min</button>
+            <button :class="{ active: choice === 'full' }" @click="choice = 'full'">
+              {{ history?.windowHours ?? 24 }} Std
+            </button>
+          </div>
+          <button class="close" title="Schließen" @click="emit('close')">✕</button>
+        </div>
       </header>
 
       <p v-if="series.length === 0" class="empty">
-        Noch keine Messwerte aufgezeichnet. Der Verlauf füllt sich mit einem Punkt pro Minute.
+        <template v-if="all.length === 0">
+          Noch keine Messwerte aufgezeichnet. Der Verlauf füllt sich mit einem Punkt pro Minute.
+        </template>
+        <template v-else>In der letzten Stunde wurde nichts aufgezeichnet.</template>
       </p>
 
       <template v-else>
@@ -254,6 +274,37 @@ h2 {
   margin: 0.2rem 0 0;
   font-size: 1.4rem;
   letter-spacing: -0.02em;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.switch {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.15rem;
+  background: var(--card);
+}
+
+.switch button {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.25rem 0.7rem;
+  cursor: pointer;
+}
+
+.switch button.active {
+  background: color-mix(in srgb, var(--violet) 14%, transparent);
+  color: var(--violet);
 }
 
 .close {

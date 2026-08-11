@@ -6,6 +6,15 @@ services:
 
     environment:
       - DOCKER_API=http://docker-socket-proxy:2375
+      # Mit einer Messsteckdose im Netz wird der Stromverbrauch gemessen statt
+      # geschätzt. Übliche Antwortformen (Shelly, Tasmota) erkennt der Server
+      # selbst, sonst POWER_METER_PATH auf den Wattwert zeigen lassen.
+      # - POWER_METER_URL=http://shelly.fritz.box/status
+      # - POWER_METER_PATH=meters.0.power
+      #
+      # Grundlast und Netzteil-Wirkungsgrad für die Schätzung ohne Steckdose:
+      # - BASE_POWER_WATTS=20
+      # - PSU_EFFICIENCY=0.88
 
     # Nur einzelne Dateien statt ganzer Bäume: /proc als Ganzes würde auch die
     # Umgebungsvariablen aller Prozesse enthalten (Passwörter), /sys und die

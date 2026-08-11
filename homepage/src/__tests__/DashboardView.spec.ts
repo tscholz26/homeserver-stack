@@ -33,11 +33,15 @@ const systemPayload = {
     data: { totalBytes: 916 * GIB, usedBytes: 205 * GIB, freeBytes: 666 * GIB },
   },
   power: {
+    watts: 36.8,
+    source: 'estimate',
     cpuWatts: 12.4,
     estimatedTotalWatts: 36.8,
     baselineWatts: 20,
     psuEfficiency: 0.88,
     zones: ['package-0', 'dram'],
+    meterConfigured: false,
+    meterError: null,
   },
   containers: {
     running: 2,
@@ -102,6 +106,7 @@ const metricsPayload = {
     cpu: index < 25 ? 0 : 50,
     mem: index < 25 ? 0 : 50,
     watts: 10,
+    meter: null,
   })),
 }
 
@@ -189,6 +194,38 @@ describe('DashboardView', () => {
     wrapper.unmount()
   })
 
+  it('zeigt die Steckdose als Quelle, sobald eine eingerichtet ist', async () => {
+    stubApi({
+      ...systemPayload,
+      power: { ...systemPayload.power, watts: 31.5, source: 'meter', meterConfigured: true },
+    })
+    const wrapper = await mountDashboard()
+    await flushPromises()
+
+    const power = wrapper.findAll('.meter').find((card) => card.text().includes('Stromverbrauch'))
+    // Kein „≈“ mehr, weil es keine Schätzung ist
+    expect(power?.text()).toContain('31,5 W')
+    expect(power?.text()).not.toContain('≈ 31,5 W')
+    expect(power?.text()).toContain('An der Steckdose gemessen')
+    expect(power?.text()).not.toContain('POWER_METER_URL')
+
+    wrapper.unmount()
+  })
+
+  it('sagt es, wenn die Messsteckdose nicht antwortet', async () => {
+    stubApi({
+      ...systemPayload,
+      power: { ...systemPayload.power, meterConfigured: true, meterError: 'HTTP 500' },
+    })
+    const wrapper = await mountDashboard()
+    await flushPromises()
+
+    const power = wrapper.findAll('.meter').find((card) => card.text().includes('Stromverbrauch'))
+    expect(power?.text()).toContain('Messsteckdose antwortet nicht: HTTP 500')
+
+    wrapper.unmount()
+  })
+
   it('zeigt RAM, CPU und Neustarts pro Container', async () => {
     stubApi()
     const wrapper = await mountDashboard()
@@ -256,6 +293,36 @@ describe('DashboardView', () => {
     expect(dialog.text()).toContain('CPU-Auslastung')
     expect(dialog.text()).toContain('Ø 60 min')
     expect(dialog.find('polyline').exists()).toBe(true)
+
+    wrapper.unmount()
+  })
+
+  it('lässt den Verlauf auf die letzten 60 Minuten umstellen', async () => {
+    HTMLDialogElement.prototype.showModal = vi.fn<() => void>(function (this: HTMLDialogElement) {
+      this.open = true
+    })
+    HTMLDialogElement.prototype.close = vi.fn<() => void>(function (this: HTMLDialogElement) {
+      this.open = false
+    })
+
+    stubApi()
+    const wrapper = await mountDashboard()
+    await flushPromises()
+
+    const cpu = wrapper.findAll('.meter').find((card) => card.text().includes('CPU'))
+    await cpu?.trigger('click')
+    await flushPromises()
+
+    // Von den 90 Punkten liegen 90 im vollen Fenster …
+    expect(wrapper.find('dialog').text()).toContain('90 Messpunkte')
+
+    const [sixty] = wrapper.findAll('.switch button')
+    await sixty?.trigger('click')
+
+    // … und nur die aus der letzten Stunde. 60 oder 61, je nachdem ob der Punkt
+    // genau auf der Fenstergrenze noch mitzählt – beides ist richtig.
+    expect(wrapper.find('dialog').text()).toMatch(/6[01] Messpunkte/)
+    expect(wrapper.find('dialog').text()).toContain('letzte 60 min')
 
     wrapper.unmount()
   })

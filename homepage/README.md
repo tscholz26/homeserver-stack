@@ -34,10 +34,8 @@ Serverwerte auf einen Blick, alle fünf Sekunden aktualisiert:
 - **Läuft seit** – Uptime des Hosts, nicht des Containers
 - **CPU** – Auslastung in Prozent, Load-Average 1/5/15, Temperatur, Modell und
   Kernzahl
-- **Stromverbrauch** – geschätzter Verbrauch an der Steckdose: gemessene Watt
-  von CPU-Paket und Speichercontroller plus Grundlast für den Rest, geteilt
-  durch den Netzteil-Wirkungsgrad. Die Karte nennt den gemessenen Anteil
-  getrennt, damit klar ist, was Messung und was Schätzung ist
+- **Stromverbrauch** – mit Messsteckdose der echte Wert, ohne eine eine
+  Schätzung (dann mit „≈“ davor). Die Karte nennt immer die Quelle
 - **Arbeitsspeicher** – belegt/gesamt, verfügbar, Swap
 - **Systemplatte** – belegt/gesamt von `/`, inklusive Docker-Images
 - **Datenplatte** – belegt/gesamt von `/dev/sda1` (`/home/tristans/data`), wo die
@@ -47,8 +45,9 @@ Serverwerte auf einen Blick, alle fünf Sekunden aktualisiert:
 - **Verfügbarkeit** – Zeitleiste der letzten 24 Stunden pro Dienst mit
   Verfügbarkeit in Prozent, direkt über den Containern
 - **Verlauf**: CPU, Arbeitsspeicher und Stromverbrauch zeigen den Mittelwert der
-  letzten 60 Minuten auf der Karte; ein Klick öffnet den Verlauf der letzten 24
-  Stunden als Kurve mit Jetzt-, Ø-, Minimal- und Maximalwert
+  letzten 60 Minuten auf der Karte; ein Klick öffnet den Verlauf als Kurve mit
+  Jetzt-, Ø-, Minimal- und Maximalwert, umschaltbar zwischen den letzten
+  60 Minuten und 24 Stunden
 
 Balken werden ab 70 % gelb und ab 90 % rot (`toneFor` in
 [src/composables/useSystem.ts](src/composables/useSystem.ts)).
@@ -88,10 +87,28 @@ Balken werden ab 70 % gelb und ab 90 % rot (`toneFor` in
   | `PSU_EFFICIENCY` | `0.88` | Wirkungsgrad des Netzteils |
 
   Der Standard passt zu diesem Rechner (i3-7100, 16 GB, eine HDD, eine SSD) und
-  liegt im Leerlauf bei rund 25 W. **Kalibrieren** geht mit einem
-  Steckdosenmessgerät: gemessene Wattzahl minus angezeigter CPU-Anteil, das
-  Ergebnis mal `PSU_EFFICIENCY` als `BASE_POWER_WATTS` in die
-  `docker-compose.yml` eintragen
+  liegt im Leerlauf bei rund 25 W.
+
+  **Genauer geht es nur mit Hardware.** Dieser Rechner hat keinen
+  Leistungssensor: `/sys/class/power_supply/` ist leer, in `hwmon` gibt es nur
+  Temperaturchips, kein IPMI/BMC, keine USV. RAPL ist der einzige Zähler –
+  auch `powertop` oder eine npm-Bibliothek lesen dieselbe Quelle und können
+  nichts messen, was der Rechner nicht meldet (powertop leitet Watt aus der
+  Akku-Entladerate ab, und ein Akku ist hier nicht vorhanden).
+
+  Mit einer **Messsteckdose im Netz** wird daraus ein echter Messwert. Dann
+  steht `source: 'meter'` in der API und das „≈“ verschwindet:
+
+  | Variable | Beispiel | Bedeutung |
+  | --- | --- | --- |
+  | `POWER_METER_URL` | `http://shelly.fritz.box/status` | HTTP-Endpunkt mit JSON |
+  | `POWER_METER_PATH` | `meters.0.power` | optional, Pfad zum Wattwert |
+
+  Ohne `POWER_METER_PATH` werden die üblichen Formen selbst erkannt: Shelly Gen1
+  (`meters.0.power`), Shelly Gen2 (`apower`), Tasmota
+  (`StatusSNS.ENERGY.Power`) sowie `power` und `watts`. Abgefragt wird alle
+  10 Sekunden; antwortet die Steckdose nicht, steht der Fehler auf der Karte und
+  es gilt wieder die Schätzung
 - **Datenplatte** per `statfs` auf `/home/tristans/data/.dashboard-df` – ein
   leeres Verzeichnis, das nur dafür existiert. So kommt der Container an die
   Belegung von `/dev/sda1`, ohne die Nextcloud-Daten sehen zu können
@@ -116,7 +133,8 @@ Balken werden ab 70 % gelb und ab 90 % rot (`toneFor` in
   Stunden = 1440 Punkte). `GET /start/api/metrics` gibt die Rohwerte aus; die
   Umrechnung der CPU-Watt auf den geschätzten Gesamtverbrauch passiert erst in
   der Anzeige. So bleibt die Datei unabhängig davon, wie die Grundlast gerade
-  eingestellt ist
+  eingestellt ist. Gibt es eine Messsteckdose, wird deren Wert als eigenes Feld
+  `meter` mitgeschrieben und im Verlauf bevorzugt
 
 ### Die Seite ist öffentlich
 

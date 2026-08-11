@@ -41,15 +41,20 @@ export interface SystemInfo {
   } | null
   disks: { system: DiskInfo | null; data: DiskInfo | null }
   /**
-   * `cpuWatts` ist gemessen (Intel RAPL), `estimatedTotalWatts` rechnet die
-   * Grundlast des übrigen Rechners und den Netzteil-Wirkungsgrad dazu.
+   * `watts` ist der Wert, der gilt: bei `source: 'meter'` von einer
+   * Messsteckdose gemessen, sonst die Schätzung aus gemessenem CPU-Anteil
+   * (`cpuWatts`), Grundlast und Netzteil-Wirkungsgrad.
    */
   power: {
+    watts: number | null
+    source: 'meter' | 'estimate'
     cpuWatts: number | null
     estimatedTotalWatts: number | null
     baselineWatts: number
     psuEfficiency: number
     zones: string[]
+    meterConfigured: boolean
+    meterError: string | null
   } | null
   containers: { running: number; total: number; list: Container[] } | null
   dockerError: string | null
@@ -86,7 +91,10 @@ export interface MetricPoint {
   t: number
   cpu: number | null
   mem: number | null
+  /** Gemessener CPU-Anteil (RAPL) */
   watts: number | null
+  /** Messsteckdose, falls eine eingerichtet ist */
+  meter: number | null
 }
 
 export type MetricKey = 'cpu' | 'mem' | 'watts'
@@ -119,19 +127,38 @@ export function useMetrics() {
   return { history }
 }
 
-export function averageOver(
+export function averageOverBy(
   points: MetricPoint[] | undefined,
   minutes: number,
-  key: MetricKey,
+  select: (point: MetricPoint) => number | null,
 ): number | null {
   if (!points) return null
   const from = Date.now() - minutes * 60_000
   const values = points
     .filter((point) => point.t >= from)
-    .map((point) => point[key])
+    .map(select)
     .filter((value): value is number => value !== null)
   if (values.length === 0) return null
   return values.reduce((sum, value) => sum + value, 0) / values.length
+}
+
+export function averageOver(
+  points: MetricPoint[] | undefined,
+  minutes: number,
+  key: MetricKey,
+): number | null {
+  return averageOverBy(points, minutes, (point) => point[key])
+}
+
+/**
+ * Watt eines Verlaufspunkts so, wie sie angezeigt werden: der Messwert der
+ * Steckdose, falls es einen gibt, sonst der gemessene CPU-Anteil hochgerechnet
+ * mit der aktuellen Grundlast. Dadurch bleibt die gespeicherte Datei roh.
+ */
+export function wattsOf(point: MetricPoint, power: SystemInfo['power']): number | null {
+  if (point.meter !== null) return point.meter
+  if (point.watts === null || !power) return point.meter
+  return (point.watts + power.baselineWatts) / power.psuEfficiency
 }
 
 export type UptimeState = 'up' | 'down' | 'partial' | 'none'

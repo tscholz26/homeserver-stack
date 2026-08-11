@@ -5,12 +5,14 @@ import UptimeChart from '@/components/UptimeChart.vue'
 import MetricDialog, { type MetricName } from '@/components/MetricDialog.vue'
 import {
   averageOver,
+  averageOverBy,
   formatBytes,
   formatBytesPair,
   formatUptime,
   useMetrics,
   useSystem,
   useUptime,
+  wattsOf,
   type DiskInfo,
 } from '@/composables/useSystem'
 
@@ -71,28 +73,35 @@ const cpu = computed(() => {
   }
 })
 
-// RAPL misst nur CPU und Speichercontroller. Der Rest des Rechners hat keinen
-// Zähler, deshalb steht hier eine Schätzung – und zwar sichtbar als solche.
+// Was gilt, hängt an der Quelle: eine Messsteckdose liefert echte Watt, ohne
+// eine bleibt es die Schätzung – und dann steht das auch so da.
 const watt = (value: number) =>
   value.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 
 const power = computed(() => {
   const values = info.value?.power
   if (!values) return null
-  const efficiency = Math.round(values.psuEfficiency * 100)
-  const measured = averageOver(history.value?.points, 60, 'watts')
+
+  const measured = values.source === 'meter'
+  const prefix = measured ? '' : '≈ '
+  const mean = averageOverBy(history.value?.points, 60, (point) => wattsOf(point, values))
+  const cpuPart = values.cpuWatts === null ? '–' : watt(values.cpuWatts)
+  const zones = values.zones.join(' + ')
+
+  const lines = measured
+    ? [`An der Steckdose gemessen.`, `Davon CPU-Anteil: ${cpuPart} W (${zones})`]
+    : [
+        `Gemessen: ${cpuPart} W (${zones})`,
+        `Geschätzt: + ${values.baselineWatts} W für Board, Platten und Lüfter, ` +
+          `Netzteil ${Math.round(values.psuEfficiency * 100)} %`,
+      ]
+  if (values.meterError) lines.push(`Messsteckdose antwortet nicht: ${values.meterError}`)
+  else if (!values.meterConfigured) lines.push('Echter Messwert: POWER_METER_URL eintragen.')
+
   return {
-    average:
-      measured === null
-        ? undefined
-        : `≈ ${watt((measured + values.baselineWatts) / values.psuEfficiency)} W`,
-    value:
-      values.estimatedTotalWatts === null ? 'messe …' : `≈ ${watt(values.estimatedTotalWatts)} W`,
-    hint:
-      `Gemessen: ${values.cpuWatts === null ? '–' : watt(values.cpuWatts)} W ` +
-      `(${values.zones.join(' + ')})\n` +
-      `Geschätzt: + ${values.baselineWatts} W für Board, Platten und Lüfter, ` +
-      `Netzteil ${efficiency} %`,
+    value: values.watts === null ? 'messe …' : `${prefix}${watt(values.watts)} W`,
+    average: mean === null ? undefined : `${prefix}${watt(mean)} W`,
+    hint: lines.join('\n'),
   }
 })
 
