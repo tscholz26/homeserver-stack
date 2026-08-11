@@ -9,7 +9,7 @@
     { "id": "brot_backwaren", "emoji": "🍞🥖", "label": "Brot & Backwaren" },
     { "id": "nudeln_reis", "emoji": "🍝", "label": "Nudeln, Reis & Soßen" },
     { "id": "konserven", "emoji": "🥫", "label": "Konserven & Gläser" },
-    { "id": "backen_gewuerze", "emoji": "🧂", "label": "Backzutaten & Gewürze" },
+    { "id": "backen_gewuerze", "emoji": "🌾☕", "label": "Backzutaten, Kaffee & Gewürze" },
     { "id": "suesses_snacks", "emoji": "🍫", "label": "Süßes, Snacks & Nüsse" },
     { "id": "getraenke", "emoji": "🧃", "label": "Getränke" },
     { "id": "drogerie", "emoji": "🧴", "label": "Drogerie & Haushalt" },
