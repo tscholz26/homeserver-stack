@@ -83,6 +83,18 @@ function marktLoeschen(profileId: string, name: string) {
   store.removeStoreProfile(profileId)
 }
 
+// Nach einer Katalog-Erweiterung: was noch unter „Sonstiges“ liegt, neu prüfen
+const rematchLaeuft = ref(false)
+const rematchErgebnis = ref('')
+
+async function nochmalPruefen() {
+  rematchLaeuft.value = true
+  const treffer = await store.rematchAll()
+  rematchLaeuft.value = false
+  rematchErgebnis.value =
+    treffer === 0 ? 'Nichts Neues gefunden.' : `${treffer} Artikel neu einsortiert.`
+}
+
 // ── Katalog ───────────────────────────────────────────────────────────────────
 // Nur die eigenen Ergänzungen; der mitgelieferte Katalog bleibt, wie er ist.
 const neueSchreibweise = reactive<Record<string, string>>({})
@@ -172,6 +184,20 @@ function anlegen() {
       <p v-if="!store.unmatched.value.length" class="leer">
         Nichts offen – alles ließ sich zuordnen.
       </p>
+
+      <div v-if="store.sonstigesItems.value.length" class="card offen nachtraeglich">
+        <p class="hinweis">
+          {{ store.sonstigesItems.value.length }} Artikel in den Listen liegen unter „Sonstiges“.
+          Seit sie eingetragen wurden, ist der Katalog gewachsen – ein Durchlauf holt nach, was
+          inzwischen bekannt ist.
+        </p>
+        <div class="zeile">
+          <button type="button" class="primaer" :disabled="rematchLaeuft" @click="nochmalPruefen">
+            {{ rematchLaeuft ? 'Läuft …' : 'Nochmal zuordnen' }}
+          </button>
+          <span v-if="rematchErgebnis" class="ok">{{ rematchErgebnis }}</span>
+        </div>
+      </div>
 
       <ul v-else class="karten">
         <li v-for="eintrag in store.unmatched.value" :key="eintrag.id" class="card offen">
@@ -576,6 +602,15 @@ input[type='radio'] {
   cursor: pointer;
 }
 
+.nachtraeglich {
+  margin-top: 0.6rem;
+}
+
+.ok {
+  color: var(--green);
+  font-size: 0.83rem;
+}
+
 .alias {
   display: grid;
   gap: 0.5rem;
@@ -691,6 +726,15 @@ input[type='radio'] {
 .reihenfolge button:disabled {
   opacity: 0.35;
   cursor: default;
+}
+
+.nachtraeglich {
+  margin-top: 0.6rem;
+}
+
+.ok {
+  color: var(--green);
+  font-size: 0.83rem;
 }
 
 .alias {

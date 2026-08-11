@@ -95,13 +95,13 @@ function alsSchreibweise(artikel: string) {
         </option>
       </select>
 
-      <!-- Woher die Kategorie kommt: erklärt schiefe Treffer, statt sie zu verstecken -->
-      <p v-if="categories.length" class="herkunft">
+      <!-- Woher die Kategorie kommt: erklärt schiefe Treffer, statt sie zu
+           verstecken. Selbst gesetzte Kategorien brauchen keine Erklärung. -->
+      <p v-if="categories.length && (item.matchedName || !item.matched)" class="herkunft">
         <template v-if="item.matchedName">
           Im Katalog erkannt als <strong>{{ item.matchedName }}</strong>
         </template>
-        <template v-else-if="!item.matched">Nicht im Katalog gefunden</template>
-        <template v-else>Kategorie von Hand gesetzt</template>
+        <template v-else>Nicht im Katalog gefunden</template>
       </p>
 
       <button

@@ -351,6 +351,33 @@ function createStore() {
     return sendChange('/catalog', 'POST', { name, category_id: categoryId })
   }
 
+  /** Artikel, die noch unter „Sonstiges“ liegen (über alle Listen). */
+  const sonstigesItems = computed(() =>
+    state.lists
+      .filter((l) => l.type === 'kategorisiert')
+      .flatMap((l) => l.items.filter((i) => !i.matched).map((i) => ({ list: l, item: i }))),
+  )
+
+  /**
+   * Nach einer Katalog-Erweiterung noch einmal über alles laufen, was in
+   * „Sonstiges“ hängen geblieben ist. Nacheinander, damit sich die Antworten
+   * nicht überholen.
+   */
+  async function rematchAll(): Promise<number> {
+    let getroffen = 0
+    // Kopie: updateItem setzt `matched`, die berechnete Liste würde sich sonst
+    // unter dem Iterator verkürzen
+    const offen = sonstigesItems.value.slice()
+    for (const { list, item } of offen) {
+      const match = findCatalogMatch(item.name, state.catalog)
+      if (!match) continue
+      item.matchedName = match.name
+      await updateItem(list, item.id, { categoryId: match.category_id })
+      getroffen += 1
+    }
+    return getroffen
+  }
+
   /** Eigenen Katalogeintrag überschreiben (Kategorie, Schreibweisen). */
   function saveCatalogEntry(entry: CatalogEntry) {
     return sendChange('/catalog', 'PUT', entry)
@@ -410,6 +437,8 @@ function createStore() {
     unmatched,
     assignCategory,
     addAlias,
+    sonstigesItems,
+    rematchAll,
     saveCatalogEntry,
     removeCatalogEntry,
     replaceOwnCatalog,
