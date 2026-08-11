@@ -90,11 +90,31 @@ const uptimePayload = {
   ],
 }
 
+// Eine Minute Abstand pro Punkt, die letzten 90 Minuten
+const metricsPayload = {
+  recordedSince: new Date(Date.now() - 90 * 60_000).toISOString(),
+  intervalSeconds: 60,
+  windowHours: 24,
+  points: Array.from({ length: 90 }, (_, index) => ({
+    t: Date.now() - (89 - index) * 60_000,
+    // Alles außerhalb der letzten 60 Minuten steht auf 0, innerhalb auf 50.
+    // Kommt 50 heraus, wurde wirklich nur das Fenster gemittelt.
+    cpu: index < 25 ? 0 : 50,
+    mem: index < 25 ? 0 : 50,
+    watts: 10,
+  })),
+}
+
 function stubApi(system: unknown = systemPayload, uptime: unknown = uptimePayload) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: string) => {
-      const body = String(input).includes('uptime') ? uptime : system
+      const url = String(input)
+      const body = url.includes('uptime')
+        ? uptime
+        : url.includes('metrics')
+          ? metricsPayload
+          : system
       return new Response(JSON.stringify(body), {
         status: 200,
         headers: { 'content-type': 'application/json' },
@@ -194,6 +214,48 @@ describe('DashboardView', () => {
     expect(chart.text()).toContain('98,3 %')
     expect(chart.text()).toContain('seit 3 Std')
     expect(chart.findAll('.tick.down').length).toBeGreaterThan(0)
+
+    wrapper.unmount()
+  })
+
+  it('zeigt den Mittelwert der letzten 60 Minuten auf den Karten', async () => {
+    stubApi()
+    const wrapper = await mountDashboard()
+    await flushPromises()
+
+    // Außerhalb des Fensters steht alles auf 0, drin auf 50 – also muss 50 rauskommen
+    const cpu = wrapper.findAll('.meter').find((meter) => meter.text().includes('CPU'))
+    expect(cpu?.text()).toContain('Ø 60 min')
+    expect(cpu?.text()).toContain('50 %')
+
+    // Beim Strom kommt die Grundlast dazu: (10 + 20) / 0,88 = 34,1 W
+    const power = wrapper.findAll('.meter').find((meter) => meter.text().includes('Stromverbrauch'))
+    expect(power?.text()).toContain('≈ 34,1 W')
+
+    wrapper.unmount()
+  })
+
+  it('öffnet den Verlauf, wenn man auf eine Karte klickt', async () => {
+    // jsdom kennt showModal nicht in jeder Version
+    HTMLDialogElement.prototype.showModal = vi.fn<() => void>(function (this: HTMLDialogElement) {
+      this.open = true
+    })
+    HTMLDialogElement.prototype.close = vi.fn<() => void>(function (this: HTMLDialogElement) {
+      this.open = false
+    })
+
+    stubApi()
+    const wrapper = await mountDashboard()
+    await flushPromises()
+
+    const cpu = wrapper.findAll('.meter').find((meter) => meter.text().includes('CPU'))
+    await cpu?.trigger('click')
+    await flushPromises()
+
+    const dialog = wrapper.find('dialog')
+    expect(dialog.text()).toContain('CPU-Auslastung')
+    expect(dialog.text()).toContain('Ø 60 min')
+    expect(dialog.find('polyline').exists()).toBe(true)
 
     wrapper.unmount()
   })

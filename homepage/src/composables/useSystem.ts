@@ -82,6 +82,58 @@ export function useSystem() {
   return { info, failed, reload: load }
 }
 
+export interface MetricPoint {
+  t: number
+  cpu: number | null
+  mem: number | null
+  watts: number | null
+}
+
+export type MetricKey = 'cpu' | 'mem' | 'watts'
+
+export interface MetricHistory {
+  recordedSince: string
+  intervalSeconds: number
+  windowHours: number
+  points: MetricPoint[]
+}
+
+/** Der Messwert-Verlauf wächst um einen Punkt pro Minute. */
+export function useMetrics() {
+  const history = ref<MetricHistory | null>(null)
+
+  async function load() {
+    try {
+      const response = await fetch(`${import.meta.env.BASE_URL}api/metrics`, { cache: 'no-store' })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      history.value = await response.json()
+    } catch {
+      // Bleibt beim letzten Stand
+    }
+  }
+
+  load()
+  const timer = setInterval(load, 60_000)
+  onUnmounted(() => clearInterval(timer))
+
+  return { history }
+}
+
+export function averageOver(
+  points: MetricPoint[] | undefined,
+  minutes: number,
+  key: MetricKey,
+): number | null {
+  if (!points) return null
+  const from = Date.now() - minutes * 60_000
+  const values = points
+    .filter((point) => point.t >= from)
+    .map((point) => point[key])
+    .filter((value): value is number => value !== null)
+  if (values.length === 0) return null
+  return values.reduce((sum, value) => sum + value, 0) / values.length
+}
+
 export type UptimeState = 'up' | 'down' | 'partial' | 'none'
 
 export interface UptimeReport {

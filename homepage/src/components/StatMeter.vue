@@ -7,7 +7,13 @@ const props = defineProps<{
   value: string
   percent: number | null
   hint?: string
+  /** Mittelwert der letzten 60 Minuten, schon fertig formatiert */
+  average?: string
+  /** Anklickbar für den Verlauf – dann wird die Karte ein Button */
+  interactive?: boolean
 }>()
+
+const emit = defineEmits<{ open: [] }>()
 
 const tone = computed(() => toneFor(props.percent))
 
@@ -17,8 +23,16 @@ const width = computed(() => `${Math.min(100, Math.max(0, props.percent ?? 0))}%
 </script>
 
 <template>
-  <div class="card meter" :class="tone">
-    <p class="label">{{ label }}</p>
+  <component
+    :is="interactive ? 'button' : 'div'"
+    class="card meter"
+    :class="[tone, { interactive }]"
+    @click="interactive && emit('open')"
+  >
+    <p class="label">
+      {{ label }}
+      <span v-if="interactive" class="more">Verlauf ›</span>
+    </p>
     <p class="value">
       {{ value }}
       <span v-if="showPercent" class="percent">{{ percent }} %</span>
@@ -28,12 +42,20 @@ const width = computed(() => `${Math.min(100, Math.max(0, props.percent ?? 0))}%
       <div class="fill" :style="{ width }" />
     </div>
 
+    <p v-if="average" class="avg">
+      Ø 60 min <strong>{{ average }}</strong>
+    </p>
+
     <p v-if="hint" class="hint">{{ hint }}</p>
-  </div>
+  </component>
 </template>
 
 <style scoped>
 .label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
   margin: 0 0 0.5rem;
   font-size: 0.7rem;
   font-weight: 700;
@@ -45,6 +67,42 @@ const width = computed(() => `${Math.min(100, Math.max(0, props.percent ?? 0))}%
 .meter {
   display: flex;
   flex-direction: column;
+}
+
+/* Als Button darf die Karte nicht wie ein Formularfeld aussehen */
+.meter.interactive {
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.25s ease,
+    transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.meter.interactive:hover,
+.meter.interactive:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  transform: translateY(-2px);
+}
+
+.more {
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
+
+.avg {
+  margin: 0.7rem 0 0;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+.avg strong {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
 
 .meter.ok {
@@ -105,8 +163,13 @@ const width = computed(() => `${Math.min(100, Math.max(0, props.percent ?? 0))}%
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .fill {
+  .fill,
+  .meter.interactive {
     transition: none;
+  }
+
+  .meter.interactive:hover {
+    transform: none;
   }
 }
 </style>

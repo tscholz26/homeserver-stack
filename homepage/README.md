@@ -34,9 +34,10 @@ Serverwerte auf einen Blick, alle fünf Sekunden aktualisiert:
 - **Läuft seit** – Uptime des Hosts, nicht des Containers
 - **CPU** – Auslastung in Prozent, Load-Average 1/5/15, Temperatur, Modell und
   Kernzahl
-- **Stromverbrauch** – Watt des CPU-Pakets aus dem RAPL-Energiezähler.
-  Ausdrücklich **nicht** der ganze Rechner: Platten, Board und Netzteilverluste
-  kennt der Zähler nicht, ein Gesamtwert wäre geraten
+- **Stromverbrauch** – geschätzter Verbrauch an der Steckdose: gemessene Watt
+  von CPU-Paket und Speichercontroller plus Grundlast für den Rest, geteilt
+  durch den Netzteil-Wirkungsgrad. Die Karte nennt den gemessenen Anteil
+  getrennt, damit klar ist, was Messung und was Schätzung ist
 - **Arbeitsspeicher** – belegt/gesamt, verfügbar, Swap
 - **Systemplatte** – belegt/gesamt von `/`, inklusive Docker-Images
 - **Datenplatte** – belegt/gesamt von `/dev/sda1` (`/home/tristans/data`), wo die
@@ -44,7 +45,10 @@ Serverwerte auf einen Blick, alle fünf Sekunden aktualisiert:
 - **Docker-Container** – Name, Image, Zustand, Laufzeit sowie RAM, CPU,
   Neustart-Zähler und Healthcheck-Status je Container
 - **Verfügbarkeit** – Zeitleiste der letzten 24 Stunden pro Dienst mit
-  Verfügbarkeit in Prozent
+  Verfügbarkeit in Prozent, direkt über den Containern
+- **Verlauf**: CPU, Arbeitsspeicher und Stromverbrauch zeigen den Mittelwert der
+  letzten 60 Minuten auf der Karte; ein Klick öffnet den Verlauf der letzten 24
+  Stunden als Kurve mit Jetzt-, Ø-, Minimal- und Maximalwert
 
 Balken werden ab 70 % gelb und ab 90 % rot (`toneFor` in
 [src/composables/useSystem.ts](src/composables/useSystem.ts)).
@@ -65,12 +69,29 @@ Balken werden ab 70 % gelb und ab 90 % rot (`toneFor` in
   Systemplatte. Liegt Dockers `data-root` woanders, zeigt die Karte diese Platte
 - **CPU-Auslastung** als Differenz zweier `/proc/stat`-Messungen im 5-Sekunden-
   Takt; ein einzelner Blick liefert nur Summen seit dem Boot
-- **Stromverbrauch** aus `/sys/devices/virtual/powercap/intel-rapl/intel-rapl:0/energy_uj`.
+- **Stromverbrauch** aus den RAPL-Zählern unter
+  `/sys/devices/virtual/powercap/intel-rapl/`.
   Der Zähler läuft in Mikrojoule hoch, Watt ist die Differenz pro Sekunde
   (Überlauf bei `max_energy_range_uj` wird abgefangen). Die Datei ist
   root-only (0400); im Container läuft der Server als root, deshalb geht es.
   Gemountet wird das `powercap`-Verzeichnis, weil die Volume-Kurzschreibweise an
-  den Doppelpunkten im Zonenpfad scheitert
+  den Doppelpunkten im Zonenpfad scheitert.
+
+  Summiert werden das Paket (`package-0`) und, falls vorhanden, `dram`.
+  `core` und `uncore` bleiben außen vor, die stecken schon im Paketwert. Für
+  alles ohne Zähler – Board, Chipsatz, Platten, Lüfter, Netzwerk – kommt eine
+  Grundlast dazu, danach wird durch den Netzteil-Wirkungsgrad geteilt:
+
+  | Variable | Standard | Bedeutung |
+  | --- | --- | --- |
+  | `BASE_POWER_WATTS` | `20` | Grundlast des restlichen Rechners in Watt |
+  | `PSU_EFFICIENCY` | `0.88` | Wirkungsgrad des Netzteils |
+
+  Der Standard passt zu diesem Rechner (i3-7100, 16 GB, eine HDD, eine SSD) und
+  liegt im Leerlauf bei rund 25 W. **Kalibrieren** geht mit einem
+  Steckdosenmessgerät: gemessene Wattzahl minus angezeigter CPU-Anteil, das
+  Ergebnis mal `PSU_EFFICIENCY` als `BASE_POWER_WATTS` in die
+  `docker-compose.yml` eintragen
 - **Datenplatte** per `statfs` auf `/home/tristans/data/.dashboard-df` – ein
   leeres Verzeichnis, das nur dafür existiert. So kommt der Container an die
   Belegung von `/dev/sda1`, ohne die Nextcloud-Daten sehen zu können
@@ -89,6 +110,13 @@ Balken werden ab 70 % gelb und ab 90 % rot (`toneFor` in
   vom Server zu 96 Abschnitten zusammengefasst.
   **Der Verlauf beginnt mit dem ersten Start dieser Version** – rückwirkend gibt
   es keine Daten, die Leiste füllt sich erst über den Tag
+
+- **Verlauf von CPU, Speicher und Strom**: der 5-Sekunden-Ticker sammelt, einmal
+  pro Minute wird ein Mittelwert nach `data/metrics.json` geschrieben (24
+  Stunden = 1440 Punkte). `GET /start/api/metrics` gibt die Rohwerte aus; die
+  Umrechnung der CPU-Watt auf den geschätzten Gesamtverbrauch passiert erst in
+  der Anzeige. So bleibt die Datei unabhängig davon, wie die Grundlast gerade
+  eingestellt ist
 
 ### Die Seite ist öffentlich
 

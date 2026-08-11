@@ -20,6 +20,7 @@ const DOCKER_API = process.env.DOCKER_API || 'http://docker-socket-proxy:2375'
 
 const DATA_DIR = join(__dirname, 'data')
 const UPTIME_FILE = join(DATA_DIR, 'uptime.json')
+const METRICS_FILE = join(DATA_DIR, 'metrics.json')
 
 mkdirSync(DATA_DIR, { recursive: true })
 
@@ -218,7 +219,79 @@ setInterval(() => {
   }
   if (measured) cpuWatts = Math.round(sum * 10) / 10
   previousEnergyAt = now
+
+  collectMetricSample()
 }, 5000)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Verlauf der Messwerte ────────────────────────────────────────────────────
+// Der Ticker oben läuft alle 5 Sekunden; gespeichert wird nur ein Mittelwert
+// pro Minute. Das hält die Datei klein (24 Stunden = 1440 Punkte) und glättet
+// Ausschläge, die für einen Verlauf ohnehin nicht interessant sind.
+const METRIC_HOURS = 24
+const pending = { cpu: [], mem: [], watts: [] }
+
+function memoryPercent() {
+  const values = memory()
+  if (!values) return null
+  return (values.usedBytes / values.totalBytes) * 100
+}
+
+function collectMetricSample() {
+  if (cpuUsagePercent !== null) pending.cpu.push(cpuUsagePercent)
+  const mem = memoryPercent()
+  if (mem !== null) pending.mem.push(mem)
+  if (cpuWatts !== null) pending.watts.push(cpuWatts)
+}
+
+function readMetrics() {
+  try {
+    const parsed = JSON.parse(readFileSync(METRICS_FILE, 'utf8'))
+    return {
+      startedAt: parsed.startedAt ?? new Date().toISOString(),
+      points: Array.isArray(parsed.points) ? parsed.points : [],
+    }
+  } catch {
+    return { startedAt: new Date().toISOString(), points: [] }
+  }
+}
+
+let metrics = readMetrics()
+
+function average(values) {
+  if (values.length === 0) return null
+  const sum = values.reduce((total, value) => total + value, 0)
+  return Math.round((sum / values.length) * 10) / 10
+}
+
+function flushMetrics() {
+  const point = {
+    t: Date.now(),
+    cpu: average(pending.cpu),
+    mem: average(pending.mem),
+    watts: average(pending.watts),
+  }
+  pending.cpu = []
+  pending.mem = []
+  pending.watts = []
+
+  // Eine Minute ohne jeden Messwert bringt keinen Punkt
+  if (point.cpu === null && point.mem === null && point.watts === null) return
+
+  const cutoff = Date.now() - METRIC_HOURS * 3600_000
+  metrics.points = metrics.points.filter((entry) => entry.t >= cutoff)
+  metrics.points.push(point)
+
+  try {
+    const tmp = `${METRICS_FILE}.tmp`
+    writeFileSync(tmp, JSON.stringify(metrics), 'utf8')
+    renameSync(tmp, METRICS_FILE)
+  } catch (err) {
+    console.error('[homepage] Messwerte konnten nicht gespeichert werden:', err.message)
+  }
+}
+
+setInterval(flushMetrics, 60_000)
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Container ─────────────────────────────────────────────────────────────────
@@ -474,6 +547,16 @@ app.get('/api/system', async (_req, res) => {
         : null,
     containers,
     dockerError,
+  })
+})
+
+app.get('/api/metrics', (_req, res) => {
+  res.set('Cache-Control', 'no-store')
+  res.json({
+    recordedSince: metrics.startedAt,
+    intervalSeconds: 60,
+    windowHours: METRIC_HOURS,
+    points: metrics.points,
   })
 })
 

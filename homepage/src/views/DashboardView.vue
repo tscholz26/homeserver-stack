@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import StatMeter from '@/components/StatMeter.vue'
 import UptimeChart from '@/components/UptimeChart.vue'
+import MetricDialog, { type MetricName } from '@/components/MetricDialog.vue'
 import {
+  averageOver,
   formatBytes,
   formatBytesPair,
   formatUptime,
+  useMetrics,
   useSystem,
   useUptime,
   type DiskInfo,
@@ -13,6 +16,15 @@ import {
 
 const { info, failed, reload } = useSystem()
 const { report } = useUptime()
+const { history } = useMetrics()
+
+// Beim Klick auf CPU, Speicher oder Strom öffnet sich der Verlauf
+const openMetric = ref<MetricName | null>(null)
+
+const percentAverage = (key: 'cpu' | 'mem') => {
+  const mean = averageOver(history.value?.points, 60, key)
+  return mean === null ? undefined : `${Math.round(mean)} %`
+}
 
 const percent = (used: number, total: number) =>
   total > 0 ? Math.round((used / total) * 100) : null
@@ -27,6 +39,7 @@ const memory = computed(() => {
   return {
     value: formatBytesPair(mem.usedBytes, mem.totalBytes),
     percent: percent(mem.usedBytes, mem.totalBytes),
+    average: percentAverage('mem'),
     hint: `${formatBytes(mem.availableBytes)} verfügbar · ${swap}`,
   }
 })
@@ -53,6 +66,7 @@ const cpu = computed(() => {
   return {
     value: values.usagePercent === null ? 'messe …' : `${values.usagePercent} %`,
     percent: values.usagePercent,
+    average: percentAverage('cpu'),
     hint: `${load}${temp}\n${values.model ?? ''}${values.cores ? ` · ${values.cores} Kerne` : ''}`,
   }
 })
@@ -66,7 +80,12 @@ const power = computed(() => {
   const values = info.value?.power
   if (!values) return null
   const efficiency = Math.round(values.psuEfficiency * 100)
+  const measured = averageOver(history.value?.points, 60, 'watts')
   return {
+    average:
+      measured === null
+        ? undefined
+        : `≈ ${watt((measured + values.baselineWatts) / values.psuEfficiency)} W`,
     value:
       values.estimatedTotalWatts === null ? 'messe …' : `≈ ${watt(values.estimatedTotalWatts)} W`,
     hint:
@@ -139,21 +158,30 @@ const updatedAt = computed(() =>
           label="CPU"
           :value="cpu.value"
           :percent="cpu.percent"
+          :average="cpu.average"
           :hint="cpu.hint"
+          interactive
+          @open="openMetric = 'cpu'"
         />
         <StatMeter
           v-if="power"
           label="Stromverbrauch"
           :value="power.value"
           :percent="null"
+          :average="power.average"
           :hint="power.hint"
+          interactive
+          @open="openMetric = 'power'"
         />
         <StatMeter
           v-if="memory"
           label="Arbeitsspeicher"
           :value="memory.value"
           :percent="memory.percent"
+          :average="memory.average"
           :hint="memory.hint"
+          interactive
+          @open="openMetric = 'memory'"
         />
         <StatMeter
           v-if="systemDisk"
@@ -227,6 +255,13 @@ const updatedAt = computed(() =>
     </template>
 
     <p v-else class="notice">Lade Systemwerte …</p>
+
+    <MetricDialog
+      :metric="openMetric"
+      :history="history"
+      :power="info?.power ?? null"
+      @close="openMetric = null"
+    />
   </div>
 </template>
 
