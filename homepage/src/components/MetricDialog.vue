@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import {
   averageOverBy,
   wattsOf,
@@ -21,14 +21,53 @@ const emit = defineEmits<{ close: [] }>()
 
 const dialog = ref<HTMLDialogElement | null>(null)
 
-// 'full' = alles, was aufgezeichnet ist (bis 24 Std), sonst das gewählte Fenster
-type Choice = '60' | '480' | 'full'
+// 'live' = die letzte Minute im Sekundentakt, 'full' = alles Aufgezeichnete,
+// sonst das gewählte Minutenfenster
+type Choice = 'live' | '60' | '480' | 'full'
 const CHOICES: { key: Choice; label: string }[] = [
+  { key: 'live', label: '60 s' },
   { key: '60', label: '60 min' },
   { key: '480', label: '8 Std' },
 ]
 const choice = ref<Choice>('full')
-const minutes = (key: Choice) => (key === 'full' ? null : Number(key))
+const minutes = (key: Choice) => (key === 'full' || key === 'live' ? null : Number(key))
+
+// Die Sekundenwerte werden nicht gespeichert, sondern erst beim Öffnen des
+// Reiters gesammelt – wie im Taskmanager. Der Puffer hält eine Minute.
+const LIVE_SECONDS = 60
+const liveBuffer = ref<MetricPoint[]>([])
+let liveTimer: ReturnType<typeof setInterval> | undefined
+
+async function pullLive() {
+  try {
+    const response = await fetch(`${import.meta.env.BASE_URL}api/live`, { cache: 'no-store' })
+    if (!response.ok) return
+    const point: MetricPoint = await response.json()
+    const cutoff = Date.now() - LIVE_SECONDS * 1000
+    liveBuffer.value = [...liveBuffer.value.filter((entry) => entry.t >= cutoff), point]
+  } catch {
+    // Einzelne Aussetzer einfach überspringen
+  }
+}
+
+function stopLive() {
+  if (liveTimer) clearInterval(liveTimer)
+  liveTimer = undefined
+}
+
+watch(
+  [() => props.metric, choice],
+  ([metric, current]) => {
+    stopLive()
+    if (!metric || current !== 'live') return
+    liveBuffer.value = []
+    pullLive()
+    liveTimer = setInterval(pullLive, 1000)
+  },
+  { immediate: true },
+)
+
+onUnmounted(stopLive)
 
 watch(
   () => props.metric,
@@ -58,8 +97,9 @@ function valueOf(point: MetricPoint): number | null {
 }
 
 const all = computed(() => {
-  if (!props.history) return []
-  return props.history.points
+  const points = choice.value === 'live' ? liveBuffer.value : props.history?.points
+  if (!points) return []
+  return points
     .map((point) => ({ t: point.t, value: valueOf(point) }))
     .filter((point): point is { t: number; value: number } => point.value !== null)
 })
@@ -91,6 +131,10 @@ const BOX = { width: 640, height: 200, left: 46, right: 10, top: 10, bottom: 22 
 // Mindestens 15 Minuten, damit die Achse nicht entartet.
 const range = computed(() => {
   const now = Date.now()
+  if (choice.value === 'live') {
+    return { from: now - LIVE_SECONDS * 1000, now, span: LIVE_SECONDS * 1000 }
+  }
+
   const chosen = minutes(choice.value)
   if (chosen !== null) {
     const span = chosen * 60_000
@@ -105,7 +149,9 @@ const range = computed(() => {
 })
 
 const spanText = computed(() => {
-  const minutes = Math.round(range.value.span / 60_000)
+  const span = range.value.span
+  if (span < 120_000) return `${Math.round(span / 1000)} s`
+  const minutes = Math.round(span / 60_000)
   if (minutes < 120) return `${minutes} min`
   return `${Math.round(minutes / 60)} Std`
 })
@@ -173,7 +219,11 @@ const timeLabels = computed(() =>
     const t = scale.value.from + (scale.value.now - scale.value.from) * share
     return {
       x: scale.value.x(t),
-      text: new Date(t).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
+      text: new Date(t).toLocaleTimeString('de-DE', {
+        hour: '2-digit',
+        minute: '2-digit',
+        ...(range.value.span <= 300_000 ? { second: '2-digit' } : {}),
+      }),
     }
   }),
 )
@@ -212,7 +262,8 @@ const format = (value: number) =>
       </header>
 
       <p v-if="series.length === 0" class="empty">
-        <template v-if="all.length === 0">
+        <template v-if="choice === 'live'">Sammelt Messwerte …</template>
+        <template v-else-if="all.length === 0">
           Noch keine Messwerte aufgezeichnet. Der Verlauf füllt sich mit einem Punkt pro Minute.
         </template>
         <template v-else>In diesem Zeitraum wurde nichts aufgezeichnet.</template>
@@ -257,7 +308,10 @@ const format = (value: number) =>
         </ul>
 
         <p class="foot">
-          {{ stats?.count }} Messpunkte, je ein Mittelwert pro Minute.
+          <template v-if="choice === 'live'">
+            {{ stats?.count }} Messwerte, jede Sekunde einer – nur im Fenster, nicht gespeichert.
+          </template>
+          <template v-else>{{ stats?.count }} Messpunkte, je ein Mittelwert pro Minute.</template>
           <template v-if="metric === 'power'">
             Kurve inklusive geschätzter Grundlast von {{ power?.baselineWatts }} W.
           </template>

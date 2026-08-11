@@ -193,6 +193,10 @@ function energyOf(zone) {
   return Number.isFinite(value) ? value : null
 }
 
+// Ein Takt pro Sekunde: so ist der Wert für die Live-Ansicht nie älter als eine
+// Sekunde. Der Minuten-Mittelwert für den Verlauf entsteht daraus weiterhin.
+const TICK_MS = 1000
+
 let previousEnergy = new Map(RAPL_ZONES.map((zone) => [zone.path, energyOf(zone)]))
 let previousEnergyAt = Date.now()
 let cpuWatts = null
@@ -228,11 +232,11 @@ setInterval(() => {
   previousEnergyAt = now
 
   collectMetricSample()
-}, 5000)
+}, TICK_MS)
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Verlauf der Messwerte ────────────────────────────────────────────────────
-// Der Ticker oben läuft alle 5 Sekunden; gespeichert wird nur ein Mittelwert
+// Der Ticker oben läuft jede Sekunde; gespeichert wird nur ein Mittelwert
 // pro Minute. Das hält die Datei klein (24 Stunden = 1440 Punkte) und glättet
 // Ausschläge, die für einen Verlauf ohnehin nicht interessant sind.
 const METRIC_HOURS = 24
@@ -559,6 +563,18 @@ app.get('/api/system', async (_req, res) => {
     power: power(),
     containers,
     dockerError,
+  })
+})
+
+// Für die Live-Ansicht im Verlaufs-Fenster: nur die drei Zahlen, kein Umweg
+// über die Docker-API. Wird im Sekundentakt abgefragt, muss also billig sein.
+app.get('/api/live', (_req, res) => {
+  res.set('Cache-Control', 'no-store')
+  res.json({
+    t: Date.now(),
+    cpu: cpuUsagePercent,
+    mem: memoryPercent(),
+    watts: cpuWatts,
   })
 })
 

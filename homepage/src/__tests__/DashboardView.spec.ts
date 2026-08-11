@@ -117,7 +117,9 @@ function stubApi(system: unknown = systemPayload, uptime: unknown = uptimePayloa
         ? uptime
         : url.includes('metrics')
           ? metricsPayload
-          : system
+          : url.includes('live')
+            ? { t: Date.now(), cpu: 7, mem: 31, watts: 2 }
+            : system
       return new Response(JSON.stringify(body), {
         status: 200,
         headers: { 'content-type': 'application/json' },
@@ -320,6 +322,36 @@ describe('DashboardView', () => {
     expect(wrapper.find('dialog').text()).toContain('letzte 8 Std')
     expect(wrapper.find('dialog').text()).toContain('Ø 8 Std')
     expect(wrapper.find('dialog').text()).toContain('90 Messpunkte')
+
+    wrapper.unmount()
+  })
+
+  it('sammelt im 60-s-Reiter live und speichert nichts', async () => {
+    HTMLDialogElement.prototype.showModal = vi.fn<() => void>(function (this: HTMLDialogElement) {
+      this.open = true
+    })
+    HTMLDialogElement.prototype.close = vi.fn<() => void>(function (this: HTMLDialogElement) {
+      this.open = false
+    })
+
+    stubApi()
+    const wrapper = await mountDashboard()
+    await flushPromises()
+
+    const cpu = wrapper.findAll('.meter').find((card) => card.text().includes('CPU'))
+    await cpu?.trigger('click')
+    await flushPromises()
+
+    const sixtySeconds = wrapper.findAll('.switch button').find((entry) => entry.text() === '60 s')
+    await sixtySeconds?.trigger('click')
+    await flushPromises()
+
+    const dialog = wrapper.find('dialog')
+    // Der erste Wert kommt sofort, weitere jede Sekunde
+    expect(dialog.text()).toContain('letzte 60 s')
+    expect(dialog.text()).toContain('Ø 60 s')
+    expect(dialog.text()).toContain('7 %')
+    expect(dialog.text()).toContain('nicht gespeichert')
 
     wrapper.unmount()
   })
