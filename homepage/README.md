@@ -47,7 +47,7 @@ Serverwerte auf einen Blick, alle fünf Sekunden aktualisiert:
 - **Verlauf**: CPU, Arbeitsspeicher und Stromverbrauch zeigen den Mittelwert der
   letzten 60 Minuten auf der Karte; ein Klick öffnet den Verlauf als Kurve mit
   Jetzt-, Ø-, Minimal- und Maximalwert, umschaltbar zwischen den letzten
-  60 Minuten und 24 Stunden
+  60 Minuten, 8 Stunden und 24 Stunden
 
 Balken werden ab 70 % gelb und ab 90 % rot (`toneFor` in
 [src/composables/useSystem.ts](src/composables/useSystem.ts)).

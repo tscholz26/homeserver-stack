@@ -280,13 +280,20 @@ describe('DashboardView', () => {
     // Von den 90 Punkten liegen 90 im vollen Fenster …
     expect(wrapper.find('dialog').text()).toContain('90 Messpunkte')
 
-    const [sixty] = wrapper.findAll('.switch button')
-    await sixty?.trigger('click')
+    const button = (label: string) =>
+      wrapper.findAll('.switch button').find((entry) => entry.text() === label)
+
+    await button('60 min')?.trigger('click')
 
     // … und nur die aus der letzten Stunde. 60 oder 61, je nachdem ob der Punkt
     // genau auf der Fenstergrenze noch mitzählt – beides ist richtig.
     expect(wrapper.find('dialog').text()).toMatch(/6[01] Messpunkte/)
     expect(wrapper.find('dialog').text()).toContain('letzte 60 min')
+
+    // 8 Std umfasst die 90 Minuten des Verlaufs komplett
+    await button('8 Std')?.trigger('click')
+    expect(wrapper.find('dialog').text()).toContain('letzte 8 Std')
+    expect(wrapper.find('dialog').text()).toContain('90 Messpunkte')
 
     wrapper.unmount()
   })

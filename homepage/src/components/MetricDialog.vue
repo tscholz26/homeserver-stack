@@ -21,8 +21,14 @@ const emit = defineEmits<{ close: [] }>()
 
 const dialog = ref<HTMLDialogElement | null>(null)
 
-// 'full' = alles, was aufgezeichnet ist (bis 24 Std), '60' = letzte Stunde
-const choice = ref<'60' | 'full'>('full')
+// 'full' = alles, was aufgezeichnet ist (bis 24 Std), sonst das gewählte Fenster
+type Choice = '60' | '480' | 'full'
+const CHOICES: { key: Choice; label: string }[] = [
+  { key: '60', label: '60 min' },
+  { key: '480', label: '8 Std' },
+]
+const choice = ref<Choice>('full')
+const minutes = (key: Choice) => (key === 'full' ? null : Number(key))
 
 watch(
   () => props.metric,
@@ -58,11 +64,12 @@ const all = computed(() => {
     .filter((point): point is { t: number; value: number } => point.value !== null)
 })
 
-const series = computed(() =>
-  choice.value === 'full'
-    ? all.value
-    : all.value.filter((point) => point.t >= Date.now() - 60 * 60_000),
-)
+const series = computed(() => {
+  const window = minutes(choice.value)
+  if (window === null) return all.value
+  const from = Date.now() - window * 60_000
+  return all.value.filter((point) => point.t >= from)
+})
 
 const stats = computed(() => {
   if (series.value.length === 0) return null
@@ -83,7 +90,11 @@ const BOX = { width: 640, height: 200, left: 46, right: 10, top: 10, bottom: 22 
 // Mindestens 15 Minuten, damit die Achse nicht entartet.
 const range = computed(() => {
   const now = Date.now()
-  if (choice.value === '60') return { from: now - 60 * 60_000, now, span: 60 * 60_000 }
+  const chosen = minutes(choice.value)
+  if (chosen !== null) {
+    const span = chosen * 60_000
+    return { from: now - span, now, span }
+  }
 
   const window = (props.history?.windowHours ?? 24) * 3600_000
   const first = series.value[0]?.t
@@ -166,7 +177,14 @@ const format = (value: number) =>
         </div>
         <div class="controls">
           <div class="switch" role="group" aria-label="Zeitraum">
-            <button :class="{ active: choice === '60' }" @click="choice = '60'">60 min</button>
+            <button
+              v-for="option in CHOICES"
+              :key="option.key"
+              :class="{ active: choice === option.key }"
+              @click="choice = option.key"
+            >
+              {{ option.label }}
+            </button>
             <button :class="{ active: choice === 'full' }" @click="choice = 'full'">
               {{ history?.windowHours ?? 24 }} Std
             </button>
@@ -179,7 +197,7 @@ const format = (value: number) =>
         <template v-if="all.length === 0">
           Noch keine Messwerte aufgezeichnet. Der Verlauf füllt sich mit einem Punkt pro Minute.
         </template>
-        <template v-else>In der letzten Stunde wurde nichts aufgezeichnet.</template>
+        <template v-else>In diesem Zeitraum wurde nichts aufgezeichnet.</template>
       </p>
 
       <template v-else>
