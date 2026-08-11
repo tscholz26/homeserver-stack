@@ -1,4 +1,4 @@
-export type ServiceId = 'nextcloud' | 'donnerskat' | 'kofferpacken'
+export type ServiceId = 'nextcloud' | 'donnerskat' | 'kofferpacken' | 'einkaufsliste'
 
 export interface Service {
   id: ServiceId
@@ -37,10 +37,18 @@ export const services: Service[] = [
     href: '/koffer/',
     ping: '/koffer/',
   },
+  {
+    id: 'einkaufsliste',
+    name: 'Einkaufsliste',
+    tagline: 'Gemeinsam',
+    description: 'Sortiert nach Supermarkt-Reihenfolge, auf beiden Handys gleichzeitig.',
+    href: '/einkauf/',
+    ping: '/einkauf/',
+  },
 ]
 
 /** Noch nicht gebaut: eigene Kacheln, die auf eine Platzhalterseite führen. */
-export type PlannedId = 'einkaufsliste' | 'verschleiss'
+export type PlannedId = 'verschleiss'
 
 export interface PlannedService {
   id: PlannedId
@@ -50,12 +58,6 @@ export interface PlannedService {
 }
 
 export const planned: PlannedService[] = [
-  {
-    id: 'einkaufsliste',
-    name: 'Einkaufsliste',
-    tagline: 'Gemeinsam',
-    description: '-',
-  },
   {
     id: 'verschleiss',
     name: 'Verschleiß',

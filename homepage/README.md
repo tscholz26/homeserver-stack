@@ -9,11 +9,11 @@ Dienste zeigt und per Kachel weiterschickt. Erreichbar unter
 - **Begrüßung** je nach Tageszeit (Morgen/Tag/Abend/Nacht); daneben Uhr und
   Datum, die auf dem Handy ausgeblendet werden. Ein Klick auf die Uhr öffnet den
   Google-Kalender
-- **Dienst-Kacheln** für Nextcloud (`/index.php`), Donnerskat (`/skat/`) und
-  Kofferpacken (`/koffer/`) – je mit Icon, Status-Punkt und Ziffer. Auf dem
-  Handy werden sie zu flachen Zeilen, damit alle drei ohne Scrollen sichtbar
-  sind (geprüft bis 360 × 640)
-- **Tastenkürzel**: `1`, `2`, `3` springen direkt in den jeweiligen Dienst
+- **Dienst-Kacheln** für Nextcloud (`/index.php`), Donnerskat (`/skat/`),
+  Kofferpacken (`/koffer/`) und die Einkaufsliste (`/einkauf/`) – je mit Icon,
+  Status-Punkt und Ziffer. Auf dem Handy werden sie zu flachen Zeilen, damit sie
+  ohne Scrollen sichtbar sind (geprüft bis 360 × 640)
+- **Tastenkürzel**: `1` bis `4` springen direkt in den jeweiligen Dienst
 - **Wetter** live aus der Wetter-API des Servers (`/home/weather`), mit eigenen
   Icons statt der Bilder von openweathermap.org. Der Klick führt nach außen
   aufs Regenradar von WetterOnline

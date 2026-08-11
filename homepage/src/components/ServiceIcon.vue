@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { PlannedId, ServiceId } from '@/services'
 
-// Auch die geplanten Dienste haben schon ein Zeichen
+// Auch der noch geplante Dienst hat schon ein Zeichen
 defineProps<{ id: ServiceId | PlannedId; size?: number }>()
 </script>
 

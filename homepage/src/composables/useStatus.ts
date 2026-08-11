@@ -15,6 +15,7 @@ export function useStatus() {
     nextcloud: 'checking',
     donnerskat: 'checking',
     kofferpacken: 'checking',
+    einkaufsliste: 'checking',
   })
 
   async function check() {

@@ -59,6 +59,7 @@ describe('HomeView', () => {
       '/index.php',
       '/skat/',
       '/koffer/',
+      '/einkauf/',
     ])
 
     wrapper.unmount()
@@ -100,14 +101,10 @@ describe('HomeView', () => {
     await flushPromises()
 
     const links = wrapper.findAll('a.plan')
-    expect(links.map((link) => link.attributes('href'))).toEqual([
-      '/bald/einkaufsliste',
-      '/bald/verschleiss',
-    ])
-    expect(wrapper.text()).toContain('Einkaufsliste')
+    expect(links.map((link) => link.attributes('href'))).toEqual(['/bald/verschleiss'])
     expect(wrapper.text()).toContain('Verschleiß')
     // Sie dürfen nicht als echte Dienste gezählt oder angepingt werden
-    expect(wrapper.findAll('a.tile')).toHaveLength(3)
+    expect(wrapper.findAll('a.tile')).toHaveLength(4)
     expect(wrapper.text()).toContain('Alles läuft')
 
     wrapper.unmount()
@@ -118,7 +115,7 @@ describe('HomeView', () => {
     const wrapper = await mountHome()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('2 von 3 online')
+    expect(wrapper.text()).toContain('3 von 4 online')
     expect(wrapper.text()).toContain('weg')
 
     wrapper.unmount()
