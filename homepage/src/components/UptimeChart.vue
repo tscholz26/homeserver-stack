@@ -131,9 +131,12 @@ const since = computed(() => {
   font-weight: 600;
 }
 
+/* Feste Spalten: sonst richtet sich die Breite nach dem Text („99,8 %“ ist
+   schmaler als „100,0 %“) und der Balken einer Zeile wird länger als der
+   der anderen. */
 .row {
   display: grid;
-  grid-template-columns: minmax(6rem, 8rem) 1fr auto;
+  grid-template-columns: 8rem 1fr 4rem;
   align-items: center;
   gap: 0.8rem;
   margin-bottom: 0.7rem;
@@ -179,6 +182,7 @@ const since = computed(() => {
   font-size: 0.9rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+  text-align: right;
   color: var(--muted);
 }
 
@@ -221,7 +225,7 @@ const since = computed(() => {
 
 @media (max-width: 34rem) {
   .row {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr 4rem;
     row-gap: 0.25rem;
   }
 
