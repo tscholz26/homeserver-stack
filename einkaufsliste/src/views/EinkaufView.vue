@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef } from 'vue'
-import { useEinkaufStore, type ListType } from '@/composables/useEinkaufStore'
+import { useEinkaufStore } from '@/composables/useEinkaufStore'
 import ArtikelZeile from '@/components/ArtikelZeile.vue'
 
 const store = useEinkaufStore()
@@ -8,10 +8,6 @@ const store = useEinkaufStore()
 const menge = ref('')
 const name = ref('')
 const nameFeld = useTemplateRef<HTMLInputElement>('nameFeld')
-
-const neueListeOffen = ref(false)
-const neuerName = ref('')
-const neuerTyp = ref<ListType>('kategorisiert')
 
 const liste = computed(() => store.activeList.value)
 const gruppen = computed(() => (liste.value ? store.groupsFor(liste.value) : []))
@@ -68,14 +64,6 @@ function einkaufBeenden() {
   if (liste.value) store.finishShopping(liste.value)
 }
 
-function listeAnlegen() {
-  if (!neuerName.value.trim()) return
-  store.addList(neuerName.value, neuerTyp.value)
-  neuerName.value = ''
-  neuerTyp.value = 'kategorisiert'
-  neueListeOffen.value = false
-}
-
 // Die Kategorie-Überschriften kleben unter der Kopfzeile aus Tabs und
 // Eingabezeile – deren Höhe wächst mit der Zahl der Listen, also gemessen
 // statt geraten.
@@ -110,25 +98,7 @@ onBeforeUnmount(() => beobachter?.disconnect())
           <span class="punkt" aria-hidden="true"></span>
           {{ l.name }}
         </button>
-        <button type="button" class="tab neu" @click="neueListeOffen = !neueListeOffen">
-          + Liste
-        </button>
       </nav>
-
-      <form v-if="neueListeOffen" class="neue-liste card" @submit.prevent="listeAnlegen">
-        <input v-model="neuerName" placeholder="Name der Liste" aria-label="Name der Liste" />
-        <div class="typen">
-          <label>
-            <input v-model="neuerTyp" type="radio" value="kategorisiert" />
-            nach Kategorien
-          </label>
-          <label>
-            <input v-model="neuerTyp" type="radio" value="flach" />
-            einfache Liste
-          </label>
-        </div>
-        <button type="submit" class="anlegen">Anlegen</button>
-      </form>
 
       <form class="eingabe" @submit.prevent="hinzufuegen">
         <input
@@ -150,7 +120,7 @@ onBeforeUnmount(() => beobachter?.disconnect())
       </form>
     </div>
 
-    <p v-if="!liste" class="leer">Noch keine Liste vorhanden – oben mit „+ Liste“ eine anlegen.</p>
+    <p v-if="!liste" class="leer">Noch keine Liste vorhanden – anlegen in der Verwaltung.</p>
 
     <p v-else-if="!liste.items.length" class="leer">
       {{ liste.name }} ist leer. Oben eintragen, was mit soll.
@@ -278,48 +248,6 @@ onBeforeUnmount(() => beobachter?.disconnect())
   border-color: color-mix(in srgb, var(--farbe) 45%, transparent);
   background: color-mix(in srgb, var(--farbe) 10%, white);
   color: var(--text);
-}
-
-.tab.neu {
-  border-style: dashed;
-}
-
-.neue-liste {
-  display: grid;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-  padding: 0.7rem;
-}
-
-.neue-liste input[type='text'],
-.neue-liste input:not([type]) {
-  padding: 0.55rem 0.7rem;
-  border: 1px solid var(--line);
-  border-radius: 0.6rem;
-  background: white;
-}
-
-.typen {
-  display: flex;
-  gap: 0.9rem;
-  color: var(--muted);
-  font-size: 0.85rem;
-}
-
-.typen label {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-
-.anlegen {
-  padding: 0.55rem;
-  border: none;
-  border-radius: 0.6rem;
-  background: var(--violet);
-  color: white;
-  font-weight: 700;
-  cursor: pointer;
 }
 
 .eingabe {
