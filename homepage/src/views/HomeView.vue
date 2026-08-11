@@ -78,14 +78,15 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
           :status="statuses[service.id]"
           :shortcut="index + 1"
         />
-      </section>
 
-      <section class="soon" aria-label="Geplant">
+        <!-- Geplantes sitzt in derselben Reihe, bleibt aber grau und gestrichelt -->
         <RouterLink v-for="entry in planned" :key="entry.id" class="plan" :to="`/bald/${entry.id}`">
-          <span class="plan-icon"><ServiceIcon :id="entry.id" :size="20" /></span>
+          <span class="plan-icon"><ServiceIcon :id="entry.id" :size="26" /></span>
+          <span class="plan-note">geplant</span>
           <span class="plan-text">
-            <span class="plan-name">{{ entry.name }}</span>
-            <span class="plan-note">{{ entry.tagline }} · geplant</span>
+            <span class="plan-tagline">{{ entry.tagline }}</span>
+            <h2>{{ entry.name }}</h2>
+            <p>{{ entry.description }}</p>
           </span>
         </RouterLink>
       </section>
@@ -216,21 +217,17 @@ h1 {
   margin-top: 1rem;
 }
 
-/* Geplantes: leiser als die echten Kacheln, gestrichelt und flach */
-.soon {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
-  gap: 0.7rem;
-  margin-top: 0.7rem;
-}
-
+/* Geplantes: gleiche Kachelgröße wie die Dienste, aber grau und gestrichelt */
 .plan {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  border: 1px dashed var(--line);
-  border-radius: 1rem;
-  padding: 0.7rem 0.9rem;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    'icon note'
+    'text text';
+  padding: 1.4rem;
+  border: 1px dashed color-mix(in srgb, var(--muted) 35%, transparent);
+  border-radius: 1.5rem;
   text-decoration: none;
   color: var(--muted);
   transition:
@@ -240,35 +237,57 @@ h1 {
 
 .plan:hover,
 .plan:focus-visible {
-  border-color: color-mix(in srgb, var(--violet) 45%, transparent);
+  border-color: color-mix(in srgb, var(--muted) 60%, transparent);
   color: var(--text);
 }
 
 .plan-icon {
+  grid-area: icon;
   display: grid;
   place-items: center;
-  width: 2.1rem;
-  height: 2.1rem;
-  border-radius: 0.7rem;
-  border: 1px dashed var(--line);
-  flex-shrink: 0;
-}
-
-.plan-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.plan-name {
-  font-size: 0.95rem;
-  font-weight: 700;
+  width: 3.2rem;
+  height: 3.2rem;
+  border-radius: 1rem;
+  border: 1px dashed color-mix(in srgb, var(--muted) 35%, transparent);
 }
 
 .plan-note {
-  font-size: 0.72rem;
+  grid-area: note;
+  justify-self: end;
+  align-self: start;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.plan-text {
+  grid-area: text;
+  margin-top: 0.9rem;
+}
+
+.plan-tagline {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.plan h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+  color: color-mix(in srgb, var(--text) 55%, var(--muted));
+}
+
+.plan p {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
 }
 
 /* Kacheln und Karten laufen leicht versetzt ein */
@@ -323,6 +342,35 @@ h1 {
 
   .tiles {
     gap: 0.7rem;
+  }
+
+  /* Wie die Dienst-Kacheln: auf dem Handy eine flache Zeile */
+  .plan {
+    grid-template-columns: auto 1fr auto;
+    grid-template-rows: auto;
+    grid-template-areas: 'icon text note';
+    align-items: center;
+    gap: 0 0.9rem;
+    padding: 1rem 1.1rem;
+  }
+
+  .plan-icon {
+    width: 2.9rem;
+    height: 2.9rem;
+    border-radius: 0.9rem;
+  }
+
+  .plan-text {
+    margin-top: 0;
+    min-width: 0;
+  }
+
+  .plan h2 {
+    font-size: 1.25rem;
+  }
+
+  .plan p {
+    display: none;
   }
 
   .widgets {

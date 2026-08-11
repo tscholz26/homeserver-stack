@@ -40,7 +40,7 @@ export const services: Service[] = [
   {
     id: 'einkaufsliste',
     name: 'Einkaufsliste',
-    tagline: 'Gemeinsam',
+    tagline: 'Besorgungen',
     description: 'Sortiert nach Supermarkt-Reihenfolge, auf beiden Handys gleichzeitig.',
     href: '/einkauf/',
     ping: '/einkauf/',
@@ -60,8 +60,8 @@ export interface PlannedService {
 export const planned: PlannedService[] = [
   {
     id: 'verschleiss',
-    name: 'Verschleiß',
+    name: 'Verschleißtracker',
     tagline: 'Rennrad',
-    description: '-',
+    description: 'Kilometer und Verschleißteile am Rennrad im Blick behalten.',
   },
 ]
