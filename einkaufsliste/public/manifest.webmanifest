@@ -1,0 +1,19 @@
+{
+  "name": "Einkaufsliste",
+  "short_name": "Einkauf",
+  "description": "Gemeinsame Einkaufsliste – sortiert nach Supermarkt-Reihenfolge",
+  "start_url": "/einkauf/",
+  "scope": "/einkauf/",
+  "display": "standalone",
+  "background_color": "#fbf9f5",
+  "theme_color": "#fbf9f5",
+  "lang": "de",
+  "icons": [
+    {
+      "src": "/einkauf/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

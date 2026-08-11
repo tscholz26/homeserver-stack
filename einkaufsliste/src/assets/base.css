@@ -1,0 +1,69 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  --bg: #fbf9f5;
+  --text: #1a1c22;
+  --muted: #5a6472;
+  --line: rgba(24, 28, 36, 0.14);
+  --card: rgba(255, 255, 255, 0.9);
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 12px 32px -20px rgba(16, 24, 40, 0.45);
+  --violet: #7c3aed;
+  --cyan: #0891b2;
+  --amber: #c2740a;
+  --green: #15803d;
+  --red: #b91c1c;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  -webkit-tap-highlight-color: transparent;
+  color: var(--text);
+  background: var(--bg);
+  font-family:
+    'Segoe UI Variable Display',
+    'Segoe UI',
+    'Source Sans 3',
+    system-ui,
+    -apple-system,
+    sans-serif;
+  font-synthesis-weight: none;
+}
+
+/* Zwei weiche Farbschleier wie auf der Startseite – hier ohne Animation, damit
+   beim Scrollen der Liste nichts nachzieht. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: -12vmax;
+  z-index: -1;
+  background:
+    radial-gradient(26vmax 26vmax at 12% 0%, rgba(139, 92, 246, 0.24), transparent 62%),
+    radial-gradient(24vmax 24vmax at 92% 8%, rgba(14, 165, 233, 0.2), transparent 62%),
+    radial-gradient(28vmax 28vmax at 60% 100%, rgba(245, 158, 11, 0.22), transparent 62%);
+  filter: blur(3vmax);
+}
+
+input,
+select,
+button,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--violet);
+  outline-offset: 2px;
+}
+
+.card {
+  border: 1px solid var(--line);
+  border-radius: 1.1rem;
+  background: var(--card);
+  box-shadow: var(--shadow);
+}

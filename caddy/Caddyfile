@@ -32,6 +32,10 @@ tshomeserv.duckdns.org {
         reverse_proxy kofferpacken:2606
     }
 
+    handle_path /einkauf/* {
+        reverse_proxy einkaufsliste:2608
+    }
+
     handle /home/* {
         reverse_proxy website-weather-api:80
     }

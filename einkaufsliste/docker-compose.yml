@@ -1,0 +1,16 @@
+services:
+  einkaufsliste:
+    build: .
+    container_name: einkaufsliste
+    restart: unless-stopped
+
+    volumes:
+      - ./data:/app/data
+      - ./backups:/app/backups
+
+    networks:
+      - caddy-network
+
+networks:
+  caddy-network:
+    external: true

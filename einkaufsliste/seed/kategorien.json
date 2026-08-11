@@ -1,0 +1,18 @@
+{
+  "categories": [
+    { "id": "obst_gemuese", "emoji": "🥦", "label": "Obst & Gemüse" },
+    { "id": "fleisch_wurst", "emoji": "🥩", "label": "Fleisch & Wurst" },
+    { "id": "fisch", "emoji": "🐟", "label": "Fisch & Meeresfrüchte" },
+    { "id": "milch_kuehlwaren", "emoji": "🥛", "label": "Milch, Käse & Eier" },
+    { "id": "convenience_kuehl", "emoji": "🥟", "label": "Gekühlte Convenience-Produkte" },
+    { "id": "tiefkuehl", "emoji": "❄️", "label": "Tiefkühlkost" },
+    { "id": "brot_backwaren", "emoji": "🍞", "label": "Brot & Backwaren" },
+    { "id": "nudeln_reis", "emoji": "🍝", "label": "Nudeln, Reis & Soßen" },
+    { "id": "konserven", "emoji": "🥫", "label": "Konserven" },
+    { "id": "backen_gewuerze", "emoji": "🧂", "label": "Backen & Gewürze" },
+    { "id": "suesses_snacks", "emoji": "🍫", "label": "Süßes, Snacks & Nüsse" },
+    { "id": "getraenke", "emoji": "🧃", "label": "Getränke" },
+    { "id": "drogerie", "emoji": "🧴", "label": "Drogerie & Haushalt" },
+    { "id": "sonstiges", "emoji": "❓", "label": "Sonstiges" }
+  ]
+}
