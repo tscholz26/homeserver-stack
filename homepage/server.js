@@ -141,13 +141,15 @@ let cpuUsagePercent = null
 // Speichercontroller. `core` und `uncore` bleiben außen vor, die stecken schon
 // im Paketwert.
 //
-// Alles andere im Rechner (Board, Chipsatz, Platten, Lüfter, Netzwerk) hat
-// keinen Zähler. Dafür kommt eine Grundlast dazu, und zum Schluss teilen wir
-// durch den Netzteil-Wirkungsgrad, weil an der Dose mehr ankommt als die
-// Bauteile ziehen. Beide Werte sind Schätzungen und über die Umgebung
-// einstellbar – mit einem Steckdosenmessgerät lässt sich das kalibrieren.
-const BASE_POWER_WATTS = Number(process.env.BASE_POWER_WATTS ?? 20)
-const PSU_EFFICIENCY = Number(process.env.PSU_EFFICIENCY ?? 0.88)
+// Alles andere im Rechner hat keinen Zähler. Die Grundlast ist deshalb Posten
+// für Posten hergeleitet (Platte aus dem Datenblatt, Board aus Vergleichs-
+// messungen ähnlicher Systeme) – die Aufstellung steht im README. Der
+// Wirkungsgrad ist niedrig angesetzt, weil 80 Plus unterhalb von 20 % Last gar
+// nichts zertifiziert und dieser OEM-Rechner im Leerlauf deutlich darunter
+// liegt. Beides ist über die Umgebung einstellbar und mit einem
+// Steckdosenmessgerät einmalig kalibrierbar.
+const BASE_POWER_WATTS = Number(process.env.BASE_POWER_WATTS ?? 19.5)
+const PSU_EFFICIENCY = Number(process.env.PSU_EFFICIENCY ?? 0.78)
 
 // Mehr als das ist auf diesem Rechner nicht messbar: kein
 // /sys/class/power_supply, keine power*-Datei in hwmon, kein IPMI, keine USV,

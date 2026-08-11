@@ -77,17 +77,32 @@ Balken werden ab 70 % gelb und ab 90 % rot (`toneFor` in
   den Doppelpunkten im Zonenpfad scheitert.
 
   Summiert werden das Paket (`package-0`) und, falls vorhanden, `dram`.
-  `core` und `uncore` bleiben außen vor, die stecken schon im Paketwert. Für
-  alles ohne Zähler – Board, Chipsatz, Platten, Lüfter, Netzwerk – kommt eine
-  Grundlast dazu, danach wird durch den Netzteil-Wirkungsgrad geteilt:
+  `core` und `uncore` bleiben außen vor, die stecken schon im Paketwert. Der
+  Arbeitsspeicher steckt in `dram` und ist damit ebenfalls gemessen.
 
-  | Variable | Standard | Bedeutung |
+  Für alles ohne Zähler kommt eine Grundlast dazu, danach wird durch den
+  Netzteil-Wirkungsgrad geteilt. Beide Werte sind für **diesen** Rechner
+  hergeleitet (MEDION Akoya P2106 D, Board H110H4-EM2, i3-7100 mit HD 630,
+  16 GB, WD10EZEX + 120-GB-SATA-SSD, Realtek-GbE, Kartenleser):
+
+  | Posten | Leerlauf | Woher |
   | --- | --- | --- |
-  | `BASE_POWER_WATTS` | `20` | Grundlast des restlichen Rechners in Watt |
-  | `PSU_EFFICIENCY` | `0.88` | Wirkungsgrad des Netzteils |
+  | Board + H110-Chipsatz + Spannungswandler + Takt | ~10 W | abgeleitet: ein Z370-Board mit Pentium G5400, 16 GB und ohne Laufwerke wurde mit 21,4 W an der Dose gemessen; abzüglich CPU, RAM und Netzteilverlusten bleiben ~13 W für ein deutlich besser ausgestattetes Board, ein OEM-H110 liegt darunter |
+  | HDD WD10EZEX (1 TB, 7200 min⁻¹) | 6,1 W | **WD-Datenblatt**, Idle. Unter Last nur 6,8 W – der Unterschied ist zu klein, um ihn zu modellieren |
+  | SATA-SSD 120 GB | ~0,6 W | typischer Idle-Wert |
+  | Realtek RTL8111 (1 Gbit) | ~1,0 W | typischer Wert für die Link-Geschwindigkeit |
+  | Kartenleser + Unifying-Empfänger | ~0,4 W | typische USB-Ruheströme |
+  | Lüfter (CPU + Gehäuse) | ~1,5 W | typisch für zwei 12-V-Lüfter im Leerlauf |
+  | **Summe → `BASE_POWER_WATTS`** | **19,5 W** | |
 
-  Der Standard passt zu diesem Rechner (i3-7100, 16 GB, eine HDD, eine SSD) und
-  liegt im Leerlauf bei rund 25 W.
+  `PSU_EFFICIENCY` steht auf **0,78**. 80 Plus zertifiziert erst ab 20 % Last
+  (Bronze: 82 % bei 20 %), unterhalb davon gar nichts – dieser Rechner zieht im
+  Leerlauf nur einen Bruchteil der Netzteilleistung, und OEM-Netzteile liegen in
+  diesem Bereich typisch bei Mitte bis Ende 70 %.
+
+  Ergebnis: bei 1,9 W gemessener CPU-Leistung ≈ 27 W an der Dose. Zum Vergleich
+  liegen fremdgemessene Systeme dieser Klasse bei 21,4 W ohne Laufwerke und
+  35 W mit unbekannter Bestückung – der Wert liegt also plausibel dazwischen.
 
   **Genauer geht es auf diesem Rechner nicht.** Es gibt keinen
   Leistungssensor: `/sys/class/power_supply/` ist leer, in `hwmon` stehen nur
@@ -98,8 +113,9 @@ Balken werden ab 70 % gelb und ab 90 % rot (`toneFor` in
   Akku ist hier nicht vorhanden.
 
   **Kalibrieren** geht mit einem Steckdosenmessgerät, einmalig: gemessene
-  Wattzahl minus angezeigtem CPU-Anteil, das Ergebnis mal `PSU_EFFICIENCY` als
-  `BASE_POWER_WATTS` eintragen. Danach stimmt die Schätzung für den Leerlauf.
+  Wattzahl mal `PSU_EFFICIENCY`, minus angezeigtem CPU-Anteil, das Ergebnis als
+  `BASE_POWER_WATTS` eintragen. Danach stimmt die Schätzung für den Leerlauf
+  genau, und nur die Laständerungen der CPU bleiben Rechnung.
 
 - **Verlauf von CPU, Speicher und Strom**: der 5-Sekunden-Ticker sammelt, einmal
   pro Minute wird ein Mittelwert nach `data/metrics.json` geschrieben (24
