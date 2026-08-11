@@ -2,6 +2,23 @@
   <div class="shell">
     <header class="top">
       <div>
+        <!-- Unaufdringlicher Rückweg zur Startseite des Homeservers -->
+        <a class="home" href="/">
+          <svg
+            viewBox="0 0 24 24"
+            width="13"
+            height="13"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.4"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M19 12H6M11 6l-6 6 6 6" />
+          </svg>
+          Homeserver
+        </a>
         <p class="brand-sub">Skatturnier Verwaltungsapp</p>
         <h1>Donnerskat</h1>
       </div>
@@ -50,6 +67,24 @@
   border-radius: 1rem;
   padding: 1rem 1.2rem;
   background: linear-gradient(120deg, rgba(8, 38, 29, 0.9), rgba(20, 72, 53, 0.9));
+}
+
+.home {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.home:hover,
+.home:focus-visible {
+  color: #cfb26a;
 }
 
 .brand-sub {
