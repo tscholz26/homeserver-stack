@@ -93,14 +93,20 @@ function alsSchreibweise(artikel: string) {
     <div v-if="!offen" class="haupt">
       <span v-if="sortierbar" class="griff" title="Verschieben">⠿</span>
 
-      <label class="haken">
-        <input
-          type="checkbox"
-          :checked="item.done"
-          @change="emit('check', ($event.target as HTMLInputElement).checked)"
-        />
-        <span class="box" aria-hidden="true"></span>
-      </label>
+      <!-- Bewusst kein <input type=checkbox>: dessen Zustand lebt im DOM und
+           lief neben SortableJS aus dem Tritt – der Haken blieb grün, obwohl
+           der Artikel längst wieder offen war. Ein Knopf hat nur den Zustand,
+           den wir ihm geben. -->
+      <button
+        type="button"
+        class="haken"
+        role="checkbox"
+        :aria-checked="item.done"
+        :aria-label="item.done ? `${item.name} wieder offen` : `${item.name} abhaken`"
+        @click="emit('check', !item.done)"
+      >
+        <span class="box" :class="{ an: item.done }" aria-hidden="true"></span>
+      </button>
 
       <button type="button" class="text" @click="oeffnen">
         {{ item.name }}
@@ -218,15 +224,11 @@ function alsSchreibweise(artikel: string) {
 
 .haken {
   display: inline-flex;
+  flex-shrink: 0;
   padding: 0.15rem;
+  border: none;
+  background: transparent;
   cursor: pointer;
-}
-
-.haken input {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
 }
 
 .box {
@@ -238,14 +240,14 @@ function alsSchreibweise(artikel: string) {
   transition: background 0.15s ease;
 }
 
-.haken input:checked + .box {
+.box.an {
   border-color: var(--green);
   background: var(--green)
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E")
     center / 0.9rem no-repeat;
 }
 
-.haken input:focus-visible + .box {
+.haken:focus-visible .box {
   outline: 2px solid var(--violet);
   outline-offset: 2px;
 }
