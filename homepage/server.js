@@ -149,54 +149,10 @@ let cpuUsagePercent = null
 const BASE_POWER_WATTS = Number(process.env.BASE_POWER_WATTS ?? 20)
 const PSU_EFFICIENCY = Number(process.env.PSU_EFFICIENCY ?? 0.88)
 
-// Diese Maschine hat keinen Leistungssensor: kein /sys/class/power_supply, keine
-// power*-Datei in hwmon, kein IPMI, keine USV. RAPL ist der einzige Zähler –
-// eine Bibliothek würde dieselbe Quelle lesen. Echte Wattzahlen gibt es also nur
-// von außen: eine Messsteckdose im Netz (Shelly, Tasmota o. ä.) liefert sie per
-// HTTP. Ist POWER_METER_URL gesetzt, gilt deren Wert und nicht die Schätzung.
-const POWER_METER_URL = process.env.POWER_METER_URL || ''
-const POWER_METER_PATH = process.env.POWER_METER_PATH || ''
-
-// Übliche Antwortformen, damit die gängigen Steckdosen ohne Konfiguration gehen
-const METER_PATHS = [
-  'apower', // Shelly Gen2, /rpc/Switch.GetStatus?id=0
-  'meters.0.power', // Shelly Gen1, /status
-  'StatusSNS.ENERGY.Power', // Tasmota, /cm?cmnd=Status%208
-  'ENERGY.Power',
-  'power',
-  'watts',
-]
-
-function pick(object, path) {
-  return path
-    .split('.')
-    .reduce((value, key) => (value === null || value === undefined ? undefined : value[key]), object)
-}
-
-let meterWatts = null
-let meterError = null
-
-async function readMeter() {
-  if (!POWER_METER_URL) return
-  try {
-    const response = await fetch(POWER_METER_URL, { signal: AbortSignal.timeout(4000) })
-    if (!response.ok) throw new Error(`HTTP ${response.status}`)
-    const data = await response.json()
-    const paths = POWER_METER_PATH ? [POWER_METER_PATH] : METER_PATHS
-    const value = paths.map((path) => pick(data, path)).find((entry) => typeof entry === 'number')
-    if (value === undefined) throw new Error('Kein Wattwert in der Antwort gefunden')
-    meterWatts = Math.round(value * 10) / 10
-    meterError = null
-  } catch (err) {
-    meterWatts = null
-    meterError = err.message
-  }
-}
-
-if (POWER_METER_URL) {
-  readMeter()
-  setInterval(readMeter, 10_000)
-}
+// Mehr als das ist auf diesem Rechner nicht messbar: kein
+// /sys/class/power_supply, keine power*-Datei in hwmon, kein IPMI, keine USV,
+// und RAPL bietet hier keine Plattform-Domain (psys), sondern nur package-0 mit
+// core/uncore sowie dram. Der Rest bleibt also eine Schätzung.
 
 function raplZones() {
   const zones = []
@@ -278,7 +234,7 @@ setInterval(() => {
 // pro Minute. Das hält die Datei klein (24 Stunden = 1440 Punkte) und glättet
 // Ausschläge, die für einen Verlauf ohnehin nicht interessant sind.
 const METRIC_HOURS = 24
-const pending = { cpu: [], mem: [], watts: [], meter: [] }
+const pending = { cpu: [], mem: [], watts: [] }
 
 function memoryPercent() {
   const values = memory()
@@ -291,7 +247,6 @@ function collectMetricSample() {
   const mem = memoryPercent()
   if (mem !== null) pending.mem.push(mem)
   if (cpuWatts !== null) pending.watts.push(cpuWatts)
-  if (meterWatts !== null) pending.meter.push(meterWatts)
 }
 
 function readMetrics() {
@@ -320,17 +275,13 @@ function flushMetrics() {
     cpu: average(pending.cpu),
     mem: average(pending.mem),
     watts: average(pending.watts),
-    meter: average(pending.meter),
   }
   pending.cpu = []
   pending.mem = []
   pending.watts = []
-  pending.meter = []
 
   // Eine Minute ohne jeden Messwert bringt keinen Punkt
-  if (point.cpu === null && point.mem === null && point.watts === null && point.meter === null) {
-    return
-  }
+  if (point.cpu === null && point.mem === null && point.watts === null) return
 
   const cutoff = Date.now() - METRIC_HOURS * 3600_000
   metrics.points = metrics.points.filter((entry) => entry.t >= cutoff)
@@ -544,21 +495,18 @@ function uptimeReport(hours, buckets = 96) {
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Zeigt an, was gilt: der Messwert der Steckdose, sonst die Schätzung.
+// Gemessen wird, was RAPL hergibt; der Rest ist eine offen benannte Schätzung.
 function power() {
-  if (RAPL_ZONES.length === 0 && meterWatts === null) return null
+  if (RAPL_ZONES.length === 0) return null
   const estimate =
     cpuWatts === null ? null : Math.round(((cpuWatts + BASE_POWER_WATTS) / PSU_EFFICIENCY) * 10) / 10
   return {
-    watts: meterWatts ?? estimate,
-    source: meterWatts !== null ? 'meter' : 'estimate',
+    watts: estimate,
     cpuWatts,
     estimatedTotalWatts: estimate,
     baselineWatts: BASE_POWER_WATTS,
     psuEfficiency: PSU_EFFICIENCY,
     zones: RAPL_ZONES.map((zone) => zone.name),
-    meterConfigured: Boolean(POWER_METER_URL),
-    meterError,
   }
 }
 

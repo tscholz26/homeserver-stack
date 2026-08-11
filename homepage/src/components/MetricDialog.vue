@@ -43,8 +43,8 @@ const CONFIG: Record<
 
 const config = computed(() => (props.metric ? CONFIG[props.metric] : null))
 
-// Beim Strom gilt der Messwert der Steckdose, sonst der hochgerechnete
-// CPU-Anteil – dieselbe Regel wie auf der Karte.
+// Beim Strom wird der gemessene CPU-Anteil hochgerechnet – dieselbe Regel wie
+// auf der Karte.
 function valueOf(point: MetricPoint): number | null {
   const key = config.value?.key
   if (!key) return null

@@ -34,14 +34,11 @@ const systemPayload = {
   },
   power: {
     watts: 36.8,
-    source: 'estimate',
     cpuWatts: 12.4,
     estimatedTotalWatts: 36.8,
     baselineWatts: 20,
     psuEfficiency: 0.88,
     zones: ['package-0', 'dram'],
-    meterConfigured: false,
-    meterError: null,
   },
   containers: {
     running: 2,
@@ -106,7 +103,6 @@ const metricsPayload = {
     cpu: index < 25 ? 0 : 50,
     mem: index < 25 ? 0 : 50,
     watts: 10,
-    meter: null,
   })),
 }
 
@@ -190,38 +186,6 @@ describe('DashboardView', () => {
     expect(power?.text()).toContain('Gemessen: 12,4 W')
     expect(power?.text()).toContain('package-0 + dram')
     expect(power?.text()).toContain('20 W für Board, Platten und Lüfter')
-
-    wrapper.unmount()
-  })
-
-  it('zeigt die Steckdose als Quelle, sobald eine eingerichtet ist', async () => {
-    stubApi({
-      ...systemPayload,
-      power: { ...systemPayload.power, watts: 31.5, source: 'meter', meterConfigured: true },
-    })
-    const wrapper = await mountDashboard()
-    await flushPromises()
-
-    const power = wrapper.findAll('.meter').find((card) => card.text().includes('Stromverbrauch'))
-    // Kein „≈“ mehr, weil es keine Schätzung ist
-    expect(power?.text()).toContain('31,5 W')
-    expect(power?.text()).not.toContain('≈ 31,5 W')
-    expect(power?.text()).toContain('An der Steckdose gemessen')
-    expect(power?.text()).not.toContain('POWER_METER_URL')
-
-    wrapper.unmount()
-  })
-
-  it('sagt es, wenn die Messsteckdose nicht antwortet', async () => {
-    stubApi({
-      ...systemPayload,
-      power: { ...systemPayload.power, meterConfigured: true, meterError: 'HTTP 500' },
-    })
-    const wrapper = await mountDashboard()
-    await flushPromises()
-
-    const power = wrapper.findAll('.meter').find((card) => card.text().includes('Stromverbrauch'))
-    expect(power?.text()).toContain('Messsteckdose antwortet nicht: HTTP 500')
 
     wrapper.unmount()
   })

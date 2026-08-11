@@ -34,8 +34,8 @@ Serverwerte auf einen Blick, alle fünf Sekunden aktualisiert:
 - **Läuft seit** – Uptime des Hosts, nicht des Containers
 - **CPU** – Auslastung in Prozent, Load-Average 1/5/15, Temperatur, Modell und
   Kernzahl
-- **Stromverbrauch** – mit Messsteckdose der echte Wert, ohne eine eine
-  Schätzung (dann mit „≈“ davor). Die Karte nennt immer die Quelle
+- **Stromverbrauch** – gemessener CPU-Anteil plus geschätzter Rest, deshalb mit
+  „≈“ davor. Die Karte nennt beide Teile getrennt
 - **Arbeitsspeicher** – belegt/gesamt, verfügbar, Swap
 - **Systemplatte** – belegt/gesamt von `/`, inklusive Docker-Images
 - **Datenplatte** – belegt/gesamt von `/dev/sda1` (`/home/tristans/data`), wo die
@@ -89,52 +89,24 @@ Balken werden ab 70 % gelb und ab 90 % rot (`toneFor` in
   Der Standard passt zu diesem Rechner (i3-7100, 16 GB, eine HDD, eine SSD) und
   liegt im Leerlauf bei rund 25 W.
 
-  **Genauer geht es nur mit Hardware.** Dieser Rechner hat keinen
-  Leistungssensor: `/sys/class/power_supply/` ist leer, in `hwmon` gibt es nur
-  Temperaturchips, kein IPMI/BMC, keine USV. RAPL ist der einzige Zähler –
-  auch `powertop` oder eine npm-Bibliothek lesen dieselbe Quelle und können
-  nichts messen, was der Rechner nicht meldet (powertop leitet Watt aus der
-  Akku-Entladerate ab, und ein Akku ist hier nicht vorhanden).
+  **Genauer geht es auf diesem Rechner nicht.** Es gibt keinen
+  Leistungssensor: `/sys/class/power_supply/` ist leer, in `hwmon` stehen nur
+  Temperaturchips, kein IPMI/BMC, keine USV, und RAPL bietet hier keine
+  Plattform-Domain (`psys`) – nur `package-0` (mit `core`/`uncore`) und `dram`,
+  und die werden beide gemessen. Auch `powertop` oder `turbostat` lesen dieselbe
+  Datei; powertops Wattanzeige stammt sonst aus der Akku-Entladerate, und ein
+  Akku ist hier nicht vorhanden.
 
-  Mit einer **Messsteckdose im Netz** wird daraus ein echter Messwert. Dann
-  steht `source: 'meter'` in der API und das „≈“ verschwindet:
-
-  | Variable | Beispiel | Bedeutung |
-  | --- | --- | --- |
-  | `POWER_METER_URL` | `http://shelly.fritz.box/status` | HTTP-Endpunkt mit JSON |
-  | `POWER_METER_PATH` | `meters.0.power` | optional, Pfad zum Wattwert |
-
-  Ohne `POWER_METER_PATH` werden die üblichen Formen selbst erkannt: Shelly Gen1
-  (`meters.0.power`), Shelly Gen2 (`apower`), Tasmota
-  (`StatusSNS.ENERGY.Power`) sowie `power` und `watts`. Abgefragt wird alle
-  10 Sekunden; antwortet die Steckdose nicht, steht der Fehler auf der Karte und
-  es gilt wieder die Schätzung
-- **Datenplatte** per `statfs` auf `/home/tristans/data/.dashboard-df` – ein
-  leeres Verzeichnis, das nur dafür existiert. So kommt der Container an die
-  Belegung von `/dev/sda1`, ohne die Nextcloud-Daten sehen zu können
-- **Container** über den `docker-socket-proxy`, der nur `GET /containers`
-  durchlässt. Der Docker-Socket direkt im Webcontainer wäre Root-Zugriff auf den
-  Host; über den Proxy sind `stop`, `exec`, `/images` und `/info` mit 403 dicht.
-  RAM, CPU, Neustarts und Health kommen aus `/containers/<id>/json` und
-  `/containers/<id>/stats`. Ein stats-Abruf dauert rund eine Sekunde (Docker
-  misst intern zweimal), deshalb sammelt ein Hintergrundlauf die Werte einmal
-  pro Minute und die API gibt den letzten Stand aus
-- **Verfügbarkeit**: alle 60 Sekunden geht eine HTTPS-Anfrage über Caddy an
-  `/status.php`, `/skat/` und `/koffer/` – mit dem echten Hostnamen im SNI, also
-  genau der Weg eines Besuchers, womit auch ein Proxy-Problem auffällt. Alles
-  unter HTTP 500 gilt als „läuft". Die Messpunkte landen in
-  `data/uptime.json` (atomar geschrieben, 48 Stunden Vorhaltezeit) und werden
-  vom Server zu 96 Abschnitten zusammengefasst.
-  **Der Verlauf beginnt mit dem ersten Start dieser Version** – rückwirkend gibt
-  es keine Daten, die Leiste füllt sich erst über den Tag
+  **Kalibrieren** geht mit einem Steckdosenmessgerät, einmalig: gemessene
+  Wattzahl minus angezeigtem CPU-Anteil, das Ergebnis mal `PSU_EFFICIENCY` als
+  `BASE_POWER_WATTS` eintragen. Danach stimmt die Schätzung für den Leerlauf.
 
 - **Verlauf von CPU, Speicher und Strom**: der 5-Sekunden-Ticker sammelt, einmal
   pro Minute wird ein Mittelwert nach `data/metrics.json` geschrieben (24
   Stunden = 1440 Punkte). `GET /start/api/metrics` gibt die Rohwerte aus; die
   Umrechnung der CPU-Watt auf den geschätzten Gesamtverbrauch passiert erst in
   der Anzeige. So bleibt die Datei unabhängig davon, wie die Grundlast gerade
-  eingestellt ist. Gibt es eine Messsteckdose, wird deren Wert als eigenes Feld
-  `meter` mitgeschrieben und im Verlauf bevorzugt
+  eingestellt ist
 
 ### Die Seite ist öffentlich
 

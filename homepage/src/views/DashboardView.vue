@@ -73,8 +73,8 @@ const cpu = computed(() => {
   }
 })
 
-// Was gilt, hängt an der Quelle: eine Messsteckdose liefert echte Watt, ohne
-// eine bleibt es die Schätzung – und dann steht das auch so da.
+// Der CPU-Anteil ist gemessen, der Rest geschätzt – beides steht auf der Karte,
+// damit die Zahl nicht genauer wirkt, als sie ist.
 const watt = (value: number) =>
   value.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 
@@ -82,26 +82,16 @@ const power = computed(() => {
   const values = info.value?.power
   if (!values) return null
 
-  const measured = values.source === 'meter'
-  const prefix = measured ? '' : '≈ '
   const mean = averageOverBy(history.value?.points, 60, (point) => wattsOf(point, values))
   const cpuPart = values.cpuWatts === null ? '–' : watt(values.cpuWatts)
-  const zones = values.zones.join(' + ')
-
-  const lines = measured
-    ? [`An der Steckdose gemessen.`, `Davon CPU-Anteil: ${cpuPart} W (${zones})`]
-    : [
-        `Gemessen: ${cpuPart} W (${zones})`,
-        `Geschätzt: + ${values.baselineWatts} W für Board, Platten und Lüfter, ` +
-          `Netzteil ${Math.round(values.psuEfficiency * 100)} %`,
-      ]
-  if (values.meterError) lines.push(`Messsteckdose antwortet nicht: ${values.meterError}`)
-  else if (!values.meterConfigured) lines.push('Echter Messwert: POWER_METER_URL eintragen.')
 
   return {
-    value: values.watts === null ? 'messe …' : `${prefix}${watt(values.watts)} W`,
-    average: mean === null ? undefined : `${prefix}${watt(mean)} W`,
-    hint: lines.join('\n'),
+    value: values.watts === null ? 'messe …' : `≈ ${watt(values.watts)} W`,
+    average: mean === null ? undefined : `≈ ${watt(mean)} W`,
+    hint:
+      `Gemessen: ${cpuPart} W (${values.zones.join(' + ')})\n` +
+      `Geschätzt: + ${values.baselineWatts} W für Board, Platten und Lüfter, ` +
+      `Netzteil ${Math.round(values.psuEfficiency * 100)} %`,
   }
 })
 

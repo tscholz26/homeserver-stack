@@ -41,20 +41,16 @@ export interface SystemInfo {
   } | null
   disks: { system: DiskInfo | null; data: DiskInfo | null }
   /**
-   * `watts` ist der Wert, der gilt: bei `source: 'meter'` von einer
-   * Messsteckdose gemessen, sonst die Schätzung aus gemessenem CPU-Anteil
-   * (`cpuWatts`), Grundlast und Netzteil-Wirkungsgrad.
+   * `cpuWatts` ist gemessen (RAPL: Paket und Speichercontroller), `watts` die
+   * Schätzung daraus plus Grundlast und Netzteil-Wirkungsgrad.
    */
   power: {
     watts: number | null
-    source: 'meter' | 'estimate'
     cpuWatts: number | null
     estimatedTotalWatts: number | null
     baselineWatts: number
     psuEfficiency: number
     zones: string[]
-    meterConfigured: boolean
-    meterError: string | null
   } | null
   containers: { running: number; total: number; list: Container[] } | null
   dockerError: string | null
@@ -93,8 +89,6 @@ export interface MetricPoint {
   mem: number | null
   /** Gemessener CPU-Anteil (RAPL) */
   watts: number | null
-  /** Messsteckdose, falls eine eingerichtet ist */
-  meter: number | null
 }
 
 export type MetricKey = 'cpu' | 'mem' | 'watts'
@@ -151,13 +145,12 @@ export function averageOver(
 }
 
 /**
- * Watt eines Verlaufspunkts so, wie sie angezeigt werden: der Messwert der
- * Steckdose, falls es einen gibt, sonst der gemessene CPU-Anteil hochgerechnet
- * mit der aktuellen Grundlast. Dadurch bleibt die gespeicherte Datei roh.
+ * Watt eines Verlaufspunkts für die Anzeige: der gespeicherte CPU-Messwert,
+ * hochgerechnet mit der aktuellen Grundlast. Gespeichert wird nur die Messung,
+ * damit der Verlauf nicht von der Einstellung abhängt.
  */
 export function wattsOf(point: MetricPoint, power: SystemInfo['power']): number | null {
-  if (point.meter !== null) return point.meter
-  if (point.watts === null || !power) return point.meter
+  if (point.watts === null || !power) return null
   return (point.watts + power.baselineWatts) / power.psuEfficiency
 }
 
