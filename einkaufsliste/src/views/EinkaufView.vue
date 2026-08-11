@@ -206,7 +206,18 @@ onBeforeUnmount(() => beobachter?.disconnect())
     </ul>
 
     <footer v-if="liste" class="fuss">
-      <span class="zaehler">{{ offen }} übrig · {{ erledigt }} erledigt</span>
+      <span class="zaehler">
+        {{ offen }} übrig · {{ erledigt }} erledigt
+        <!-- Ohne Netz gesetzte Haken: gelten hier schon, gehen raus sobald es geht -->
+        <span
+          v-if="store.offeneHaken.value"
+          class="wartet"
+          title="Haken warten auf die Verbindung"
+          @click="store.flushOutbox()"
+        >
+          · {{ store.offeneHaken.value }} ⟳
+        </span>
+      </span>
       <button
         v-if="liste.type === 'kategorisiert'"
         type="button"
@@ -395,6 +406,11 @@ onBeforeUnmount(() => beobachter?.disconnect())
   color: var(--muted);
   font-size: 0.85rem;
   font-variant-numeric: tabular-nums;
+}
+
+.wartet {
+  color: var(--amber);
+  cursor: pointer;
 }
 
 .kompakt {

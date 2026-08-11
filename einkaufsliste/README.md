@@ -33,6 +33,11 @@ Handys gleichzeitig abgehakt. Erreichbar unter
   vorhandenen Artikel hängen
 - **Handsortierung** in Listen ohne Kategorien: Artikel am Griff ⠿ an die
   richtige Stelle ziehen (SortableJS, damit es auch auf dem Handy geht)
+- **Abhaken ohne Netz**: hinten im Laden bricht die Verbindung weg. Ein Haken
+  gilt trotzdem sofort, wartet in einer kleinen Outbox (`localStorage`) und geht
+  raus, sobald wieder Netz da ist – die Fußleiste zeigt, wie viele noch warten.
+  Ein eintreffender Serverstand kann sie nicht überschreiben. Nur die Haken sind
+  so abgesichert; Anlegen, Umbenennen und Katalogpflege brauchen Verbindung
 - **Kompakte Ansicht**: der Knopf in der Fußleiste blendet die
   Kategorie-Überschriften aus. Sortiert wird weiter nach Laden-Reihenfolge, nur
   sammelt sich das Abgehakte dann am Ende der ganzen Liste statt am Fuß jeder

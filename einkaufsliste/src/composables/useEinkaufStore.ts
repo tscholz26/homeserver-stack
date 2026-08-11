@@ -61,6 +61,7 @@ export interface CategoryGroup {
 
 const LIST_KEY = 'einkauf:liste'
 const COMPACT_KEY = 'einkauf:kompakt'
+const OUTBOX_KEY = 'einkauf:offene-haken'
 
 let singleton: ReturnType<typeof createStore> | undefined
 
@@ -99,6 +100,89 @@ function createStore() {
     state.catalog = data.catalog ?? []
     state.unmatched = data.unmatched ?? []
     state.storeProfiles = data.storeProfiles ?? []
+    // Der Serverstand weiß noch nichts von Haken, die hier auf Netz warten
+    applyOutbox()
+  }
+
+  // ── Offene Haken ───────────────────────────────────────────────────────────
+  // Hinten im Laden ist kein Netz. Ein gesetzter Haken bleibt deshalb hier
+  // liegen, bis der Server ihn bestätigt hat – und wird jedem eintreffenden
+  // Serverstand wieder aufgedrückt, sonst würde er beim Reconnect verschwinden.
+  //
+  // Bewusst nur die Haken: alles andere (anlegen, umbenennen, Katalog) braucht
+  // im Laden niemand, und jede Warteschlange mehr wäre eine Quelle für
+  // Änderungen, die sich gegenseitig überholen.
+  interface OffenerHaken {
+    listId: string
+    itemId: string
+    done: boolean
+  }
+
+  function ladeOutbox(): Record<string, OffenerHaken> {
+    try {
+      const roh = JSON.parse(localStorage.getItem(OUTBOX_KEY) ?? '{}')
+      return roh && typeof roh === 'object' ? roh : {}
+    } catch {
+      return {}
+    }
+  }
+
+  const outbox = reactive<Record<string, OffenerHaken>>(ladeOutbox())
+  const offeneHaken = computed(() => Object.keys(outbox).length)
+
+  function merkeOutbox() {
+    localStorage.setItem(OUTBOX_KEY, JSON.stringify(outbox))
+  }
+
+  /** Wartende Haken über den frisch eingetroffenen Serverstand legen. */
+  function applyOutbox() {
+    for (const eintrag of Object.values(outbox)) {
+      const item = state.lists
+        .find((l) => l.id === eintrag.listId)
+        ?.items.find((i) => i.id === eintrag.itemId)
+      if (item) item.done = eintrag.done
+    }
+  }
+
+  let sendetGerade = false
+
+  /**
+   * Schickt die wartenden Haken der Reihe nach. Beim ersten Fehlschlag Schluss –
+   * dann ist das Netz weg und der Rest bleibt für den nächsten Versuch liegen.
+   */
+  async function flushOutbox() {
+    if (sendetGerade) return
+    sendetGerade = true
+    try {
+      for (const [key, eintrag] of Object.entries(outbox)) {
+        try {
+          const r = await fetch(
+            `${API_BASE}/lists/${eintrag.listId}/items/${eintrag.itemId}/check`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ done: eintrag.done }),
+            },
+          )
+          if (r.ok) {
+            delete outbox[key]
+            merkeOutbox()
+            applyServerState(await r.json().catch(() => null))
+          } else if (r.status === 404) {
+            // Artikel gibt es nicht mehr – „Einkauf beenden“ auf dem anderen
+            // Gerät. Der Haken hat sich damit erledigt.
+            delete outbox[key]
+            merkeOutbox()
+          } else {
+            break
+          }
+        } catch {
+          break
+        }
+      }
+    } finally {
+      sendetGerade = false
+    }
   }
 
   async function refresh() {
@@ -123,9 +207,22 @@ function createStore() {
     // Handys kappen die Verbindung im Hintergrund; beim Zurückkommen einmal
     // den vollen Stand holen, statt auf das Reconnect zu warten.
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') refresh()
+      if (document.visibilityState === 'visible') {
+        refresh()
+        flushOutbox()
+      }
     })
-    window.addEventListener('focus', refresh)
+    window.addEventListener('focus', () => {
+      refresh()
+      flushOutbox()
+    })
+
+    // Jede Gelegenheit nutzen, bei der wieder Netz da sein könnte
+    window.addEventListener('online', flushOutbox)
+    events.onopen = () => flushOutbox()
+    setInterval(() => {
+      if (offeneHaken.value) flushOutbox()
+    }, 10_000)
   }
 
   // Schickt eine einzelne Änderung; der Server wendet sie auf seinen Stand an
@@ -226,11 +323,18 @@ function createStore() {
     return sendChange(`/lists/${list.id}/items/${itemId}`, 'PUT', changes)
   }
 
+  /**
+   * Haken setzen: gilt sofort auf diesem Gerät und wandert in die Outbox, bis
+   * der Server ihn bestätigt hat. Gesetzt wird ein absoluter Wert, kein
+   * Umschalten – ein später nachgeholter Haken kann also nichts verdrehen.
+   */
   function setDone(list: List, itemId: string, done: boolean) {
     const item = list.items.find((i) => i.id === itemId)
     if (!item) return
     item.done = done
-    return sendChange(`/lists/${list.id}/items/${itemId}/check`, 'POST', { done })
+    outbox[`${list.id}:${itemId}`] = { listId: list.id, itemId, done }
+    merkeOutbox()
+    return flushOutbox()
   }
 
   function removeItem(list: List, itemId: string) {
@@ -239,7 +343,14 @@ function createStore() {
   }
 
   /** „Einkauf beenden“: Abgehaktes raus, alles andere bleibt liegen. */
-  function finishShopping(list: List) {
+  async function finishShopping(list: List) {
+    // Erst müssen die wartenden Haken durch, sonst löscht der Server nur die
+    // Hälfte und die anderen Artikel tauchen gleich wieder auf.
+    await flushOutbox()
+    if (offeneHaken.value > 0) {
+      error.value = 'Es warten noch Haken auf Verbindung – gleich noch einmal versuchen.'
+      return false
+    }
     list.items = list.items.filter((i) => !i.done)
     return sendChange(`/lists/${list.id}/finish`, 'POST')
   }
@@ -444,6 +555,8 @@ function createStore() {
     groupsFor,
     flatItems,
     moveItem,
+    offeneHaken,
+    flushOutbox,
     kompakt,
     toggleKompakt,
     compactItems,
