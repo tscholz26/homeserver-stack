@@ -160,29 +160,51 @@ const spanText = computed(() => {
 // Die Achse endet knapp über dem höchsten Wert, sonst liegt die Kurve platt am
 // Boden. Die Schrittweite kommt aus einer Liste runder Zahlen und wird so
 // gewählt, dass höchstens sieben Linien entstehen.
-const NICE_STEPS = [0.5, 1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000]
+const NICE_STEPS = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000]
 
-function axis(peak: number, cap: number | null) {
+function stepFor(span: number, intervals: number) {
+  return NICE_STEPS.find((step) => span / step <= intervals) ?? span / intervals
+}
+
+/**
+ * Von 0 an, damit die Größenordnung stimmt – außer die Werte liegen alle in der
+ * obersten Hälfte. Dann wäre die untere Hälfte totes Bild und die eigentliche
+ * Schwankung unsichtbar (typisch beim Stromverbrauch mit fester Grundlast).
+ * In dem Fall wird hineingezoomt und die Fläche weggelassen, weil eine Fläche
+ * über einer Nulllinie, die nicht null ist, in die Irre führt.
+ */
+function axis(low: number, peak: number, cap: number | null) {
+  if (peak > 0 && low > peak * 0.5) {
+    const step = stepFor(Math.max(peak - low, peak * 0.02), 5)
+    const min = Math.floor(low / step) * step
+    const max = Math.max(Math.ceil(peak / step) * step, min + step)
+    return { min, max, step, zoomed: true }
+  }
+
   const headroom = Math.max(peak * 1.15, peak + 1, cap === null ? 5 : 10)
   const target = cap === null ? headroom : Math.min(cap, headroom)
-  for (const step of NICE_STEPS) {
-    const max = Math.ceil(target / step) * step
-    if (max / step <= 7) return { max, step }
-  }
-  return { max: target, step: target / 4 }
+  const step = stepFor(target, 7)
+  return { min: 0, max: Math.ceil(target / step) * step, step, zoomed: false }
 }
 
 const scale = computed(() => {
   const { from, now, span } = range.value
-  const peak = series.value.reduce((highest, point) => Math.max(highest, point.value), 0)
-  const { max, step } = axis(peak, config.value?.cap ?? null)
+  const values = series.value.map((point) => point.value)
+  const peak = values.length > 0 ? Math.max(...values) : 0
+  const low = values.length > 0 ? Math.min(...values) : 0
+  const { min, max, step, zoomed } = axis(low, peak, config.value?.cap ?? null)
   const plotWidth = BOX.width - BOX.left - BOX.right
   const plotHeight = BOX.height - BOX.top - BOX.bottom
   return {
+    min,
     max,
     step,
+    zoomed,
     x: (t: number) => BOX.left + ((t - from) / span) * plotWidth,
-    y: (value: number) => BOX.top + plotHeight - (Math.min(value, max) / max) * plotHeight,
+    y: (value: number) =>
+      BOX.top +
+      plotHeight -
+      ((Math.min(Math.max(value, min), max) - min) / (max - min)) * plotHeight,
     baseline: BOX.top + plotHeight,
     from,
     now,
@@ -207,10 +229,10 @@ const area = computed(() => {
 })
 
 const gridLines = computed(() => {
-  const { max, step } = scale.value
+  const { min, max, step } = scale.value
   const lines = []
-  for (let value = 0; value <= max + step / 2; value += step) {
-    lines.push({ value, y: scale.value.y(value) })
+  for (let value = min; value <= max + step / 2; value += step) {
+    lines.push({ value: Math.round(value * 100) / 100, y: scale.value.y(value) })
   }
   return lines
 })
@@ -228,6 +250,9 @@ const timeLabels = computed(() =>
     }
   }),
 )
+
+const watt = (value: number) =>
+  value.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 
 const format = (value: number) =>
   value.toLocaleString('de-DE', {
@@ -279,7 +304,7 @@ const format = (value: number) =>
             </template>
           </g>
 
-          <path :d="area" class="area" />
+          <path v-if="!scale.zoomed" :d="area" class="area" />
           <polyline :points="line" class="line" />
 
           <g class="times">
@@ -317,7 +342,8 @@ const format = (value: number) =>
             Der Schnitt entspricht {{ yearlyCost(stats.mean, power.pricePerKwh) }}.
           </template>
           <template v-if="metric === 'power'">
-            Kurve inklusive geschätzter Grundlast von {{ power?.baselineWatts }} W.
+            Kurve inklusive geschätzter Grundlast von
+            {{ power ? watt(power.baselineWatts) : '–' }} W.
           </template>
         </p>
       </template>

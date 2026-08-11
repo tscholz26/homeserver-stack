@@ -279,10 +279,13 @@ describe('DashboardView', () => {
     expect(dialog.text()).toMatch(/Ø \d+ min/)
     expect(dialog.text()).toContain('36 %')
 
-    // Die Achse endet knapp über dem Maximum von 50 %, nicht bei 100 %
+    // Die Achse endet knapp über dem Maximum von 50 %, nicht bei 100 %.
+    // Weil die Werte bis 0 runtergehen, bleibt sie bei 0 stehen.
     const labels = dialog.findAll('.grid text').map((entry) => entry.text())
     expect(labels).toContain('60')
+    expect(labels).toContain('0')
     expect(labels).not.toContain('100')
+    expect(dialog.find('.area').exists()).toBe(true)
 
     wrapper.unmount()
   })
@@ -325,6 +328,33 @@ describe('DashboardView', () => {
     expect(wrapper.find('dialog').text()).toContain('letzte 8 Std')
     expect(wrapper.find('dialog').text()).toContain('Ø 8 Std')
     expect(wrapper.find('dialog').text()).toContain('90 Messpunkte')
+
+    wrapper.unmount()
+  })
+
+  it('zoomt die Achse, wenn alle Werte oben liegen, und lässt die Fläche weg', async () => {
+    HTMLDialogElement.prototype.showModal = vi.fn<() => void>(function (this: HTMLDialogElement) {
+      this.open = true
+    })
+    HTMLDialogElement.prototype.close = vi.fn<() => void>(function (this: HTMLDialogElement) {
+      this.open = false
+    })
+
+    // Strom: 10 W gemessen + 20 W Grundlast bei 88 % ergibt überall 34,1 W –
+    // von 0 an wäre das eine flache Linie im oberen Viertel
+    stubApi()
+    const wrapper = await mountDashboard()
+    await flushPromises()
+
+    const power = wrapper.findAll('.meter').find((card) => card.text().includes('Stromverbrauch'))
+    await power?.trigger('click')
+    await flushPromises()
+
+    const dialog = wrapper.find('dialog')
+    const labels = dialog.findAll('.grid text').map((entry) => entry.text())
+    expect(labels).not.toContain('0')
+    expect(dialog.find('.area').exists()).toBe(false)
+    expect(dialog.find('polyline').exists()).toBe(true)
 
     wrapper.unmount()
   })

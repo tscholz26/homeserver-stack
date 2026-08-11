@@ -52,7 +52,10 @@ Serverwerte auf einen Blick, alle fünf Sekunden aktualisiert:
   `/start/api/live` im Sekundentakt ab und sammelt nur im offenen Fenster – wie
   der Taskmanager, es wird nichts gespeichert. Der Ø-Wert gilt jeweils für den
   eingestellten Zeitraum, die Y-Achse endet knapp über dem Maximum darin (auf
-  den Karten selbst bleibt der Ø-Wert die letzte Stunde)
+  den Karten selbst bleibt der Ø-Wert die letzte Stunde). Liegen alle Werte in
+  der oberen Hälfte – typisch beim Stromverbrauch mit fester Grundlast – zoomt
+  die Achse hinein und die Füllfläche entfällt, weil eine Fläche über einer
+  Nulllinie, die nicht null ist, in die Irre führen würde
 
 Balken werden ab 70 % gelb und ab 90 % rot (`toneFor` in
 [src/composables/useSystem.ts](src/composables/useSystem.ts)).
