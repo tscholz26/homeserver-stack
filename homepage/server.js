@@ -148,6 +148,8 @@ let cpuUsagePercent = null
 // nichts zertifiziert und dieser OEM-Rechner im Leerlauf deutlich darunter
 // liegt. Beides ist über die Umgebung einstellbar und mit einem
 // Steckdosenmessgerät einmalig kalibrierbar.
+// Strompreis nur zum Umrechnen in Euro pro Jahr – reine Anzeige.
+const PRICE_PER_KWH = Number(process.env.PRICE_PER_KWH ?? 0.22)
 const BASE_POWER_WATTS = Number(process.env.BASE_POWER_WATTS ?? 19.5)
 const PSU_EFFICIENCY = Number(process.env.PSU_EFFICIENCY ?? 0.8)
 
@@ -514,6 +516,7 @@ function power() {
     estimatedTotalWatts: estimate,
     baselineWatts: BASE_POWER_WATTS,
     psuEfficiency: PSU_EFFICIENCY,
+    pricePerKwh: PRICE_PER_KWH,
     zones: RAPL_ZONES.map((zone) => zone.name),
   }
 }

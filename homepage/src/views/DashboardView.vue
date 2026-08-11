@@ -13,6 +13,7 @@ import {
   useSystem,
   useUptime,
   wattsOf,
+  yearlyCost,
   type DiskInfo,
 } from '@/composables/useSystem'
 
@@ -91,7 +92,8 @@ const power = computed(() => {
     hint:
       `Gemessen: ${cpuPart} W (${values.zones.join(' + ')})\n` +
       `Geschätzt: + ${values.baselineWatts} W für Board, Platten und Lüfter, ` +
-      `Netzteil ${Math.round(values.psuEfficiency * 100)} %`,
+      `Netzteil ${Math.round(values.psuEfficiency * 100)} %` +
+      (values.watts === null ? '' : `\nEntspricht ${yearlyCost(values.watts, values.pricePerKwh)}`),
   }
 })
 

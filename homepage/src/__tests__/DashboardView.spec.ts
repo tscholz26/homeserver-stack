@@ -38,6 +38,7 @@ const systemPayload = {
     estimatedTotalWatts: 36.8,
     baselineWatts: 20,
     psuEfficiency: 0.88,
+    pricePerKwh: 0.22,
     zones: ['package-0', 'dram'],
   },
   containers: {
@@ -190,6 +191,8 @@ describe('DashboardView', () => {
     expect(power?.text()).toContain('Gemessen: 12,4 W')
     expect(power?.text()).toContain('package-0 + dram')
     expect(power?.text()).toContain('20 W für Board, Platten und Lüfter')
+    // 36,8 W im Dauerbetrieb sind bei 22 ct rund 71 Euro im Jahr
+    expect(power?.text()).toContain('≈ 71 €/Jahr bei 22 ct/kWh')
 
     wrapper.unmount()
   })

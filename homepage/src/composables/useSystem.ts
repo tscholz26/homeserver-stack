@@ -50,6 +50,8 @@ export interface SystemInfo {
     estimatedTotalWatts: number | null
     baselineWatts: number
     psuEfficiency: number
+    /** Strompreis in Euro pro kWh, nur für die Kostenanzeige */
+    pricePerKwh: number
     zones: string[]
   } | null
   containers: { running: number; total: number; list: Container[] } | null
@@ -152,6 +154,13 @@ export function averageOver(
 export function wattsOf(point: MetricPoint, power: SystemInfo['power']): number | null {
   if (point.watts === null || !power) return null
   return (point.watts + power.baselineWatts) / power.psuEfficiency
+}
+
+/** „≈ 52 €/Jahr bei 22 ct/kWh“ – Dauerbetrieb mit der angegebenen Leistung. */
+export function yearlyCost(watts: number, pricePerKwh: number): string {
+  const euros = (watts / 1000) * 8760 * pricePerKwh
+  const cents = Math.round(pricePerKwh * 100)
+  return `≈ ${euros.toLocaleString('de-DE', { maximumFractionDigits: 0 })} €/Jahr bei ${cents} ct/kWh`
 }
 
 export type UptimeState = 'up' | 'down' | 'partial' | 'none'

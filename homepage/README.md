@@ -35,7 +35,8 @@ Serverwerte auf einen Blick, alle fünf Sekunden aktualisiert:
 - **CPU** – Auslastung in Prozent, Load-Average 1/5/15, Temperatur, Modell und
   Kernzahl
 - **Stromverbrauch** – gemessener CPU-Anteil plus geschätzter Rest, deshalb mit
-  „≈“ davor. Die Karte nennt beide Teile getrennt
+  „≈“ davor. Die Karte nennt beide Teile getrennt und rechnet den Verbrauch in
+  Euro pro Jahr um (`PRICE_PER_KWH`, Standard 22 ct)
 - **Arbeitsspeicher** – belegt/gesamt, verfügbar, Swap
 - **Systemplatte** – belegt/gesamt von `/`, inklusive Docker-Images
 - **Datenplatte** – belegt/gesamt von `/dev/sda1` (`/home/tristans/data`), wo die
@@ -47,7 +48,9 @@ Serverwerte auf einen Blick, alle fünf Sekunden aktualisiert:
 - **Verlauf**: CPU, Arbeitsspeicher und Stromverbrauch zeigen den Mittelwert der
   letzten 60 Minuten auf der Karte; ein Klick öffnet den Verlauf als Kurve mit
   Jetzt-, Ø-, Minimal- und Maximalwert, umschaltbar zwischen den letzten
-  60 Minuten, 8 Stunden und 24 Stunden. Der Ø-Wert gilt jeweils für den
+  60 Sekunden, 60 Minuten, 8 Stunden und 24 Stunden. Der 60-s-Reiter fragt
+  `/start/api/live` im Sekundentakt ab und sammelt nur im offenen Fenster – wie
+  der Taskmanager, es wird nichts gespeichert. Der Ø-Wert gilt jeweils für den
   eingestellten Zeitraum, die Y-Achse endet knapp über dem Maximum darin (auf
   den Karten selbst bleibt der Ø-Wert die letzte Stunde)
 

@@ -3,6 +3,7 @@ import { computed, onUnmounted, ref, watch } from 'vue'
 import {
   averageOverBy,
   wattsOf,
+  yearlyCost,
   type MetricHistory,
   type MetricKey,
   type MetricPoint,
@@ -312,6 +313,9 @@ const format = (value: number) =>
             {{ stats?.count }} Messwerte, jede Sekunde einer – nur im Fenster, nicht gespeichert.
           </template>
           <template v-else>{{ stats?.count }} Messpunkte, je ein Mittelwert pro Minute.</template>
+          <template v-if="metric === 'power' && stats && power">
+            Der Schnitt entspricht {{ yearlyCost(stats.mean, power.pricePerKwh) }}.
+          </template>
           <template v-if="metric === 'power'">
             Kurve inklusive geschätzter Grundlast von {{ power?.baselineWatts }} W.
           </template>
