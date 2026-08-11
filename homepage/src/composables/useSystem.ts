@@ -161,6 +161,10 @@ export interface UptimeReport {
   windowHours: number
   sampleCount: number
   intervalSeconds: number
+  /** Beginn des Fensters als Zeitstempel, für die Beschriftung der Kästchen */
+  from: number
+  /** Breite eines Kästchens in Sekunden */
+  bucketSeconds: number
   services: { id: string; states: UptimeState[]; availability: number | null }[]
 }
 

@@ -84,6 +84,8 @@ const uptimePayload = {
   windowHours: 24,
   sampleCount: 180,
   intervalSeconds: 60,
+  from: Date.now() - 24 * 3600_000,
+  bucketSeconds: 900,
   services: [
     { id: 'nextcloud', states: ['up', 'up', 'none'], availability: 100 },
     { id: 'donnerskat', states: ['up', 'down', 'none'], availability: 98.3 },
@@ -215,6 +217,16 @@ describe('DashboardView', () => {
     expect(chart.text()).toContain('98,3 %')
     expect(chart.text()).toContain('seit 3 Std')
     expect(chart.findAll('.tick.down').length).toBeGreaterThan(0)
+
+    // Jede Zeile muss gleich viele Kästchen haben, egal welche Zustände drin
+    // stehen – sonst sieht ein Dienst breiter aus als die anderen
+    const perRow = chart.findAll('.row').map((row) => row.findAll('.tick').length)
+    expect(perRow).toEqual([3, 3, 3])
+
+    // Jedes Kästchen nennt seinen Zeitraum und Zustand im Tooltip
+    expect(chart.find('.tick.down').attributes('title')).toMatch(
+      /\d\d:\d\d–\d\d:\d\d · durchgehend weg/,
+    )
 
     wrapper.unmount()
   })

@@ -475,6 +475,8 @@ function uptimeReport(hours, buckets = 96) {
     windowHours: hours,
     sampleCount: inWindow.length,
     intervalSeconds: SAMPLE_MS / 1000,
+    from,
+    bucketSeconds: Math.round(width / 1000),
     services: WATCHED.map((service) => {
       const states = []
       for (let index = 0; index < buckets; index += 1) {

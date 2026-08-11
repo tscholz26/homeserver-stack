@@ -1,7 +1,17 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { services } from '@/services'
-import type { UptimeReport } from '@/composables/useSystem'
+import type { UptimeReport, UptimeState } from '@/composables/useSystem'
+
+// Ein Kästchen deckt einen Zeitabschnitt ab, in dem mehrere Messungen liegen.
+// Deshalb reicht „läuft/weg“ nicht: dazwischen gibt es den Fall, dass es
+// innerhalb des Abschnitts mal weg war und mal nicht.
+const LABELS: Record<UptimeState, string> = {
+  up: 'erreichbar',
+  partial: 'zeitweise weg',
+  down: 'durchgehend weg',
+  none: 'keine Messung',
+}
 
 const props = defineProps<{ report: UptimeReport | null }>()
 
@@ -23,6 +33,25 @@ const rows = computed(() =>
 
 // Ehrlich bleiben: die Aufzeichnung beginnt erst mit dem ersten Start dieser
 // Version, vorher gibt es nichts. Kurz nach dem Start ist der Balken fast leer.
+const bucketMinutes = computed(() => Math.round((props.report?.bucketSeconds ?? 900) / 60))
+
+const samplesPerBucket = computed(() => {
+  const report = props.report
+  if (!report?.intervalSeconds) return 0
+  return Math.round(report.bucketSeconds / report.intervalSeconds)
+})
+
+const clock = (ms: number) =>
+  new Date(ms).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+
+/** Beschriftung eines Kästchens: Zeitraum und was in ihm passiert ist. */
+function tickTitle(index: number, state: UptimeState) {
+  const report = props.report
+  if (!report) return LABELS[state]
+  const from = report.from + index * report.bucketSeconds * 1000
+  return `${clock(from)}–${clock(from + report.bucketSeconds * 1000)} · ${LABELS[state]}`
+}
+
 const since = computed(() => {
   if (!props.report) return ''
   const started = new Date(props.report.recordedSince)
@@ -49,18 +78,29 @@ const since = computed(() => {
       <div v-for="row in rows" :key="row.id" class="row">
         <span class="name">{{ row.name }}</span>
         <span class="bar">
-          <span v-for="(state, index) in row.states" :key="index" class="tick" :class="state" />
+          <span
+            v-for="(state, index) in row.states"
+            :key="index"
+            class="tick"
+            :class="state"
+            :title="tickTitle(index, state)"
+          />
         </span>
         <span class="share" :class="{ perfect: row.availability === 100 }">{{ row.text }}</span>
       </div>
 
       <p class="legend">
-        <span class="key"><span class="tick up" /> läuft</span>
-        <span class="key"><span class="tick partial" /> teilweise</span>
-        <span class="key"><span class="tick down" /> weg</span>
-        <span class="key"><span class="tick none" /> keine Messung</span>
-        <span class="spacer" />
-        <span>alle {{ report.intervalSeconds }} s geprüft, über Caddy wie ein Besucher</span>
+        <span class="key"><span class="tick up" /> {{ LABELS.up }}</span>
+        <span class="key"><span class="tick partial" /> {{ LABELS.partial }}</span>
+        <span class="key"><span class="tick down" /> {{ LABELS.down }}</span>
+        <span class="key"><span class="tick none" /> {{ LABELS.none }}</span>
+      </p>
+
+      <p class="explain">
+        Ein Kästchen steht für {{ bucketMinutes }} Minuten und fasst die
+        {{ samplesPerBucket }} Messungen darin zusammen: grün heißt alle erreichbar, orange
+        mindestens eine nicht, rot keine einzige. Geprüft wird alle {{ report.intervalSeconds }} s
+        über Caddy, also auf dem Weg eines Besuchers. Zeitraum eines Kästchens steht im Tooltip.
       </p>
     </template>
   </section>
@@ -158,6 +198,14 @@ const since = computed(() => {
   color: var(--muted);
 }
 
+.explain {
+  margin: 0.5rem 0 0;
+  max-width: 46rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
 .key {
   display: inline-flex;
   align-items: center;
@@ -169,10 +217,6 @@ const since = computed(() => {
   width: 0.7rem;
   height: 0.7rem;
   border-radius: 2px;
-}
-
-.spacer {
-  flex: 1;
 }
 
 @media (max-width: 34rem) {
