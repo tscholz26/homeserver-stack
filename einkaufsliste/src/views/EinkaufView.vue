@@ -16,6 +16,9 @@ const neuerTyp = ref<ListType>('kategorisiert')
 const liste = computed(() => store.activeList.value)
 const gruppen = computed(() => (liste.value ? store.groupsFor(liste.value) : []))
 const flach = computed(() => (liste.value ? store.flatItems(liste.value) : []))
+// Ohne Kategorie-Überschriften: eine Reihe, weiter in Laden-Reihenfolge
+const kompaktListe = computed(() => (liste.value ? store.compactItems(liste.value) : []))
+const mitKategorien = computed(() => liste.value?.type === 'kategorisiert' && !store.kompakt.value)
 const offen = computed(() => liste.value?.items.filter((i) => !i.done).length ?? 0)
 const erledigt = computed(() => liste.value?.items.filter((i) => i.done).length ?? 0)
 
@@ -154,7 +157,7 @@ onBeforeUnmount(() => beobachter?.disconnect())
     </p>
 
     <!-- Kategorisiert: Gruppen in Laden-Reihenfolge, Überschrift bleibt kleben -->
-    <template v-else-if="liste.type === 'kategorisiert'">
+    <template v-else-if="mitKategorien">
       <section v-for="gruppe in gruppen" :key="gruppe.category.id" class="gruppe">
         <h2 class="kategorie">
           <span aria-hidden="true">{{ gruppe.category.emoji }}</span>
@@ -177,10 +180,10 @@ onBeforeUnmount(() => beobachter?.disconnect())
       </section>
     </template>
 
-    <!-- Flach: eine Reihe ohne Kategorie-Überbau -->
+    <!-- Flach oder kompakt: eine Reihe ohne Kategorie-Überbau -->
     <ul v-else class="artikel-liste card einzeln">
       <ArtikelZeile
-        v-for="item in flach"
+        v-for="item in liste.type === 'kategorisiert' ? kompaktListe : flach"
         :key="item.id"
         :item="item"
         :categories="kategorienZurAuswahl"
@@ -195,6 +198,28 @@ onBeforeUnmount(() => beobachter?.disconnect())
 
     <footer v-if="liste" class="fuss">
       <span class="zaehler">{{ offen }} übrig · {{ erledigt }} erledigt</span>
+      <button
+        v-if="liste.type === 'kategorisiert'"
+        type="button"
+        class="kompakt"
+        :class="{ an: store.kompakt.value }"
+        :title="store.kompakt.value ? 'Kategorien einblenden' : 'Kategorien ausblenden'"
+        :aria-pressed="store.kompakt.value"
+        @click="store.toggleKompakt()"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width="18"
+          height="18"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          aria-hidden="true"
+        >
+          <path d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
       <button type="button" class="beenden" :disabled="!erledigt" @click="einkaufBeenden">
         Einkauf beenden
       </button>
@@ -395,6 +420,27 @@ onBeforeUnmount(() => beobachter?.disconnect())
   color: var(--muted);
   font-size: 0.85rem;
   font-variant-numeric: tabular-nums;
+}
+
+.kompakt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  margin-left: auto;
+  flex-shrink: 0;
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  background: var(--card);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.kompakt.an {
+  border-color: color-mix(in srgb, var(--violet) 45%, transparent);
+  background: color-mix(in srgb, var(--violet) 12%, white);
+  color: var(--violet);
 }
 
 .beenden {

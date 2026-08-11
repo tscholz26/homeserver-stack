@@ -57,6 +57,21 @@ describe('findCatalogMatch', () => {
     expect(findCatalogMatch('Kartofeln', catalog)?.name).toBe('Kartoffeln')
   })
 
+  it('rät bei kurzen Wörtern höchstens eine Abweichung', () => {
+    // „Salami“ lag über zwei Abweichungen beim Alias „Halumi“ und damit im
+    // Kühlregal – bei sechs Buchstaben ist das reines Raten
+    const mini: CatalogEntry[] = [
+      { name: 'Halloumi', aliases: ['Halumi'], category_id: 'milch_kuehlwaren' },
+    ]
+    expect(findCatalogMatch('Salami', mini)).toBeNull()
+    expect(findCatalogMatch('Hallouni', mini)?.name).toBe('Halloumi')
+  })
+
+  it('ordnet Wurst der Wursttheke zu', () => {
+    expect(kategorie('Salami')).toBe('fleisch_wurst')
+    expect(kategorie('Mortadella')).toBe('fleisch_wurst')
+  })
+
   it('gibt ohne Treffer null zurück', () => {
     expect(findCatalogMatch('Wackelpudding', catalog)).toBeNull()
     expect(findCatalogMatch('', catalog)).toBeNull()
@@ -77,9 +92,9 @@ describe('findCatalogMatch', () => {
 describe('suggestCatalogEntries', () => {
   it('schlägt für ein Kompositum die verwandten Artikel vor', () => {
     // Automatisch zugeordnet wird hier nichts, vorgeschlagen schon
-    expect(findCatalogMatch('Hafermilch', catalog)).toBeNull()
-    const namen = suggestCatalogEntries('Hafermilch', catalog).map((e) => e.name)
-    expect(namen).toContain('Vollmilch')
+    expect(findCatalogMatch('Kokosjoghurt', catalog)).toBeNull()
+    const namen = suggestCatalogEntries('Kokosjoghurt', catalog).map((e) => e.name)
+    expect(namen).toContain('Joghurt')
   })
 
   it('sortiert den ähnlichsten Artikel nach vorn', () => {

@@ -67,10 +67,15 @@ function containsAtWordStart(haystack: string, needle: string): boolean {
   }
 }
 
-const MAX_DISTANCE = 2
-// Bei sehr kurzen Wörtern trifft eine Distanz von 2 fast alles („Eis“ → „Reis“,
-// „Ei“ → „Bier“), deshalb greift die Distanz-Suche erst ab dieser Länge.
+// Bei kurzen Wörtern trifft eine Distanz von 2 fast alles: „Salami“ läge sonst
+// bei „Halumi“ und damit im Kühlregal. Deshalb erst ab dieser Länge überhaupt
+// raten, und zwei Abweichungen erst bei richtig langen Wörtern.
 const MIN_LENGTH_FOR_DISTANCE = 5
+const LENGTH_FOR_TWO_EDITS = 8
+
+function maxDistanceFor(needle: string): number {
+  return needle.length >= LENGTH_FOR_TWO_EDITS ? 2 : 1
+}
 
 /**
  * Sucht den passenden Katalogeintrag, in dieser Reihenfolge:
@@ -78,7 +83,8 @@ const MIN_LENGTH_FOR_DISTANCE = 5
  * 2. Teilstring in beide Richtungen, jeweils am Wortanfang; von mehreren
  *    Treffern gewinnt der mit der ähnlichsten Länge, also „gehackte Tomaten“
  *    vor „Tomaten“
- * 3. Levenshtein-Distanz ≤ 2 als Fallback (kleinste Distanz gewinnt)
+ * 3. Levenshtein-Distanz als Fallback: eine Abweichung, ab acht Zeichen zwei
+ *    (kleinste Distanz gewinnt)
  *
  * Ohne Treffer `null` – der Artikel landet dann in „Sonstiges“ und bekommt in
  * der Verwaltung einen Eintrag zum Nachpflegen.
@@ -90,7 +96,8 @@ export function findCatalogMatch(input: string, catalog: CatalogEntry[]): Catalo
   let substringHit: CatalogEntry | null = null
   let substringGap = Infinity
   let distanceHit: CatalogEntry | null = null
-  let bestDistance = MAX_DISTANCE + 1
+  const maxDistance = maxDistanceFor(needle)
+  let bestDistance = maxDistance + 1
 
   for (const entry of catalog) {
     for (const term of terms(entry)) {
@@ -112,7 +119,7 @@ export function findCatalogMatch(input: string, catalog: CatalogEntry[]): Catalo
   for (const entry of catalog) {
     for (const term of terms(entry)) {
       if (term.length < MIN_LENGTH_FOR_DISTANCE) continue
-      const distance = levenshtein(needle, term, MAX_DISTANCE)
+      const distance = levenshtein(needle, term, maxDistance)
       if (distance < bestDistance) {
         bestDistance = distance
         distanceHit = entry
@@ -120,7 +127,7 @@ export function findCatalogMatch(input: string, catalog: CatalogEntry[]): Catalo
     }
   }
 
-  return bestDistance <= MAX_DISTANCE ? distanceHit : null
+  return bestDistance <= maxDistance ? distanceHit : null
 }
 
 /**

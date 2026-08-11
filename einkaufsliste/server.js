@@ -40,11 +40,25 @@ const DEFAULT_CATEGORY_ORDER = SEED_CATEGORIES.map((c) => c.id).filter((id) => i
 const LIST_TYPES = new Set(['kategorisiert', 'flach'])
 
 // ── Tägliches Backup ──────────────────────────────────────────────────────────
-// Listen und selbst zugeordnete Artikel stehen sonst nur ein einziges Mal in
-// state.json und sind bewusst nicht im git.
+// Anders als bei den anderen Apps liegen die Backups im git (siehe README):
+// Katalog und Listen ändern sich selten, und ein Stand pro Tag ohne echte
+// Änderung wäre nur Rauschen in der Historie.
+function letztesBackup() {
+  const dateien = readdirSync(BACKUPS_DIR)
+    .filter((f) => f.startsWith('state_') && f.endsWith('.json'))
+    .sort()
+  const letzte = dateien.at(-1)
+  return letzte ? readFileSync(join(BACKUPS_DIR, letzte), 'utf8') : null
+}
+
 function runBackup() {
   if (!existsSync(STATE_FILE)) return
   try {
+    if (readFileSync(STATE_FILE, 'utf8') === letztesBackup()) {
+      console.log('[einkaufsliste] Backup übersprungen – nichts geändert')
+      return
+    }
+
     const now = new Date()
     const pad = (n) => String(n).padStart(2, '0')
     const ts = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`
@@ -88,8 +102,7 @@ function defaultState() {
     // Nur die selbst ergänzten Artikel; der Basiskatalog kommt aus dem Seed
     catalog: [],
     unmatched: [],
-    // Kategorie-Reihenfolge pro Laden. Noch ohne UI: Profile werden vorerst von
-    // Hand in data/state.json eingetragen, das Rendering nutzt sie schon.
+    // Kategorie-Reihenfolge pro Filiale, gepflegt in der Verwaltung
     storeProfiles: [],
   }
 }
@@ -102,6 +115,8 @@ function normalizeItem(i) {
     categoryId: CATEGORY_IDS.has(i.categoryId) ? i.categoryId : 'sonstiges',
     // false = beim Hinzufügen im Katalog nicht gefunden (◌-Badge)
     matched: i.matched !== false,
+    // Katalogartikel, über den die Kategorie kam – leer, wenn von Hand gesetzt
+    matchedName: typeof i.matchedName === 'string' ? i.matchedName : '',
     done: i.done === true,
     addedAt: typeof i.addedAt === 'string' ? i.addedAt : new Date().toISOString(),
   }
@@ -166,6 +181,9 @@ function publicState(state) {
     categories: SEED_CATEGORIES,
     defaultCategoryOrder: DEFAULT_CATEGORY_ORDER,
     catalog: [...state.catalog, ...SEED_CATALOG],
+    // Nur die eigenen Einträge – die Verwaltung darf nur die ändern, der Seed
+    // ist Auslieferungszustand und bleibt, wie er ist.
+    ownCatalog: state.catalog,
     unmatched: state.unmatched,
     storeProfiles: state.storeProfiles,
   }
@@ -407,6 +425,8 @@ app.put('/api/lists/:listId/items/:itemId', (req, res) => {
     if (categoryId !== undefined) {
       item.categoryId = categoryId
       item.matched = true
+      // Von Hand gesetzt: der alte Treffer erklärt die Kategorie nicht mehr
+      item.matchedName = ''
     }
   })
 })
@@ -441,7 +461,7 @@ app.post('/api/lists/:listId/finish', (req, res) => {
 // gelandet sind, gleich mitwandern – sonst müsste man dieselbe Zuordnung in der
 // Liste ein zweites Mal von Hand machen. Von Hand einsortierte Artikel
 // (matched) bleiben unangetastet.
-function applyToUnmatchedItems(state, name, categoryId) {
+function applyToUnmatchedItems(state, name, categoryId, matchedName) {
   const key = normalize(name)
   for (const list of state.lists) {
     if (list.type !== 'kategorisiert') continue
@@ -449,6 +469,7 @@ function applyToUnmatchedItems(state, name, categoryId) {
       if (!item.matched && normalize(item.name) === key) {
         item.categoryId = categoryId
         item.matched = true
+        item.matchedName = matchedName
       }
     }
   }
@@ -477,7 +498,7 @@ app.post('/api/catalog', (req, res) => {
     state.catalog = state.catalog.filter((e) => normalize(e.name) !== key)
     state.catalog.push({ name: clean, aliases: [...gemerkt], category_id: categoryId })
     state.unmatched = state.unmatched.filter((u) => normalize(u.name) !== key)
-    applyToUnmatchedItems(state, clean, categoryId)
+    applyToUnmatchedItems(state, clean, categoryId, clean)
   })
 })
 
@@ -510,7 +531,66 @@ app.post('/api/catalog/alias', (req, res) => {
       category_id: eintrag.category_id,
     })
     state.unmatched = state.unmatched.filter((u) => normalize(u.name) !== aliasKey)
-    applyToUnmatchedItems(state, sauber, eintrag.category_id)
+    applyToUnmatchedItems(state, sauber, eintrag.category_id, eintrag.name)
+  })
+})
+
+// Einen eigenen Katalogeintrag überschreiben: Kategorie ändern oder eine
+// Schreibweise wieder loswerden, die versehentlich hier gelandet ist.
+function pruefeEintrag(e) {
+  if (!e || typeof e.name !== 'string' || !e.name.trim()) return 'Name fehlt'
+  if (typeof e.category_id !== 'string' || !CATEGORY_IDS.has(e.category_id)) {
+    return `Unbekannte Kategorie bei „${e.name}“`
+  }
+  if (e.aliases !== undefined && !Array.isArray(e.aliases)) return `aliases muss eine Liste sein`
+  return null
+}
+
+function sauberEintrag(e) {
+  return {
+    name: e.name.trim(),
+    aliases: (e.aliases ?? [])
+      .filter((a) => typeof a === 'string' && a.trim())
+      .map((a) => a.trim()),
+    category_id: e.category_id,
+  }
+}
+
+app.put('/api/catalog', (req, res) => {
+  const fehler = pruefeEintrag(req.body)
+  if (fehler) return res.status(400).json({ error: fehler })
+  mutate(req, res, (state) => {
+    const eintrag = sauberEintrag(req.body)
+    const key = normalize(eintrag.name)
+    state.catalog = state.catalog.filter((e) => normalize(e.name) !== key)
+    state.catalog.push(eintrag)
+  })
+})
+
+// Zurück auf den Seed: der eigene Eintrag verschwindet, der mitgelieferte
+// Artikel gilt wieder (oder der Name ist danach gar nicht mehr im Katalog).
+app.delete('/api/catalog', (req, res) => {
+  const { name } = req.body || {}
+  if (typeof name !== 'string' || !name.trim()) {
+    return res.status(400).json({ error: 'Invalid payload' })
+  }
+  mutate(req, res, (state) => {
+    const key = normalize(name)
+    state.catalog = state.catalog.filter((e) => normalize(e.name) !== key)
+  })
+})
+
+// Notausgang: alle eigenen Katalogeinträge auf einmal ersetzen. Der Seed bleibt
+// unangetastet, ein leeres Array setzt also alles auf Auslieferungszustand.
+app.put('/api/catalog/raw', (req, res) => {
+  const { catalog } = req.body || {}
+  if (!Array.isArray(catalog)) return res.status(400).json({ error: 'Erwartet wird eine Liste' })
+  for (const eintrag of catalog) {
+    const fehler = pruefeEintrag(eintrag)
+    if (fehler) return res.status(400).json({ error: fehler })
+  }
+  mutate(req, res, (state) => {
+    state.catalog = catalog.map(sauberEintrag)
   })
 })
 

@@ -15,11 +15,11 @@ Handys gleichzeitig abgehakt. Erreichbar unter
 - **Eingabe** aus kleinem Mengenfeld (`2`, `500g`, `1 Pck.`) und großem
   Namensfeld; Enter oder „+“ trägt ein
 - **Zuordnung** über den mitgelieferten [Artikelkatalog](seed/artikelkatalog.json)
-  (179 Artikel, 795 Schreibweisen) – komplett im Browser, ohne Nachladen:
+  (303 Artikel, 1143 Schreibweisen) – komplett im Browser, ohne Nachladen:
   1. Normalisieren (klein, getrimmt, Mehrfach-Leerzeichen zusammengefasst)
   2. exakter Treffer auf Name oder Alias
   3. Teilstring in beide Richtungen, jeweils am Wortanfang (siehe unten)
-  4. Levenshtein-Distanz ≤ 2 als Fallback
+  4. Levenshtein-Distanz als Fallback: eine Abweichung, ab acht Zeichen zwei
   5. kein Treffer → `sonstiges` plus ◌-Badge in der Zeile
 - **Abhaken** rutscht den Artikel ans Ende seiner Kategorie (ausgegraut,
   durchgestrichen); **„Einkauf beenden“** löscht alles Abgehakte und lässt
@@ -29,11 +29,15 @@ Handys gleichzeitig abgehakt. Erreichbar unter
   immer auch in den Katalog, falsch einsortiert wird also nur einmal. Über
   „Schreibweise für ein anderes Wort“ lässt sich der Name stattdessen an einen
   vorhandenen Artikel hängen
+- **Kompakte Ansicht**: der Knopf in der Fußleiste blendet die
+  Kategorie-Überschriften aus. Sortiert wird weiter nach Laden-Reihenfolge, nur
+  sammelt sich das Abgehakte dann am Ende der ganzen Liste statt am Fuß jeder
+  Kategorie
 - **Märkte**: pro kategorisierter Liste beliebig viele Filialen mit eigener
   Kategorie-Reihenfolge; der aktive Markt wird in der Verwaltung gewählt und
   taucht beim Einkaufen nicht auf
 - **Verwaltung**: nicht zugeordnete Artikel nachpflegen, Märkte und Listen
-  verwalten
+  verwalten, eigene Katalogeinträge korrigieren (inkl. Notausgang für Rohdaten)
 - **Live-Sync**: jede Änderung geht als einzelner Request an den Server, der
   sie auf den zentralen Stand anwendet und ihn per Server-Sent Events sofort an
   alle offenen Geräte schickt
@@ -48,12 +52,37 @@ Zitronen“ → Obst & Gemüse und „Fahrradschlauch“ → Lauch: deutsche Kom
 enthalten reihenweise fremde Artikelnamen in der Wortmitte. Was dabei durchs
 Raster fällt, landet einmalig in der Verwaltung und ist danach bekannt.
 
+Die zweite Abweichung erst ab acht Zeichen hat denselben Grund: „Salami“ lag
+über zwei Änderungen beim Alias „Halumi“ und damit im Kühlregal. Damit solche
+Treffer nicht rätselhaft bleiben, merkt sich jeder Artikel, **über welchen
+Katalogartikel** seine Kategorie kam; die Detailansicht schreibt es hin.
+
 ## Technik
 
 - Frontend: Vue 3 + TypeScript + Vite (Base-Pfad `/einkauf/`)
 - Backend: Express ([server.js](server.js)), Port 2608
 - Persistenz: `data/state.json`, atomar geschrieben (temporäre Datei +
-  `rename`), täglich nach `backups/` kopiert (30 Stände)
+  `rename`)
+
+### Wo die Listen liegen und was sie rettet
+
+Jede Änderung landet sofort in `data/state.json`. Das Verzeichnis ist als
+Volume vom Host in den Container gehängt (`./data:/app/data`), liegt also
+außerhalb des Images: Neustart, Rebuild und `docker compose down` lassen die
+Daten unberührt. Geschrieben wird über eine temporäre Datei plus `rename`, ein
+Absturz mitten im Schreiben kann die Datei also nicht halb beschriftet
+hinterlassen.
+
+Dazu kommt ein Stand pro Tag in `backups/` (ebenfalls Volume, 30 Stände) –
+**aber nur, wenn sich seit dem letzten Backup etwas geändert hat**. Bei einer
+Einkaufsliste passiert wochenweise nichts, und identische Stände wären nur
+Rauschen.
+
+Diese Backups sollen laut Absprache ins git, damit sie nicht nur auf derselben
+Platte liegen wie das Original. Solange dieses Repo öffentlich auf GitHub liegt,
+sind sie in [.gitignore](.gitignore) noch ausgenommen – ein Backup ist die
+komplette Einkaufsliste. Ist das Repo privat, reicht es, die Zeile `backups/`
+dort zu löschen.
 
 ### Warum JSON und keine Datenbank
 
@@ -82,6 +111,8 @@ Baustein bedeutet, ohne ein Problem zu lösen, das es gibt.
 | POST | `/api/lists/:id/finish` | „Einkauf beenden“: Abgehaktes löschen |
 | POST | `/api/catalog` | `{ name, category_id }` dauerhaft zuordnen |
 | POST | `/api/catalog/alias` | `{ name, alias }` – Schreibweise an einen Artikel hängen |
+| PUT / DELETE | `/api/catalog` | eigenen Eintrag überschreiben / verwerfen |
+| PUT | `/api/catalog/raw` | alle eigenen Einträge ersetzen (Notausgang, `[]` = zurücksetzen) |
 | DELETE | `/api/unmatched/:id` | nicht zugeordneten Namen verwerfen |
 
 ### Kategorien und Katalog
@@ -112,6 +143,12 @@ Für einen unbekannten Namen gibt es zwei Wege:
   Eintrag wandert als Alias an den bestehenden Artikel. Betrifft es einen
   Seed-Artikel, entsteht dabei eine eigene Kopie in `data/state.json`, die den
   Seed überdeckt – der Seed selbst bleibt unangetastet.
+
+Verfahren kann man sich dabei: In der Verwaltung steht unter **„Katalog: eigene
+Ergänzungen“** jeder selbst angelegte Eintrag mit seinen Schreibweisen. Einzelne
+Schreibweisen lassen sich dort wegwerfen, die Kategorie ändern oder der ganze
+Eintrag verwerfen – dann gilt wieder der mitgelieferte Katalog. Für alles
+andere gibt es darunter ein Textfeld mit den Rohdaten.
 
 Die Vorschläge unter „Schreibweise eines vorhandenen Artikels“ kommen aus
 `suggestCatalogEntries()` und sind absichtlich lockerer als das Matching beim

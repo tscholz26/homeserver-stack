@@ -10,6 +10,8 @@ export interface Item {
   categoryId: string
   /** false = beim Hinzufügen nicht im Katalog gefunden (◌-Badge) */
   matched: boolean
+  /** Katalogartikel, über den die Kategorie kam – leer, wenn von Hand gesetzt */
+  matchedName: string
   done: boolean
   addedAt: string
 }
@@ -48,6 +50,7 @@ export interface AppState {
   categories: Category[]
   defaultCategoryOrder: string[]
   catalog: CatalogEntry[]
+  ownCatalog: CatalogEntry[]
   unmatched: UnmatchedEntry[]
   storeProfiles: StoreProfile[]
 }
@@ -58,6 +61,7 @@ export interface CategoryGroup {
 }
 
 const LIST_KEY = 'einkauf:liste'
+const COMPACT_KEY = 'einkauf:kompakt'
 
 let singleton: ReturnType<typeof createStore> | undefined
 
@@ -82,6 +86,7 @@ function createStore() {
     categories: [],
     defaultCategoryOrder: [],
     catalog: [],
+    ownCatalog: [],
     unmatched: [],
     storeProfiles: [],
   })
@@ -94,6 +99,7 @@ function createStore() {
     state.categories = data.categories ?? []
     state.defaultCategoryOrder = data.defaultCategoryOrder ?? []
     state.catalog = data.catalog ?? []
+    state.ownCatalog = data.ownCatalog ?? []
     state.unmatched = data.unmatched ?? []
     state.storeProfiles = data.storeProfiles ?? []
   }
@@ -191,6 +197,9 @@ function createStore() {
       quantity: quantity.trim(),
       categoryId: match?.category_id ?? 'sonstiges',
       matched: list.type === 'flach' || match !== null,
+      // Wofür der Katalog den Namen gehalten hat – erklärt in der Zeile, warum
+      // ein Artikel dort liegt, wo er liegt
+      matchedName: match?.name ?? '',
       done: false,
       addedAt: new Date().toISOString(),
     }
@@ -215,6 +224,7 @@ function createStore() {
     if (changes.categoryId !== undefined) {
       item.categoryId = changes.categoryId
       item.matched = true
+      item.matchedName = ''
     }
     return sendChange(`/lists/${list.id}/items/${itemId}`, 'PUT', changes)
   }
@@ -310,6 +320,27 @@ function createStore() {
     return sortItems(list.items)
   }
 
+  // Kompakte Ansicht: keine Kategorie-Überschriften, aber weiter in
+  // Laden-Reihenfolge sortiert. Abgehaktes sammelt sich am Ende der ganzen
+  // Liste statt am Fuß jeder Kategorie.
+  const kompakt = ref(localStorage.getItem(COMPACT_KEY) === '1')
+
+  function toggleKompakt() {
+    kompakt.value = !kompakt.value
+    localStorage.setItem(COMPACT_KEY, kompakt.value ? '1' : '0')
+  }
+
+  function compactItems(list: List): Item[] {
+    const rang = new Map(categoryOrderFor(list).map((id, index) => [id, index]))
+    return [...list.items].sort((a, b) => {
+      if (a.done !== b.done) return a.done ? 1 : -1
+      const ka = rang.get(a.categoryId) ?? 99
+      const kb = rang.get(b.categoryId) ?? 99
+      if (ka !== kb) return ka - kb
+      return a.addedAt.localeCompare(b.addedAt)
+    })
+  }
+
   // ── Nicht zugeordnete Artikel ──────────────────────────────────────────────
   const unmatched = computed(() =>
     [...state.unmatched].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'de')),
@@ -318,6 +349,21 @@ function createStore() {
   /** Ordnet einen Namen dauerhaft einer Kategorie zu (nur für neue Einträge). */
   function assignCategory(name: string, categoryId: string) {
     return sendChange('/catalog', 'POST', { name, category_id: categoryId })
+  }
+
+  /** Eigenen Katalogeintrag überschreiben (Kategorie, Schreibweisen). */
+  function saveCatalogEntry(entry: CatalogEntry) {
+    return sendChange('/catalog', 'PUT', entry)
+  }
+
+  /** Eigenen Eintrag verwerfen – danach gilt wieder der mitgelieferte Katalog. */
+  function removeCatalogEntry(name: string) {
+    return sendChange('/catalog', 'DELETE', { name })
+  }
+
+  /** Notausgang: alle eigenen Einträge auf einmal ersetzen. */
+  function replaceOwnCatalog(catalog: CatalogEntry[]) {
+    return sendChange('/catalog/raw', 'PUT', { catalog })
   }
 
   /** Hängt eine Schreibweise an einen bestehenden Katalogartikel. */
@@ -358,9 +404,15 @@ function createStore() {
     categoryOrderFor,
     groupsFor,
     flatItems,
+    kompakt,
+    toggleKompakt,
+    compactItems,
     unmatched,
     assignCategory,
     addAlias,
+    saveCatalogEntry,
+    removeCatalogEntry,
+    replaceOwnCatalog,
     dismissUnmatched,
     catalogNames,
     refresh,

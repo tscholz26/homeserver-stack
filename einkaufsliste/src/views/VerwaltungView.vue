@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import { useEinkaufStore, type ListType } from '@/composables/useEinkaufStore'
-import { suggestCatalogEntries } from '@/utils/matching'
+import { suggestCatalogEntries, type CatalogEntry } from '@/utils/matching'
 
 const store = useEinkaufStore()
 
@@ -81,6 +81,57 @@ function marktUmbenennen(profileId: string, alterName: string) {
 function marktLoeschen(profileId: string, name: string) {
   if (!confirm(`Markt „${name}“ löschen?`)) return
   store.removeStoreProfile(profileId)
+}
+
+// ── Katalog ───────────────────────────────────────────────────────────────────
+// Nur die eigenen Ergänzungen; der mitgelieferte Katalog bleibt, wie er ist.
+const neueSchreibweise = reactive<Record<string, string>>({})
+
+function kategorieSetzen(eintrag: CatalogEntry, categoryId: string) {
+  store.saveCatalogEntry({ ...eintrag, category_id: categoryId })
+}
+
+function schreibweiseEntfernen(eintrag: CatalogEntry, alias: string) {
+  store.saveCatalogEntry({ ...eintrag, aliases: eintrag.aliases.filter((a) => a !== alias) })
+}
+
+function schreibweiseHinzufuegen(eintrag: CatalogEntry) {
+  const neu = (neueSchreibweise[eintrag.name] ?? '').trim()
+  if (!neu) return
+  store.saveCatalogEntry({ ...eintrag, aliases: [...eintrag.aliases, neu] })
+  neueSchreibweise[eintrag.name] = ''
+}
+
+function eintragVerwerfen(name: string) {
+  if (!confirm(`„${name}“ aus den eigenen Ergänzungen entfernen?`)) return
+  store.removeCatalogEntry(name)
+}
+
+// Notausgang für alles, was die Knöpfe oben nicht hergeben
+const rohOffen = ref(false)
+const rohText = ref('')
+const rohFehler = ref('')
+
+function rohOeffnen() {
+  rohText.value = JSON.stringify(store.state.ownCatalog, null, 2)
+  rohFehler.value = ''
+  rohOffen.value = !rohOffen.value
+}
+
+async function rohSpeichern() {
+  let daten: unknown
+  try {
+    daten = JSON.parse(rohText.value)
+  } catch (err) {
+    rohFehler.value = `Kein gültiges JSON: ${(err as Error).message}`
+    return
+  }
+  if (!Array.isArray(daten)) {
+    rohFehler.value = 'Erwartet wird eine Liste von Einträgen.'
+    return
+  }
+  rohFehler.value = ''
+  if ((await store.replaceOwnCatalog(daten as CatalogEntry[])) === true) rohOffen.value = false
 }
 
 // ── Listen ────────────────────────────────────────────────────────────────────
@@ -323,6 +374,93 @@ function anlegen() {
       </form>
     </section>
 
+    <!-- ── Katalog ─────────────────────────────────────────────────────────── -->
+    <section>
+      <h2>Katalog: eigene Ergänzungen</h2>
+      <p class="hinweis">
+        Alles, was hier steht, überlagert den mitgelieferten Katalog. Ein Eintrag lässt sich
+        entfernen – dann gilt wieder die Auslieferung.
+      </p>
+
+      <p v-if="!store.state.ownCatalog.length" class="leer">
+        Noch nichts ergänzt – es gilt überall der mitgelieferte Katalog.
+      </p>
+
+      <ul v-else class="karten">
+        <li v-for="eintrag in store.state.ownCatalog" :key="eintrag.name" class="card offen">
+          <div class="kopf">
+            <span class="name">{{ eintrag.name }}</span>
+            <button
+              type="button"
+              class="weg"
+              title="Eigenen Eintrag verwerfen"
+              @click="eintragVerwerfen(eintrag.name)"
+            >
+              ×
+            </button>
+          </div>
+
+          <select
+            :value="eintrag.category_id"
+            :aria-label="`Kategorie von ${eintrag.name}`"
+            @change="kategorieSetzen(eintrag, ($event.target as HTMLSelectElement).value)"
+          >
+            <option v-for="k in waehlbareKategorien" :key="k.id" :value="k.id">
+              {{ k.emoji }} {{ k.label }}
+            </option>
+          </select>
+
+          <div v-if="eintrag.aliases.length" class="chips">
+            <span v-for="alias in eintrag.aliases" :key="alias" class="alias">
+              {{ alias }}
+              <button
+                type="button"
+                :title="`„${alias}“ entfernen`"
+                @click="schreibweiseEntfernen(eintrag, alias)"
+              >
+                ×
+              </button>
+            </span>
+          </div>
+
+          <div class="zeile">
+            <input
+              :value="neueSchreibweise[eintrag.name] ?? ''"
+              placeholder="Schreibweise ergänzen"
+              :aria-label="`Schreibweise für ${eintrag.name}`"
+              @input="neueSchreibweise[eintrag.name] = ($event.target as HTMLInputElement).value"
+              @keyup.enter="schreibweiseHinzufuegen(eintrag)"
+            />
+            <button
+              type="button"
+              class="primaer"
+              :disabled="!neueSchreibweise[eintrag.name]"
+              @click="schreibweiseHinzufuegen(eintrag)"
+            >
+              Merken
+            </button>
+          </div>
+        </li>
+      </ul>
+
+      <button type="button" class="schalter" @click="rohOeffnen">
+        {{ rohOffen ? '– ' : '+ ' }}Notfall: Rohdaten bearbeiten
+      </button>
+
+      <div v-if="rohOffen" class="card offen">
+        <p class="hinweis">
+          Die eigenen Einträge als JSON. Eine leere Liste (<code>[]</code>) setzt alles auf den
+          mitgelieferten Katalog zurück.
+        </p>
+        <textarea v-model="rohText" rows="12" spellcheck="false" aria-label="Katalog als JSON" />
+        <p v-if="rohFehler" class="fehler">{{ rohFehler }}</p>
+        <div class="zeile rechts">
+          <button type="button" class="loeschen" @click="rohOffen = false">Abbrechen</button>
+          <button type="button" class="primaer" @click="rohSpeichern">Speichern</button>
+        </div>
+      </div>
+    </section>
+
     <p class="fuss">
       Kategorie, Menge und Schreibweise eines einzelnen Artikels lassen sich auch direkt in der
       Liste ändern: auf den Namen tippen.
@@ -553,6 +691,50 @@ input[type='radio'] {
 .reihenfolge button:disabled {
   opacity: 0.35;
   cursor: default;
+}
+
+.alias {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.2rem 0.3rem 0.2rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: white;
+  font-size: 0.82rem;
+}
+
+.alias button {
+  width: 1.3rem;
+  height: 1.3rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  line-height: 1;
+  cursor: pointer;
+}
+
+textarea {
+  width: 100%;
+  padding: 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  background: white;
+  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.rechts {
+  justify-content: flex-end;
+}
+
+.fehler {
+  margin: 0;
+  color: var(--red);
+  font-size: 0.82rem;
 }
 
 .fuss {
