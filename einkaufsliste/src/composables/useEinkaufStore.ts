@@ -413,17 +413,33 @@ function createStore() {
   }
 
   // ── Rezepte ────────────────────────────────────────────────────────────────
-  /** Rezepte nach Gruppen, leere Gruppen fallen weg. */
+  /**
+   * Rezepte nach Gruppen, leere Gruppen fallen weg. Innerhalb einer Gruppe gilt
+   * die Reihenfolge aus dem Rezeptbuch – die lässt sich von Hand ziehen.
+   */
   const recipesByGroup = computed(() =>
     state.recipeGroups
-      .map((group) => ({
-        group,
-        recipes: state.recipes
-          .filter((r) => r.group === group.id)
-          .sort((a, b) => a.name.localeCompare(b.name, 'de')),
-      }))
+      .map((group) => ({ group, recipes: state.recipes.filter((r) => r.group === group.id) }))
       .filter((g) => g.recipes.length > 0),
   )
+
+  /**
+   * Ein Rezept innerhalb seiner Gruppe verschieben. Die anderen Gruppen bleiben
+   * stehen, wo sie sind: die Plätze der Gruppe werden neu belegt.
+   */
+  function moveRecipe(groupId: string, from: number, to: number) {
+    const inGruppe = state.recipes.filter((r) => r.group === groupId)
+    if (from === to || from < 0 || to < 0 || from >= inGruppe.length || to >= inGruppe.length) {
+      return
+    }
+    const [raus] = inGruppe.splice(from, 1)
+    inGruppe.splice(to, 0, raus!)
+
+    let n = 0
+    const neu = state.recipes.map((r) => (r.group === groupId ? inGruppe[n++]! : r))
+    state.recipes = neu
+    return sendChange('/recipes/order', 'PUT', { ids: neu.map((r) => r.id) })
+  }
 
   function addRecipe(name: string, group: string, ingredients: RecipeIngredient[] = []) {
     return sendChange('/recipes', 'POST', { id: createId(), name: name.trim(), group, ingredients })
@@ -650,6 +666,7 @@ function createStore() {
     recipesByGroup,
     addRecipe,
     saveRecipe,
+    moveRecipe,
     removeRecipe,
     addRecipeToList,
     categoryById,

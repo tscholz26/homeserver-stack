@@ -149,6 +149,7 @@ mit ins (öffentliche) Repo gezogen. Das alte Verzeichnis `backups/` kann weg.
 | PUT | `/api/lists/:id/order` | neue Reihenfolge der Artikel (Handsortierung) |
 | POST | `/api/lists/:id/add-batch` | ganzes Rezept: neue Artikel und fortgeschriebene Mengen |
 | POST / PUT / DELETE | `/api/recipes[/:id]` | Rezept anlegen / ändern / löschen |
+| PUT | `/api/recipes/order` | Reihenfolge im Rezeptbuch |
 | POST | `/api/lists/:id/finish` | „Einkauf beenden“: Abgehaktes löschen |
 | POST | `/api/catalog` | `{ name, category_id }` dauerhaft zuordnen |
 | POST | `/api/catalog/alias` | `{ name, alias }` – Schreibweise an einen Artikel hängen |
@@ -207,6 +208,11 @@ von Hand schreiben lässt:
 [{ "name": "Porridge", "group": "vorrat",
    "ingredients": [{ "name": "Haferflocken", "quantity": "500 g" }] }]
 ```
+
+Die Reihenfolge in der Datei ist die Reihenfolge im Rezeptbuch. Umsortiert und
+gelöscht wird über den ⠿-Knopf oben im Rezeptfenster („Rezeptbuch ordnen“);
+gelöscht wird erst nach Rückfrage, und ohne Seed gibt es nichts, was ein
+gelöschtes Rezept zurückholt.
 
 Der Server beobachtet die Datei: von Hand ergänzte Rezepte sind sofort in der
 App, ohne Neustart, und bekommen dabei ihre `id`. Umgekehrt schreibt jede

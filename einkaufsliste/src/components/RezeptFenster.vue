@@ -19,6 +19,8 @@ type Modus = 'auswahl' | 'einkauf' | 'bearbeiten'
 const modus = ref<Modus>('auswahl')
 const aktiv = ref<Recipe | null>(null)
 const suche = ref('')
+// Im Verwaltungsmodus wird sortiert und gelöscht statt eingekauft
+const verwalten = ref(false)
 
 // ── Schritt 1: welches Rezept? ────────────────────────────────────────────────
 const gruppen = computed(() => {
@@ -116,41 +118,75 @@ function zutatWeg(index: number) {
   entwurf.zutaten.splice(index, 1)
 }
 
-// Zutaten in die Reihenfolge ziehen, in der man sie braucht – angefasst wird
-// nur der Griff, damit die Eingabefelder bedienbar bleiben.
+// Gezogen wird an zwei Stellen: die Zutaten eines Rezepts beim Bearbeiten und
+// die Rezepte selbst im Verwaltungsmodus. Angefasst wird jeweils nur der Griff.
 const zutatenListe = useTemplateRef<HTMLElement>('zutatenListe')
+const gruppenListen = new Map<string, HTMLElement>()
 const ziehend = ref(false)
-let sortable: Sortable | undefined
+let sortables: Sortable[] = []
 
-function buildSortable() {
-  sortable?.destroy()
-  sortable = undefined
-  if (modus.value !== 'bearbeiten' || !zutatenListe.value) return
-  sortable = new Sortable(zutatenListe.value, {
-    draggable: '.zutat-zeile',
-    handle: '.griff',
-    animation: 150,
-    onStart: () => (ziehend.value = true),
-    onEnd: (evt) => {
-      ziehend.value = false
-      // SortableJS hat den Knoten verschoben; wir setzen ihn zurück und lassen
-      // Vue aus dem Entwurf neu zeichnen.
-      evt.from.insertBefore(evt.item, evt.from.children[evt.oldIndex ?? 0] ?? null)
-      const { oldIndex, newIndex } = evt
-      if (oldIndex == null || newIndex == null || oldIndex === newIndex) return
-      const [raus] = entwurf.zutaten.splice(oldIndex, 1)
-      if (raus) entwurf.zutaten.splice(newIndex, 0, raus)
-    },
-  })
+function setGruppenListe(groupId: string, el: unknown) {
+  if (el instanceof HTMLElement) gruppenListen.set(groupId, el)
+  else gruppenListen.delete(groupId)
+}
+
+// SortableJS verschiebt den Knoten selbst; wir setzen ihn zurück und lassen Vue
+// aus dem Zustand neu zeichnen, damit beides nicht auseinanderläuft.
+function undoDomMove(evt: Sortable.SortableEvent) {
+  evt.from.insertBefore(evt.item, evt.from.children[evt.oldIndex ?? 0] ?? null)
+}
+
+function buildSortables() {
+  for (const s of sortables) s.destroy()
+  sortables = []
+
+  if (modus.value === 'bearbeiten' && zutatenListe.value) {
+    sortables.push(
+      new Sortable(zutatenListe.value, {
+        draggable: '.zutat-zeile',
+        handle: '.griff',
+        animation: 150,
+        onStart: () => (ziehend.value = true),
+        onEnd: (evt) => {
+          ziehend.value = false
+          undoDomMove(evt)
+          const { oldIndex, newIndex } = evt
+          if (oldIndex == null || newIndex == null || oldIndex === newIndex) return
+          const [raus] = entwurf.zutaten.splice(oldIndex, 1)
+          if (raus) entwurf.zutaten.splice(newIndex, 0, raus)
+        },
+      }),
+    )
+  }
+
+  if (modus.value === 'auswahl' && verwalten.value) {
+    for (const [groupId, el] of gruppenListen) {
+      sortables.push(
+        new Sortable(el, {
+          draggable: '.rezept-zeile',
+          handle: '.griff',
+          animation: 150,
+          onStart: () => (ziehend.value = true),
+          onEnd: (evt) => {
+            ziehend.value = false
+            undoDomMove(evt)
+            if (evt.oldIndex != null && evt.newIndex != null) {
+              store.moveRecipe(groupId, evt.oldIndex, evt.newIndex)
+            }
+          },
+        }),
+      )
+    }
+  }
 }
 
 onUpdated(() => {
-  if (!ziehend.value) buildSortable()
+  if (!ziehend.value) buildSortables()
 })
 
 onBeforeUnmount(() => {
-  sortable?.destroy()
-  sortable = undefined
+  for (const s of sortables) s.destroy()
+  sortables = []
 })
 
 async function rezeptSpeichern() {
@@ -164,6 +200,15 @@ async function rezeptSpeichern() {
     ? await store.saveRecipe(entwurf.id, { name, group: entwurf.group, ingredients: zutaten })
     : await store.addRecipe(name, entwurf.group, zutaten)
   if (ok === true) modus.value = 'auswahl'
+}
+
+async function rezeptWeg(rezept: Recipe) {
+  if (
+    !confirm(`Rezept „${rezept.name}“ endgültig löschen? Das lässt sich nicht rückgängig machen.`)
+  ) {
+    return
+  }
+  await store.removeRecipe(rezept.id)
 }
 
 async function rezeptLoeschen() {
@@ -184,7 +229,17 @@ function zurueck() {
       <!-- ── Schritt 1: Rezept aussuchen ───────────────────────────────────── -->
       <template v-if="modus === 'auswahl'">
         <header>
-          <h2>Rezept zum Einkauf</h2>
+          <h2>{{ verwalten ? 'Rezeptbuch ordnen' : 'Rezept zum Einkauf' }}</h2>
+          <button
+            type="button"
+            class="stift"
+            :class="{ an: verwalten }"
+            :title="verwalten ? 'Fertig' : 'Rezepte sortieren und löschen'"
+            :aria-pressed="verwalten"
+            @click="verwalten = !verwalten"
+          >
+            ⠿
+          </button>
           <button type="button" class="zu" title="Schließen" @click="emit('close')">×</button>
         </header>
 
@@ -200,14 +255,27 @@ function zurueck() {
             {{ store.state.recipes.length ? 'Nichts gefunden.' : 'Noch keine Rezepte angelegt.' }}
           </p>
 
+          <p v-if="verwalten" class="hinweis">
+            Am Griff ⠿ in die gewünschte Reihenfolge ziehen. Gelöschte Rezepte sind weg – es gibt
+            keine Vorlage, aus der sie zurückkämen.
+          </p>
+
           <section v-for="g in gruppen" :key="g.group.id">
             <h3>{{ g.group.emoji }} {{ g.group.label }}</h3>
-            <ul>
-              <li v-for="r in g.recipes" :key="r.id">
-                <button type="button" class="rezept" @click="oeffneEinkauf(r)">
+            <ul :ref="(el) => setGruppenListe(g.group.id, el)">
+              <li v-for="r in g.recipes" :key="r.id" class="rezept-zeile">
+                <span v-if="verwalten" class="griff" title="Rezept verschieben">⠿</span>
+
+                <button
+                  type="button"
+                  class="rezept"
+                  :disabled="verwalten"
+                  @click="oeffneEinkauf(r)"
+                >
                   <span class="name">{{ r.name }}</span>
                   <span class="anzahl">{{ r.ingredients.length }} Zutaten</span>
                 </button>
+
                 <button
                   type="button"
                   class="stift"
@@ -215,6 +283,15 @@ function zurueck() {
                   @click="bearbeiten(r)"
                 >
                   ✎
+                </button>
+                <button
+                  v-if="verwalten"
+                  type="button"
+                  class="muell"
+                  :title="`${r.name} löschen`"
+                  @click="rezeptWeg(r)"
+                >
+                  🗑
                 </button>
               </li>
             </ul>
@@ -432,6 +509,27 @@ section ul li {
   align-items: center;
   gap: 0.3rem;
   border-top: 1px solid var(--line);
+}
+
+.rezept:disabled {
+  cursor: default;
+}
+
+.muell {
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.stift.an {
+  background: color-mix(in srgb, var(--violet) 14%, transparent);
+  color: var(--violet);
 }
 
 .rezept {

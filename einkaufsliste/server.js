@@ -670,6 +670,24 @@ app.post('/api/recipes', (req, res) => {
   })
 })
 
+/**
+ * Reihenfolge der Rezepte, wie sie im Rezeptbuch stehen sollen. Geschickt wird
+ * die komplette Liste der IDs; was fehlt (weil gerade jemand anderes etwas
+ * angelegt hat), bleibt hinten stehen, statt verloren zu gehen.
+ */
+app.put('/api/recipes/order', (req, res) => {
+  const { ids } = req.body || {}
+  if (!Array.isArray(ids) || ids.some((id) => typeof id !== 'string')) {
+    return res.status(400).json({ error: 'Invalid payload' })
+  }
+  mutateRecipes(req, res, () => {
+    const rang = new Map(ids.map((id, index) => [id, index]))
+    recipes = [...recipes].sort(
+      (a, b) => (rang.get(a.id) ?? Infinity) - (rang.get(b.id) ?? Infinity),
+    )
+  })
+})
+
 app.put('/api/recipes/:id', (req, res) => {
   const fehler = pruefeRezept({ name: 'x', ...req.body })
   if (fehler) return res.status(400).json({ error: fehler })
