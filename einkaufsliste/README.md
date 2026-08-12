@@ -81,7 +81,7 @@ Katalogartikel** seine Kategorie kam; die Detailansicht schreibt es hin.
 
 ### Wo die Daten liegen
 
-Vier Dateien, jede mit genau einer Aufgabe – alle auf dem Host, keine im Image:
+Fünf Dateien, jede mit genau einer Aufgabe – alle auf dem Host, keine im Image:
 
 | Datei | Inhalt | im git |
 | --- | --- | --- |
@@ -89,8 +89,9 @@ Vier Dateien, jede mit genau einer Aufgabe – alle auf dem Host, keine im Image
 | `export/katalog.json` | der Artikelkatalog | **ja** |
 | `export/maerkte.json` | die Märkte (Kategorie-Reihenfolge je Filiale) | **ja** |
 | `export/rezepte.json` | das Rezeptbuch | **ja** |
+| `export/rezeptgruppen.json` | die Gruppen des Rezeptbuchs | **ja** |
 
-Die drei Dateien unter `export/` **sind** die Daten – keine Kopie, kein Seed,
+Die vier Dateien unter `export/` **sind** die Daten – keine Kopie, kein Seed,
 aus dem etwas nachgezogen wird, keine zweite Fassung im State. Was im
 Arbeitsverzeichnis steht, ist genau das, was die App gerade benutzt; ein
 `git diff` zeigt, was sich seit dem letzten Commit geändert hat.
@@ -102,7 +103,7 @@ also nichts halb beschriften) und nur, wenn sich am Inhalt etwas geändert hat �
 ein Haken auf der Einkaufsliste fasst `katalog.json` nicht an.
 
 **Andersherum genauso**: der Server beobachtet das Verzeichnis. Wird eine der
-drei Dateien ersetzt – von Hand oder mit `git checkout` – liest er sie neu ein
+Dateien ersetzt – von Hand oder mit `git checkout` – liest er sie neu ein
 und schickt den Stand an alle offenen Geräte. Ein Neustart ist dafür nicht
 nötig. Das läuft über inotify, kostet im Leerlauf also nichts; eigene
 Schreibvorgänge erkennt er am Inhalt und ignoriert sie.
@@ -113,7 +114,7 @@ nicht root – sonst käme weder der Editor noch `git checkout` an sie heran.
 
 **Ins git kommen sie nicht von allein** – das wäre ein Commit pro Einkauf.
 Dafür gibt es [scripts/katalog-sichern.sh](scripts/katalog-sichern.sh): es
-committet ausschließlich die drei Dateien unter `export/`, wenn sich etwas
+committet ausschließlich die Dateien unter `export/`, wenn sich etwas
 geändert hat, und pusht nicht (das Repo ist öffentlich). Ein systemd-Timer
 erledigt das täglich um 03:20, zehn Minuten bevor `backup-sync` die Backups der
 anderen Apps in die Nextcloud lädt:
@@ -125,10 +126,10 @@ systemctl list-timers einkauf-katalog.timer      # Kontrolle
 einkaufsliste/scripts/katalog-sichern.sh         # oder jederzeit von Hand
 ```
 
-Im `seed/` liegt nur noch Konfiguration: die Kategorien
-([kategorien.json](seed/kategorien.json)) und die Rezeptgruppen
-([rezeptgruppen.json](seed/rezeptgruppen.json)). Sie sind ins Image gebacken und
-ändern sich nur mit einem Deploy.
+Im `seed/` liegen nur noch die Kategorien der Einkaufsliste
+([kategorien.json](seed/kategorien.json)). Sie sind ins Image gebacken und
+ändern sich nur mit einem Deploy – anders als die Rezeptgruppen, die in der App
+gepflegt werden.
 
 Ein regelmäßiges Backup des ganzen Stands gibt es bewusst nicht: die Listen
 selbst sind ersetzbar, alles andere liegt im git. Das alte Verzeichnis
@@ -151,6 +152,7 @@ selbst sind ersetzbar, alles andere liegt im git. Das alte Verzeichnis
 | POST | `/api/lists/:id/add-batch` | ganzes Rezept: neue Artikel und fortgeschriebene Mengen |
 | POST / PUT / DELETE | `/api/recipes[/:id]` | Rezept anlegen / ändern / löschen |
 | PUT | `/api/recipes/order` | Reihenfolge im Rezeptbuch |
+| POST / PUT / DELETE | `/api/recipe-groups[/:id]` | Gruppe anlegen / umbenennen / löschen |
 | POST | `/api/lists/:id/finish` | „Einkauf beenden“: Abgehaktes löschen |
 | POST | `/api/catalog` | `{ name, category_id }` dauerhaft zuordnen |
 | POST | `/api/catalog/alias` | `{ name, alias }` – Schreibweise an einen Artikel hängen |
@@ -201,6 +203,12 @@ Katalog und Märkte eine schlichte Liste:
    "ingredients": [{ "name": "Haferflocken", "quantity": "500 g" }] }]
 ```
 
+Die **Gruppen** stehen in [export/rezeptgruppen.json](export/rezeptgruppen.json)
+und werden im selben Modus gepflegt: anlegen, umbenennen, Zeichen ändern,
+löschen. Eine Gruppe, in der noch Rezepte liegen, wird nicht gelöscht – der
+Server sagt, wie viele es sind. Beim Umbenennen bleibt die `id`, an der die
+Rezepte hängen.
+
 Die Reihenfolge in der Datei ist die Reihenfolge im Rezeptbuch. Umsortiert und
 gelöscht wird über den ⠿-Knopf oben im Rezeptfenster („Rezeptbuch ordnen“);
 gelöscht wird erst nach Rückfrage, und ohne Seed gibt es nichts, was ein
@@ -209,8 +217,7 @@ gelöschtes Rezept zurückholt.
 Der Server beobachtet die Datei: von Hand ergänzte Rezepte sind sofort in der
 App, ohne Neustart, und bekommen dabei ihre `id`. Umgekehrt schreibt jede
 Änderung in der App die Datei neu. Nur die Gruppen kommen weiterhin aus
-[seed/rezeptgruppen.json](seed/rezeptgruppen.json) – sie sind Konfiguration,
-keine Daten.
+[export/rezeptgruppen.json](export/rezeptgruppen.json).
 
 Gelöscht ist gelöscht: ohne Seed gibt es nichts, was ein entferntes Rezept
 wieder zurückholt.

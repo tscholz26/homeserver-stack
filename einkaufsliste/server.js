@@ -11,6 +11,7 @@ const EXPORT_DIR = join(__dirname, 'export')
 const KATALOG_FILE = join(EXPORT_DIR, 'katalog.json')
 const MARKT_FILE = join(EXPORT_DIR, 'maerkte.json')
 const REZEPT_FILE = join(EXPORT_DIR, 'rezepte.json')
+const GRUPPEN_FILE = join(EXPORT_DIR, 'rezeptgruppen.json')
 const PORT = Number(process.env.PORT) || 2608
 
 mkdirSync(DATA_DIR, { recursive: true })
@@ -23,10 +24,13 @@ mkdirSync(EXPORT_DIR, { recursive: true })
 const SEED_CATEGORIES = JSON.parse(
   readFileSync(join(SEED_DIR, 'kategorien.json'), 'utf8'),
 ).categories
-const SEED_RECIPE_GROUPS = JSON.parse(
-  readFileSync(join(SEED_DIR, 'rezeptgruppen.json'), 'utf8'),
-).groups
-const RECIPE_GROUP_IDS = new Set(SEED_RECIPE_GROUPS.map((g) => g.id))
+// Nur als Notnagel für einen völlig leeren Server: sonst kommen die Gruppen aus
+// export/rezeptgruppen.json und werden in der App gepflegt.
+const START_GRUPPEN = [
+  { id: 'frisch', emoji: '🥗', label: 'Frisch gekocht' },
+  { id: 'vorrat', emoji: '🥫', label: 'Aus dem Vorrat' },
+  { id: 'sonstiges', emoji: '❓', label: 'Sonstiges' },
+]
 
 // Die Reihenfolge in kategorien.json ist die Standard-Reihenfolge im Laden.
 // „sonstiges“ hängt immer hinten und wird nie umsortiert.
@@ -93,11 +97,25 @@ function normalizeIngredient(z) {
   }
 }
 
+function istGruppe(id) {
+  return buch.recipeGroups.some((g) => g.id === id)
+}
+
+function normalizeGroup(g) {
+  return {
+    id: String(g?.id ?? '').trim(),
+    emoji: typeof g?.emoji === 'string' && g.emoji.trim() ? g.emoji.trim() : '❓',
+    label: String(g?.label ?? '').trim(),
+  }
+}
+
 function normalizeRecipe(r) {
   return {
     id: r.id,
     name: r.name,
-    group: RECIPE_GROUP_IDS.has(r.group) ? r.group : 'frisch',
+    // Zeigt ein Rezept auf eine Gruppe, die es nicht (mehr) gibt, landet es in
+    // der ersten – sichtbar bleiben ist besser als unsichtbar werden.
+    group: istGruppe(r.group) ? r.group : (buch.recipeGroups[0]?.id ?? 'frisch'),
     ingredients: Array.isArray(r.ingredients)
       ? r.ingredients.map(normalizeIngredient).filter((z) => z.name)
       : [],
@@ -173,11 +191,14 @@ function leseListe(datei, schluessel, normalisiere) {
   }
 }
 
-const buch = { catalog: [], storeProfiles: [], recipes: [] }
+const buch = { catalog: [], storeProfiles: [], recipes: [], recipeGroups: [] }
 
 function leseBuch() {
   buch.catalog = leseListe(KATALOG_FILE, 'catalog')
   buch.storeProfiles = leseListe(MARKT_FILE, 'storeProfiles', normalizeProfile)
+  // Gruppen vor den Rezepten: die Rezepte werden gegen sie geprüft
+  const gruppen = leseListe(GRUPPEN_FILE, 'groups', normalizeGroup).filter((g) => g.id && g.label)
+  buch.recipeGroups = gruppen.length ? gruppen : START_GRUPPEN
   buch.recipes = leseListe(REZEPT_FILE, 'recipes', (r) =>
     normalizeRecipe({ ...r, id: r.id || createId() }),
   )
@@ -186,6 +207,7 @@ function leseBuch() {
 function schreibeBuch() {
   schreibeWennNeu(KATALOG_FILE, buch.catalog)
   schreibeWennNeu(MARKT_FILE, buch.storeProfiles)
+  schreibeWennNeu(GRUPPEN_FILE, buch.recipeGroups)
   schreibeWennNeu(REZEPT_FILE, buch.recipes)
 }
 
@@ -246,7 +268,9 @@ if (!existsSync(STATE_FILE)) writeState(defaultState())
 let nachladen
 watch(EXPORT_DIR, (_event, datei) => {
   const name = String(datei ?? '')
-  if (!['katalog.json', 'maerkte.json', 'rezepte.json'].includes(name)) return
+  if (!['katalog.json', 'maerkte.json', 'rezepte.json', 'rezeptgruppen.json'].includes(name)) {
+    return
+  }
   clearTimeout(nachladen)
   nachladen = setTimeout(() => {
     const pfad = join(EXPORT_DIR, name)
@@ -269,7 +293,7 @@ function publicState(state) {
     defaultCategoryOrder: DEFAULT_CATEGORY_ORDER,
     catalog: buch.catalog,
     recipes: buch.recipes,
-    recipeGroups: SEED_RECIPE_GROUPS,
+    recipeGroups: buch.recipeGroups,
     unmatched: state.unmatched,
     storeProfiles: buch.storeProfiles,
   }
@@ -562,12 +586,84 @@ app.post('/api/lists/:listId/finish', (req, res) => {
 // ── Rezepte ───────────────────────────────────────────────────────────────────
 function pruefeRezept(r) {
   if (!r || typeof r.name !== 'string' || !r.name.trim()) return 'Name fehlt'
-  if (r.group !== undefined && !RECIPE_GROUP_IDS.has(r.group)) return 'Unbekannte Gruppe'
+  if (r.group !== undefined && !istGruppe(r.group)) return 'Unbekannte Gruppe'
   if (r.ingredients !== undefined && !Array.isArray(r.ingredients)) {
     return 'Zutaten müssen eine Liste sein'
   }
   return null
 }
+
+// ── Rezeptgruppen ─────────────────────────────────────────────────────────────
+// Die Gruppen sind das Gerüst des Rezeptbuchs und stehen deshalb in derselben
+// Art Datei: export/rezeptgruppen.json.
+function gruppenId(label) {
+  const roh = normalize(label)
+    .replace(/ä/g, 'ae')
+    .replace(/ö/g, 'oe')
+    .replace(/ü/g, 'ue')
+    .replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '')
+  const basis = roh || 'gruppe'
+  let id = basis
+  let n = 2
+  while (istGruppe(id)) id = `${basis}_${n++}`
+  return id
+}
+
+app.post('/api/recipe-groups', (req, res) => {
+  const { label, emoji } = req.body || {}
+  if (typeof label !== 'string' || !label.trim()) {
+    return res.status(400).json({ error: 'Name fehlt' })
+  }
+  mutate(req, res, () => {
+    if (buch.recipeGroups.some((g) => normalize(g.label) === normalize(label))) {
+      return { reject: { status: 409, error: 'Diese Gruppe gibt es schon.' } }
+    }
+    buch.recipeGroups.push(normalizeGroup({ id: gruppenId(label), label, emoji }))
+  })
+})
+
+app.put('/api/recipe-groups/:id', (req, res) => {
+  const { label, emoji } = req.body || {}
+  if (label !== undefined && (typeof label !== 'string' || !label.trim())) {
+    return res.status(400).json({ error: 'Name fehlt' })
+  }
+  mutate(req, res, () => {
+    const gruppe = buch.recipeGroups.find((g) => g.id === req.params.id)
+    if (!gruppe) return { reject: { status: 404, error: 'Gruppe nicht gefunden.' } }
+    if (
+      label !== undefined &&
+      buch.recipeGroups.some((g) => g.id !== gruppe.id && normalize(g.label) === normalize(label))
+    ) {
+      return { reject: { status: 409, error: 'Diese Gruppe gibt es schon.' } }
+    }
+    // Die id bleibt: an ihr hängen die Rezepte
+    Object.assign(gruppe, normalizeGroup({ ...gruppe, label: label ?? gruppe.label, emoji }))
+  })
+})
+
+// Eine Gruppe mit Rezepten wird nicht gelöscht – sonst verschwinden sie
+// stillschweigend woanders hin. Erst umhängen, dann löschen.
+app.delete('/api/recipe-groups/:id', (req, res) => {
+  mutate(req, res, () => {
+    const gruppe = buch.recipeGroups.find((g) => g.id === req.params.id)
+    if (!gruppe) return
+    const drin = buch.recipes.filter((r) => r.group === gruppe.id).length
+    if (drin > 0) {
+      return {
+        reject: {
+          status: 409,
+          error: `In „${gruppe.label}“ liegen noch ${drin} Rezepte. Erst umhängen, dann löschen.`,
+        },
+      }
+    }
+    if (buch.recipeGroups.length === 1) {
+      return { reject: { status: 409, error: 'Die letzte Gruppe muss bleiben.' } }
+    }
+    buch.recipeGroups = buch.recipeGroups.filter((g) => g.id !== gruppe.id)
+  })
+})
 
 app.post('/api/recipes', (req, res) => {
   const fehler = pruefeRezept(req.body)

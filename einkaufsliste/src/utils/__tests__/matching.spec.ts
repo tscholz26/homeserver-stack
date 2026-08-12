@@ -9,9 +9,10 @@ import {
   type CatalogEntry,
 } from '@/utils/matching'
 
-// Gegen den echten Katalog testen: die Fallstricke stecken in den Aliasen
+// Gegen den echten Katalog testen: die Fallstricke stecken in den Aliasen.
+// Er steht in derselben Datei, die auch die App benutzt.
 const catalog = JSON.parse(
-  readFileSync(resolve(process.cwd(), 'seed/artikelkatalog.json'), 'utf8'),
+  readFileSync(resolve(process.cwd(), 'export/katalog.json'), 'utf8'),
 ) as CatalogEntry[]
 
 function kategorie(eingabe: string): string | null {

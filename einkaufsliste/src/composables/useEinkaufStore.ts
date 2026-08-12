@@ -427,6 +427,23 @@ function createStore() {
    * Ein Rezept innerhalb seiner Gruppe verschieben. Die anderen Gruppen bleiben
    * stehen, wo sie sind: die Plätze der Gruppe werden neu belegt.
    */
+  function addRecipeGroup(label: string, emoji: string) {
+    return sendChange('/recipe-groups', 'POST', { label: label.trim(), emoji: emoji.trim() })
+  }
+
+  function saveRecipeGroup(id: string, changes: { label?: string; emoji?: string }) {
+    return sendChange(`/recipe-groups/${id}`, 'PUT', changes)
+  }
+
+  function removeRecipeGroup(id: string) {
+    return sendChange(`/recipe-groups/${id}`, 'DELETE')
+  }
+
+  /** Wie viele Rezepte in einer Gruppe liegen – die Verwaltung zeigt es an. */
+  function recipeCount(groupId: string) {
+    return state.recipes.filter((r) => r.group === groupId).length
+  }
+
   function moveRecipe(groupId: string, from: number, to: number) {
     const inGruppe = state.recipes.filter((r) => r.group === groupId)
     if (from === to || from < 0 || to < 0 || from >= inGruppe.length || to >= inGruppe.length) {
@@ -667,6 +684,10 @@ function createStore() {
     addRecipe,
     saveRecipe,
     moveRecipe,
+    addRecipeGroup,
+    saveRecipeGroup,
+    removeRecipeGroup,
+    recipeCount,
     removeRecipe,
     addRecipeToList,
     categoryById,

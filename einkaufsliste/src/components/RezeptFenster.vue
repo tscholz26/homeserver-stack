@@ -202,6 +202,36 @@ async function rezeptSpeichern() {
   if (ok === true) modus.value = 'auswahl'
 }
 
+// ── Gruppen ───────────────────────────────────────────────────────────────────
+const gruppenNamen = reactive<Record<string, string>>({})
+const gruppenEmoji = reactive<Record<string, string>>({})
+const neueGruppe = ref('')
+const neuesEmoji = ref('')
+
+function gruppeUmbenennen(id: string, alt: string) {
+  const neu = (gruppenNamen[id] ?? '').trim()
+  if (!neu || neu === alt) return
+  store.saveRecipeGroup(id, { label: neu })
+}
+
+function gruppeEmoji(id: string, alt: string) {
+  const neu = (gruppenEmoji[id] ?? '').trim()
+  if (!neu || neu === alt) return
+  store.saveRecipeGroup(id, { emoji: neu })
+}
+
+function gruppeAnlegen() {
+  if (!neueGruppe.value.trim()) return
+  store.addRecipeGroup(neueGruppe.value, neuesEmoji.value || '❓')
+  neueGruppe.value = ''
+  neuesEmoji.value = ''
+}
+
+function gruppeWeg(id: string, label: string) {
+  if (!confirm(`Gruppe „${label}“ löschen?`)) return
+  store.removeRecipeGroup(id)
+}
+
 async function rezeptWeg(rezept: Recipe) {
   if (
     !confirm(`Rezept „${rezept.name}“ endgültig löschen? Das lässt sich nicht rückgängig machen.`)
@@ -295,6 +325,50 @@ function zurueck() {
                 </button>
               </li>
             </ul>
+          </section>
+          <!-- Gruppen: das Gerüst des Rezeptbuchs, nur im Verwaltungsmodus -->
+          <section v-if="verwalten" class="gruppen">
+            <h3>Gruppen</h3>
+            <ul>
+              <li v-for="g in store.state.recipeGroups" :key="g.id" class="gruppe-zeile">
+                <input
+                  :value="gruppenEmoji[g.id] ?? g.emoji"
+                  class="emoji"
+                  :aria-label="`Zeichen für ${g.label}`"
+                  @input="gruppenEmoji[g.id] = ($event.target as HTMLInputElement).value"
+                  @blur="gruppeEmoji(g.id, g.emoji)"
+                  @keyup.enter="gruppeEmoji(g.id, g.emoji)"
+                />
+                <input
+                  :value="gruppenNamen[g.id] ?? g.label"
+                  class="gruppe-name"
+                  :aria-label="`Name von ${g.label}`"
+                  @input="gruppenNamen[g.id] = ($event.target as HTMLInputElement).value"
+                  @blur="gruppeUmbenennen(g.id, g.label)"
+                  @keyup.enter="gruppeUmbenennen(g.id, g.label)"
+                />
+                <span class="anzahl">{{ store.recipeCount(g.id) }}</span>
+                <button
+                  type="button"
+                  class="muell"
+                  :title="`${g.label} löschen`"
+                  @click="gruppeWeg(g.id, g.label)"
+                >
+                  🗑
+                </button>
+              </li>
+            </ul>
+
+            <form class="gruppe-zeile neu" @submit.prevent="gruppeAnlegen">
+              <input v-model="neuesEmoji" class="emoji" placeholder="❓" aria-label="Zeichen" />
+              <input
+                v-model="neueGruppe"
+                class="gruppe-name"
+                placeholder="Neue Gruppe"
+                aria-label="Name der neuen Gruppe"
+              />
+              <button type="submit" class="ok" :disabled="!neueGruppe.trim()">Anlegen</button>
+            </form>
           </section>
         </div>
 
@@ -513,6 +587,41 @@ section ul li {
 
 .rezept:disabled {
   cursor: default;
+}
+
+.gruppen {
+  margin-top: 1.4rem;
+  padding-top: 0.4rem;
+  border-top: 2px solid var(--line);
+}
+
+.gruppe-zeile {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.gruppe-zeile.neu {
+  border-top: none;
+  margin-top: 0.4rem;
+}
+
+.gruppe-zeile .emoji {
+  width: 3.2rem;
+  flex: 0 0 auto;
+  text-align: center;
+}
+
+.gruppe-zeile .gruppe-name {
+  flex: 1 1 6rem;
+  min-width: 0;
+}
+
+.gruppe-zeile .anzahl {
+  min-width: 1.5rem;
+  text-align: right;
 }
 
 .muell {
