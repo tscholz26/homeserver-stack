@@ -26,6 +26,8 @@ describe('mengeZusammenfassen', () => {
     expect(mengeZusammenfassen('250 g', '200 g')).toBe('450 g')
     expect(mengeZusammenfassen('1', '2')).toBe('3')
     expect(mengeZusammenfassen('2 Stück', '1 St.')).toBe('3 St.')
+    expect(mengeZusammenfassen('1 Dose', '1 Dose')).toBe('2 Dosen')
+    expect(mengeZusammenfassen('1 Packung', '')).toBe('1 Packung')
     expect(mengeZusammenfassen('0,5 l', '1 Liter')).toBe('1,5 l')
   })
 
@@ -64,5 +66,13 @@ describe('mengenZusammenfassen', () => {
 
   it('trennt nach Einheiten', () => {
     expect(mengenZusammenfassen(['700 ml', '250 ml', '2 l'])).toBe('950 ml + 2 l')
+  })
+
+  it('zerlegt nur am eigenen Trennzeichen', () => {
+    // „500+ g“ ist eine Angabe, kein Paar – sonst wird daraus „500 + g“
+    expect(mengenZusammenfassen(['500+ g'])).toBe('500+ g')
+    expect(mengenZusammenfassen(['16 (+1)'])).toBe('16 (+1)')
+    // Gerechnetes steht vorn, Freitext dahinter
+    expect(mengenZusammenfassen(['2-3 Dosen', '500 g'])).toBe('500 g + 2-3 Dosen')
   })
 })

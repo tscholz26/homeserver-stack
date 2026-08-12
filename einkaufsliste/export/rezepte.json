@@ -2300,6 +2300,142 @@
       "name": "Ofengemüse",
       "group": "sonstiges",
       "ingredients": []
+    },
+    {
+      "id": "msqkgyyn-fbdefd09",
+      "name": "Pinsa mit Rucola und Rohschinken",
+      "group": "frisch",
+      "ingredients": [
+        {
+          "name": "Pinsateig",
+          "quantity": "2 St."
+        },
+        {
+          "name": "Passierte Tomaten",
+          "quantity": "200 g"
+        },
+        {
+          "name": "Mozzarella",
+          "quantity": "2 Kugeln"
+        },
+        {
+          "name": "Rucola",
+          "quantity": "1 Packung"
+        },
+        {
+          "name": "Schinken roh",
+          "quantity": "100 g"
+        },
+        {
+          "name": "Parmesan",
+          "quantity": "50 g"
+        },
+        {
+          "name": "Olivenöl",
+          "quantity": ""
+        }
+      ]
+    },
+    {
+      "id": "msqkgyyn-dc674080",
+      "name": "Burger",
+      "group": "frisch",
+      "ingredients": [
+        {
+          "name": "Hamburger Buns",
+          "quantity": "4 St."
+        },
+        {
+          "name": "Hackfleisch",
+          "quantity": "500 g"
+        },
+        {
+          "name": "Cheddar",
+          "quantity": "8 Scheiben"
+        },
+        {
+          "name": "Tomaten",
+          "quantity": "2 St."
+        },
+        {
+          "name": "Salat",
+          "quantity": "1 St."
+        },
+        {
+          "name": "Zwiebeln",
+          "quantity": "1 St."
+        },
+        {
+          "name": "Ketchup",
+          "quantity": ""
+        },
+        {
+          "name": "Mayonnaise",
+          "quantity": ""
+        }
+      ]
+    },
+    {
+      "id": "msqkgyyn-f7b159a0",
+      "name": "Griechischer Salat",
+      "group": "frisch",
+      "ingredients": [
+        {
+          "name": "Tomaten",
+          "quantity": "4 St."
+        },
+        {
+          "name": "Gurke",
+          "quantity": "1 St."
+        },
+        {
+          "name": "Paprika",
+          "quantity": "1 St."
+        },
+        {
+          "name": "Zwiebeln",
+          "quantity": "1 St."
+        },
+        {
+          "name": "Feta",
+          "quantity": "200 g"
+        },
+        {
+          "name": "Oliven",
+          "quantity": "1 Glas"
+        },
+        {
+          "name": "Olivenöl",
+          "quantity": ""
+        }
+      ]
+    },
+    {
+      "id": "msqkgyyn-e0309797",
+      "name": "Kichererbsen-Curry",
+      "group": "vorrat",
+      "ingredients": [
+        {
+          "name": "Kichererbsen (Dose)",
+          "quantity": "2 Dosen"
+        },
+        {
+          "name": "Kokosmilch",
+          "quantity": "400 ml"
+        },
+        {
+          "name": "Passierte Tomaten",
+          "quantity": "400 g"
+        },
+        {
+          "name": "Currypaste",
+          "quantity": "1 Glas"
+        },
+        {
+          "name": "Basmati-Reis",
+          "quantity": "250 g"
+        }
+      ]
     }
   ]
 }

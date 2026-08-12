@@ -3072,6 +3072,109 @@
       "name": "Kalbsfleisch",
       "aliases": [],
       "category_id": "fleisch_wurst"
+    },
+    {
+      "name": "Jagdwurst",
+      "aliases": [
+        "Lyoner Fleischwurst",
+        "Lyoner",
+        "Fleischwurst"
+      ],
+      "category_id": "fleisch_wurst"
+    },
+    {
+      "name": "Suppenhuhn",
+      "aliases": [
+        "Suppenhühner",
+        "Suppenhähnchen"
+      ],
+      "category_id": "fleisch_wurst"
+    },
+    {
+      "name": "Kaninchenkeulen",
+      "aliases": [
+        "Kaninchen",
+        "Kaninchenbraten"
+      ],
+      "category_id": "fleisch_wurst"
+    },
+    {
+      "name": "Schmelzkäse",
+      "aliases": [
+        "Schmelzkäsescheiben",
+        "Schmelzkäse Ecken"
+      ],
+      "category_id": "milch_kuehlwaren"
+    },
+    {
+      "name": "Suppengrün",
+      "aliases": [
+        "Suppengemüse",
+        "Bund Suppengrün"
+      ],
+      "category_id": "obst_gemuese"
+    },
+    {
+      "name": "Majoran",
+      "aliases": [
+        "getrockneter Majoran"
+      ],
+      "category_id": "backen_gewuerze"
+    },
+    {
+      "name": "Rosmarin",
+      "aliases": [
+        "getrockneter Rosmarin",
+        "Rosmarinnadeln"
+      ],
+      "category_id": "backen_gewuerze"
+    },
+    {
+      "name": "Liebstöckel",
+      "aliases": [
+        "Maggikraut"
+      ],
+      "category_id": "backen_gewuerze"
+    },
+    {
+      "name": "Wacholderbeeren",
+      "aliases": [
+        "Wacholder"
+      ],
+      "category_id": "backen_gewuerze"
+    },
+    {
+      "name": "Kräutersoße",
+      "aliases": [
+        "Kräutersauce",
+        "Grüne Soße"
+      ],
+      "category_id": "nudeln_reis"
+    },
+    {
+      "name": "Salsasoße",
+      "aliases": [
+        "Salsa-Soße",
+        "Salsa",
+        "Salsasauce"
+      ],
+      "category_id": "nudeln_reis"
+    },
+    {
+      "name": "Gemüsemais",
+      "aliases": [
+        "Mais Gemüse"
+      ],
+      "category_id": "konserven"
+    },
+    {
+      "name": "Trockenerbsen",
+      "aliases": [
+        "ungeschälte Erbsen",
+        "geschälte Erbsen",
+        "Schälerbsen"
+      ],
+      "category_id": "konserven"
     }
   ],
   "storeProfiles": [

@@ -57,6 +57,19 @@ const EINHEITEN: Record<string, string> = {
   prisen: 'Prise',
 }
 
+/** Einheiten, die im Plural anders heißen – „2 Dose“ liest sich falsch. */
+const PLURAL: Record<string, string> = {
+  Packung: 'Packungen',
+  Dose: 'Dosen',
+  Glas: 'Gläser',
+  Zehe: 'Zehen',
+  Kugel: 'Kugeln',
+  Scheibe: 'Scheiben',
+  Flasche: 'Flaschen',
+  Tube: 'Tuben',
+  Prise: 'Prisen',
+}
+
 interface Menge {
   zahl: number
   einheit: string
@@ -82,7 +95,9 @@ function formatZahl(zahl: number): string {
 }
 
 export function formatMenge(menge: Menge): string {
-  return menge.einheit ? `${formatZahl(menge.zahl)} ${menge.einheit}` : formatZahl(menge.zahl)
+  if (!menge.einheit) return formatZahl(menge.zahl)
+  const einheit = menge.zahl === 1 ? menge.einheit : (PLURAL[menge.einheit] ?? menge.einheit)
+  return `${formatZahl(menge.zahl)} ${einheit}`
 }
 
 /**
@@ -90,8 +105,10 @@ export function formatMenge(menge: Menge): string {
  * dritter Zusatz nicht einfach hinten angehängt wird.
  */
 function teile(text: string): string[] {
+  // Nur am eigenen Trennzeichen schneiden: „500+ g“ und „16 (+1)“ sind eine
+  // Angabe, kein zusammengelegtes Paar.
   return text
-    .split('+')
+    .split(/\s\+\s/)
     .map((t) => t.trim())
     .filter(Boolean)
 }
