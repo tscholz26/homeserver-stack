@@ -1,0 +1,42 @@
+[
+  {
+    "id": "c2eae5ee-b9a9-4d86-86cf-653516136c9e",
+    "name": "Rewe Zschochersche Straße",
+    "listId": "msoyr62z-72e0a599",
+    "categoryOrder": [
+      "obst_gemuese",
+      "convenience_kuehl",
+      "brot_backwaren",
+      "fisch",
+      "fleisch_wurst",
+      "milch_kuehlwaren",
+      "nudeln_reis",
+      "backen_gewuerze",
+      "konserven",
+      "suesses_snacks",
+      "drogerie",
+      "tiefkuehl",
+      "getraenke"
+    ]
+  },
+  {
+    "id": "ccc87a3e-dfce-4e79-bf18-114120427fbe",
+    "name": "Rewe Felsenkeller",
+    "listId": "msoyr62z-72e0a599",
+    "categoryOrder": [
+      "obst_gemuese",
+      "brot_backwaren",
+      "suesses_snacks",
+      "convenience_kuehl",
+      "drogerie",
+      "milch_kuehlwaren",
+      "konserven",
+      "backen_gewuerze",
+      "nudeln_reis",
+      "fleisch_wurst",
+      "fisch",
+      "getraenke",
+      "tiefkuehl"
+    ]
+  }
+]

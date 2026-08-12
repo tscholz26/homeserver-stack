@@ -14,8 +14,8 @@ Handys gleichzeitig abgehakt. Erreichbar unter
   - `flach`: schlichte Liste ohne Kategorie-Überbau
 - **Eingabe** aus kleinem Mengenfeld (`2`, `500g`, `1 Pck.`) und großem
   Namensfeld; Enter oder „+“ trägt ein
-- **Zuordnung** über den mitgelieferten [Artikelkatalog](seed/artikelkatalog.json)
-  (303 Artikel, 1143 Schreibweisen) – komplett im Browser, ohne Nachladen:
+- **Zuordnung** über den [Artikelkatalog](export/katalog.json) (340 Artikel,
+  gut 1100 Schreibweisen) – komplett im Browser, ohne Nachladen:
   1. Normalisieren (klein, getrimmt, Mehrfach-Leerzeichen zusammengefasst)
   2. exakter Treffer auf Name oder Alias
   3. Teilstring in beide Richtungen, jeweils am Wortanfang (siehe unten)
@@ -79,39 +79,41 @@ Katalogartikel** seine Kategorie kam; die Detailansicht schreibt es hin.
 - Persistenz: `data/state.json` (atomar geschrieben), Katalog und Märkte
   zusätzlich in `export/katalog.json` fürs git
 
-### Wo die Daten liegen und was sie rettet
+### Wo die Daten liegen
 
-Jede Änderung landet sofort in `data/state.json`. Das Verzeichnis ist als
-Volume vom Host in den Container gehängt (`./data:/app/data`), liegt also
-außerhalb des Images: Neustart, Rebuild und `docker compose down` lassen die
-Daten unberührt. Geschrieben wird über eine temporäre Datei plus `rename`, ein
-Absturz mitten im Schreiben kann die Datei also nicht halb beschriftet
-hinterlassen.
+Vier Dateien, jede mit genau einer Aufgabe – alle auf dem Host, keine im Image:
 
-Zwei Dinge sind darin nicht ersetzbar: der **Katalog** und die **Märkte** –
-beides steckt in Monaten Nachpflege. Die aktuelle Einkaufsliste ist es dagegen
-schon (im Zweifel tippt man sie neu). Deshalb schreibt der Server nach jeder
-Änderung eine Kopie genau dieser beiden nach
-[export/katalog.json](export/katalog.json) – und **diese Datei liegt im git**:
+| Datei | Inhalt | im git |
+| --- | --- | --- |
+| `data/state.json` | die Einkaufslisten und die Historie nicht zugeordneter Namen | nein |
+| `export/katalog.json` | der Artikelkatalog | **ja** |
+| `export/maerkte.json` | die Märkte (Kategorie-Reihenfolge je Filiale) | **ja** |
+| `export/rezepte.json` | das Rezeptbuch | **ja** |
 
-```sh
-git add einkaufsliste/export/katalog.json && git commit -m "Katalogstand"
-```
+Die drei Dateien unter `export/` **sind** die Daten – keine Kopie, kein Seed,
+aus dem etwas nachgezogen wird, keine zweite Fassung im State. Was im
+Arbeitsverzeichnis steht, ist genau das, was die App gerade benutzt; ein
+`git diff` zeigt, was sich seit dem letzten Commit geändert hat.
 
-Fehlt `data/state.json` beim Start (neuer Rechner, geleertes Volume), holt sich
-der Server Katalog, Märkte und Rezepte von dort zurück; die Listen sind dann
-leer. Nachgeladen aus dem Seed wird anschließend nur, was auch dort noch fehlt.
+**Wann wird geschrieben?** Sofort im selben Request. Kein Puffer, kein
+Zeitplan: was in der App zu sehen ist, steht auf der Platte. Geschrieben wird
+über eine temporäre Datei plus `rename` (ein Absturz mitten im Schreiben kann
+also nichts halb beschriften) und nur, wenn sich am Inhalt etwas geändert hat –
+ein Haken auf der Einkaufsliste fasst `katalog.json` nicht an.
 
-**Wann wird geschrieben?** Sofort bei jeder Änderung – Haken, neuer Artikel,
-Rezept gespeichert: derselbe Request schreibt `data/state.json` und, wenn
-Katalog, Märkte oder Rezepte betroffen sind, die Dateien unter `export/`. Es
-gibt keinen Puffer und keinen Zeitplan, nach dem noch etwas verloren gehen
-könnte. Der Container hält nichts im Speicher zurück; ein `docker compose down`
-oder ein Absturz kostet nichts, was schon in der App zu sehen war.
+**Andersherum genauso**: der Server beobachtet das Verzeichnis. Wird eine der
+drei Dateien ersetzt – von Hand oder mit `git checkout` – liest er sie neu ein
+und schickt den Stand an alle offenen Geräte. Ein Neustart ist dafür nicht
+nötig. Das läuft über inotify, kostet im Leerlauf also nichts; eigene
+Schreibvorgänge erkennt er am Inhalt und ignoriert sie.
 
-**Ins git kommen die Dateien nicht von allein** – das wäre ein Commit pro
-Einkauf. Dafür gibt es [scripts/katalog-sichern.sh](scripts/katalog-sichern.sh):
-es committet ausschließlich die beiden Dateien unter `export/`, wenn sich etwas
+Der Container läuft als `1000:1000` (siehe
+[docker-compose.yml](docker-compose.yml)), damit die Dateien dir gehören und
+nicht root – sonst käme weder der Editor noch `git checkout` an sie heran.
+
+**Ins git kommen sie nicht von allein** – das wäre ein Commit pro Einkauf.
+Dafür gibt es [scripts/katalog-sichern.sh](scripts/katalog-sichern.sh): es
+committet ausschließlich die drei Dateien unter `export/`, wenn sich etwas
 geändert hat, und pusht nicht (das Repo ist öffentlich). Ein systemd-Timer
 erledigt das täglich um 03:20, zehn Minuten bevor `backup-sync` die Backups der
 anderen Apps in die Nextcloud lädt:
@@ -123,15 +125,14 @@ systemctl list-timers einkauf-katalog.timer      # Kontrolle
 einkaufsliste/scripts/katalog-sichern.sh         # oder jederzeit von Hand
 ```
 
-Der Seed (`seed/artikelkatalog.json`) ist davon unberührt: er ist der
-Auslieferungszustand des Katalogs für einen leeren Server. Wer dort etwas
-einträgt, ergänzt den Startbestand – beim nächsten Start übernimmt der Server,
-was in `data/state.json` noch fehlt. **Für Rezepte gibt es keinen Seed**, siehe
-unten.
+Im `seed/` liegt nur noch Konfiguration: die Kategorien
+([kategorien.json](seed/kategorien.json)) und die Rezeptgruppen
+([rezeptgruppen.json](seed/rezeptgruppen.json)). Sie sind ins Image gebacken und
+ändern sich nur mit einem Deploy.
 
-Ein regelmäßiges Backup des ganzen Stands gibt es damit bewusst nicht mehr – es
-hätte nur die Einkaufsliste zusätzlich gesichert, dafür aber die komplette Liste
-mit ins (öffentliche) Repo gezogen. Das alte Verzeichnis `backups/` kann weg.
+Ein regelmäßiges Backup des ganzen Stands gibt es bewusst nicht: die Listen
+selbst sind ersetzbar, alles andere liegt im git. Das alte Verzeichnis
+`backups/` kann weg.
 
 ### API
 
@@ -158,23 +159,17 @@ mit ins (öffentliche) Repo gezogen. Das alte Verzeichnis `backups/` kann weg.
 
 ### Kategorien und Katalog
 
-Beides liegt als Datei im Image und geht über `/api/state` an den Browser, steht
-also nirgends doppelt im Code:
+Die **Kategorien** liegen als Konfiguration im Image
+([seed/kategorien.json](seed/kategorien.json) – ID, Emoji, Label) und gehen über
+`/api/state` an den Browser, stehen also nirgends doppelt im Code. **Die
+Reihenfolge dieser Datei ist die Standard-Reihenfolge im Laden**, `sonstiges`
+hängt immer hinten und wird nie umsortiert.
 
-- [seed/kategorien.json](seed/kategorien.json) – ID, Emoji, Label. **Die
-  Reihenfolge dieser Datei ist die Standard-Reihenfolge im Laden**, `sonstiges`
-  hängt immer hinten und wird nie umsortiert.
-- [seed/artikelkatalog.json](seed/artikelkatalog.json) – `{ name, aliases,
-  category_id }`.
+Der **Katalog** steht in `export/katalog.json` – einer schlichten Liste aus
+`{ name, aliases, category_id }`. Gelöscht ist gelöscht: es gibt keinen Seed
+mehr, aus dem ein Artikel zurückkäme.
 
-Der Katalog in `data/state.json` ist die Wahrheit (gesichert in
-`export/katalog.json`). Beim ersten Start wird er aus dem Seed befüllt, danach
-liefert der Seed nur noch nach, was dort fehlt –
-also genau die Artikel, die mit einem Update dazukommen. Gelöschte Artikel
-bleiben gelöscht (`removedSeedNames`), sonst stünden sie nach jedem Neustart
-wieder da.
-
-In der Verwaltung steht deshalb der **komplette** Katalog: suchen, Kategorie
+In der Verwaltung steht der **komplette** Katalog: suchen, Kategorie
 umstellen, Schreibweisen ergänzen oder wegwerfen, Artikel anlegen oder löschen.
 Ohne Suchbegriff zeigt die Liste nichts – bei 300 Artikeln führt nur die Suche
 zum Ziel.
@@ -198,11 +193,8 @@ einsortiert würde.
 
 ### Rezepte und was beim Zusammentreffen passiert
 
-Das Rezeptbuch steht in **genau einer Datei**:
-[export/rezepte.json](export/rezepte.json). Kein Seed, aus dem etwas nachgezogen
-wird, keine zweite Kopie im State – die Datei *ist* das Rezeptbuch. Sie liegt
-auf dem Host (Volume) und im git, und sie ist eine schlichte Liste, in die sich
-von Hand schreiben lässt:
+Das Rezeptbuch steht in [export/rezepte.json](export/rezepte.json) – wie
+Katalog und Märkte eine schlichte Liste:
 
 ```jsonc
 [{ "name": "Porridge", "group": "vorrat",

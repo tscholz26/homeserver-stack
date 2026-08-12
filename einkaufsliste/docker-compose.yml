@@ -4,10 +4,15 @@ services:
     container_name: einkaufsliste
     restart: unless-stopped
 
+    # Als tristans laufen, damit data/ und export/ ihm gehören: sonst schreibt
+    # root in den Arbeitsbaum und weder Editor noch `git checkout` kommen an die
+    # Dateien heran.
+    user: "1000:1000"
+
     volumes:
-      # Der Live-Stand (Listen, Katalog, Märkte) …
+      # Die Einkaufslisten selbst …
       - ./data:/app/data
-      # … und die Kopie von Katalog und Märkten, die im git liegt
+      # … und Katalog, Märkte und Rezeptbuch – die drei Dateien im git
       - ./export:/app/export
 
     networks:

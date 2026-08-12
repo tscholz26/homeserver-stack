@@ -8,7 +8,8 @@ const DATA_DIR = join(__dirname, 'data')
 const STATE_FILE = join(DATA_DIR, 'state.json')
 const SEED_DIR = join(__dirname, 'seed')
 const EXPORT_DIR = join(__dirname, 'export')
-const EXPORT_FILE = join(EXPORT_DIR, 'katalog.json')
+const KATALOG_FILE = join(EXPORT_DIR, 'katalog.json')
+const MARKT_FILE = join(EXPORT_DIR, 'maerkte.json')
 const REZEPT_FILE = join(EXPORT_DIR, 'rezepte.json')
 const PORT = Number(process.env.PORT) || 2608
 
@@ -22,7 +23,6 @@ mkdirSync(EXPORT_DIR, { recursive: true })
 const SEED_CATEGORIES = JSON.parse(
   readFileSync(join(SEED_DIR, 'kategorien.json'), 'utf8'),
 ).categories
-const SEED_CATALOG = JSON.parse(readFileSync(join(SEED_DIR, 'artikelkatalog.json'), 'utf8'))
 const SEED_RECIPE_GROUPS = JSON.parse(
   readFileSync(join(SEED_DIR, 'rezeptgruppen.json'), 'utf8'),
 ).groups
@@ -55,15 +55,8 @@ function defaultState() {
       { id: createId(), name: 'Lebensmittel', type: 'kategorisiert', items: [] },
       { id: createId(), name: 'Drogerie', type: 'flach', items: [] },
     ],
-    // Der komplette Katalog, beim ersten Start aus dem Seed befüllt und danach
-    // in der Verwaltung frei bearbeitbar
-    catalog: [],
-    // Aus dem Seed gelöschte Artikel bzw. Rezepte: sonst wären sie beim
-    // nächsten Start wieder da (siehe seedNachziehen)
-    removedSeedNames: [],
+    // Namen, die einmal eingetippt und nie zugeordnet wurden
     unmatched: [],
-    // Kategorie-Reihenfolge pro Filiale, gepflegt in der Verwaltung
-    storeProfiles: [],
   }
 }
 
@@ -125,17 +118,14 @@ function normalizeProfile(p) {
 // Wirft bei einer kaputten Datei, statt auf einen leeren Stand zurückzufallen –
 // ein Lesefehler darf nie dazu führen, dass die Daten mit nichts überschrieben
 // werden.
+// In state.json stehen nur noch die Einkaufslisten und die Historie der nicht
+// zugeordneten Namen – alles Weitere lebt in den Dateien unter export/.
 function readState() {
   if (!existsSync(STATE_FILE)) return defaultState()
   const parsed = JSON.parse(readFileSync(STATE_FILE, 'utf8'))
   return {
     lists: Array.isArray(parsed.lists) ? parsed.lists.map(normalizeList) : [],
-    catalog: Array.isArray(parsed.catalog) ? parsed.catalog : [],
-    removedSeedNames: Array.isArray(parsed.removedSeedNames) ? parsed.removedSeedNames : [],
     unmatched: Array.isArray(parsed.unmatched) ? parsed.unmatched : [],
-    storeProfiles: Array.isArray(parsed.storeProfiles)
-      ? parsed.storeProfiles.map(normalizeProfile)
-      : [],
   }
 }
 
@@ -145,18 +135,14 @@ function writeState(data) {
   const tmp = `${STATE_FILE}.tmp`
   writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf8')
   renameSync(tmp, STATE_FILE)
-  exportKatalog(data)
 }
 
-// ── Katalog fürs git ──────────────────────────────────────────────────────────
-// Die eigentliche Einkaufsliste ist ersetzbar, Katalog und Märkte sind es nicht:
-// die stecken in Monaten Nachpflege. Deshalb liegen genau die beiden in einer
-// eigenen Datei, die – anders als data/ – ins git gehört und den Rechner damit
-// verlassen kann.
+// ── Die Dateien unter export/ ────────────────────────────────────────────────
+// Katalog, Märkte und Rezeptbuch stehen in je einer Datei. Die Datei *ist* die
+// Wahrheit – es gibt keine zweite Kopie im State und keinen Seed, aus dem etwas
+// nachgezogen wird. Damit ist der Stand im Arbeitsverzeichnis immer der, den
+// die App gerade benutzt, und ein `git diff` zeigt genau, was sich geändert hat.
 const letzterStand = new Map()
-for (const datei of [EXPORT_FILE, REZEPT_FILE]) {
-  if (existsSync(datei)) letzterStand.set(datei, readFileSync(datei, 'utf8'))
-}
 
 function schreibeWennNeu(datei, daten) {
   try {
@@ -168,161 +154,106 @@ function schreibeWennNeu(datei, daten) {
     letzterStand.set(datei, inhalt)
     console.log(`[einkaufsliste] ${datei.split('/').pop()} geschrieben`)
   } catch (err) {
-    // Ein fehlgeschlagener Export darf die Änderung selbst nicht kippen
-    console.error('[einkaufsliste] Export fehlgeschlagen:', err.message)
+    // Ein fehlgeschlagener Schreibvorgang darf die Änderung selbst nicht kippen
+    console.error('[einkaufsliste] Schreiben fehlgeschlagen:', err.message)
   }
 }
 
-function exportKatalog(state) {
-  schreibeWennNeu(EXPORT_FILE, { catalog: state.catalog, storeProfiles: state.storeProfiles })
-}
-
-// ── Rezeptbuch ────────────────────────────────────────────────────────────────
-// Das Rezeptbuch steht in genau einer Datei: export/rezepte.json. Kein Seed, aus
-// dem etwas nachgezogen wird, keine zweite Kopie im State – wer die Datei von
-// Hand ergänzt, ergänzt damit das Rezeptbuch selbst. Sie liegt im git und auf
-// dem Host, überlebt also jeden Rebuild.
-let recipes = []
-
-function leseRezepte() {
-  if (!existsSync(REZEPT_FILE)) return []
+/** Liest eine Datei als Liste – schlicht `[…]` oder `{ "schluessel": […] }`. */
+function leseListe(datei, schluessel, normalisiere) {
+  if (!existsSync(datei)) return []
   try {
-    const roh = JSON.parse(readFileSync(REZEPT_FILE, 'utf8'))
-    // Von Hand geschrieben wird eine schlichte Liste; die frühere Fassung
-    // packte sie in ein Objekt – beides wird gelesen.
-    const liste = Array.isArray(roh) ? roh : Array.isArray(roh.recipes) ? roh.recipes : []
-    return liste.map((r) => normalizeRecipe({ ...r, id: r.id || createId() }))
+    const roh = JSON.parse(readFileSync(datei, 'utf8'))
+    const liste = Array.isArray(roh) ? roh : Array.isArray(roh[schluessel]) ? roh[schluessel] : []
+    letzterStand.set(datei, readFileSync(datei, 'utf8'))
+    return normalisiere ? liste.map(normalisiere) : liste
   } catch (err) {
-    console.error('[einkaufsliste] Rezeptbuch nicht lesbar:', err.message)
-    return recipes
+    console.error(`[einkaufsliste] ${datei.split('/').pop()} nicht lesbar:`, err.message)
+    return []
   }
 }
 
-function schreibeRezepte() {
-  schreibeWennNeu(REZEPT_FILE, recipes)
+const buch = { catalog: [], storeProfiles: [], recipes: [] }
+
+function leseBuch() {
+  buch.catalog = leseListe(KATALOG_FILE, 'catalog')
+  buch.storeProfiles = leseListe(MARKT_FILE, 'storeProfiles', normalizeProfile)
+  buch.recipes = leseListe(REZEPT_FILE, 'recipes', (r) =>
+    normalizeRecipe({ ...r, id: r.id || createId() }),
+  )
 }
 
-/**
- * Umgekehrter Weg: ohne data/state.json (neuer Rechner, geleertes Volume)
- * kommen Katalog und Märkte aus dem git zurück. Die Listen sind dann leer –
- * genau die sind auch das Ersetzbare.
- */
-function restoreAusExport(state) {
-  if (!existsSync(EXPORT_FILE)) return
-  try {
-    const gesichert = JSON.parse(readFileSync(EXPORT_FILE, 'utf8'))
-    if (Array.isArray(gesichert.catalog)) state.catalog = gesichert.catalog
-    if (Array.isArray(gesichert.storeProfiles)) {
-      // Die Listen sind neu und haben neue IDs; Märkte hängen an der ersten
-      // kategorisierten Liste, statt ins Leere zu zeigen.
-      const ziel = state.lists.find((l) => l.type === 'kategorisiert')
-      state.storeProfiles = gesichert.storeProfiles
-        .map((p) => normalizeProfile({ ...p, listId: ziel?.id }))
-        .filter((p) => p.listId)
+function schreibeBuch() {
+  schreibeWennNeu(KATALOG_FILE, buch.catalog)
+  schreibeWennNeu(MARKT_FILE, buch.storeProfiles)
+  schreibeWennNeu(REZEPT_FILE, buch.recipes)
+}
+
+leseBuch()
+
+// Einmalige Übernahme aus der Zeit, als das alles im State stand. Zusammen-
+// geführt statt ersetzt: hinkt eine Datei hinterher, geht nichts verloren.
+try {
+  const alt = JSON.parse(readFileSync(STATE_FILE, 'utf8'))
+  let uebernommen = []
+
+  if (Array.isArray(alt.catalog)) {
+    const bekannt = new Set(buch.catalog.map((e) => normalize(e.name)))
+    const dazu = alt.catalog.filter((e) => !bekannt.has(normalize(e.name)))
+    if (dazu.length) {
+      buch.catalog = [...buch.catalog, ...dazu]
+      uebernommen.push(`${dazu.length} Artikel`)
     }
-    console.log(`[einkaufsliste] Katalog aus dem git übernommen (${state.catalog.length} Artikel)`)
-  } catch (err) {
-    console.error('[einkaufsliste] Export nicht lesbar:', err.message)
   }
+  if (Array.isArray(alt.storeProfiles) && buch.storeProfiles.length === 0) {
+    buch.storeProfiles = alt.storeProfiles.map(normalizeProfile)
+    if (buch.storeProfiles.length) uebernommen.push(`${buch.storeProfiles.length} Märkte`)
+  }
+  if (Array.isArray(alt.recipes)) {
+    const bekannt = new Set(buch.recipes.map((r) => normalize(r.name)))
+    const dazu = alt.recipes
+      .filter((r) => !bekannt.has(normalize(r.name)))
+      .map((r) => normalizeRecipe({ ...r, id: r.id || createId() }))
+    if (dazu.length) {
+      buch.recipes = [...buch.recipes, ...dazu]
+      uebernommen.push(`${dazu.length} Rezepte`)
+    }
+  }
+  if (uebernommen.length) {
+    console.log(`[einkaufsliste] aus dem alten State übernommen: ${uebernommen.join(', ')}`)
+  }
+  if ('catalog' in alt || 'recipes' in alt || 'storeProfiles' in alt || 'removedSeedNames' in alt) {
+    writeState(readState())
+    console.log('[einkaufsliste] state.json enthält jetzt nur noch Listen und Historie')
+  }
+} catch {
+  /* keine oder keine lesbare state.json – dann zählen allein die Dateien */
 }
+
+schreibeBuch()
+console.log(
+  `[einkaufsliste] ${buch.catalog.length} Artikel, ${buch.storeProfiles.length} Märkte, ${buch.recipes.length} Rezepte`,
+)
 
 // Beim allerersten Start einmal festschreiben: sonst würde jeder Aufruf neue
 // IDs für die beiden Standardlisten erfinden, und zwei Geräte hätten
 // unterschiedliche Listen vor sich.
-if (!existsSync(STATE_FILE)) {
-  const start = defaultState()
-  restoreAusExport(start)
-  writeState(start)
-}
+if (!existsSync(STATE_FILE)) writeState(defaultState())
 
-/**
- * Der Katalog in data/state.json ist die Wahrheit; der Seed liefert nur nach,
- * was dort noch fehlt. Beim ersten Start ist das der komplette Seed, später
- * genau die Artikel, die mit einem Update dazugekommen sind – gelöschte bleiben
- * gelöscht.
- */
-function seedNachziehen() {
-  // Eine kaputte state.json darf den Start nicht verhindern – dann meldet sich
-  // stattdessen jeder API-Aufruf mit dem Fehler.
-  let state
-  try {
-    state = readState()
-  } catch (err) {
-    console.error('[einkaufsliste] Seed-Abgleich übersprungen:', err.message)
-    return
-  }
-  const bekannt = new Set([
-    ...state.catalog.map((e) => normalize(e.name)),
-    ...state.removedSeedNames.map(normalize),
-  ])
-  const fehlend = SEED_CATALOG.filter((e) => !bekannt.has(normalize(e.name)))
-  if (fehlend.length === 0) return
-
-  state.catalog = [...state.catalog, ...fehlend.map((e) => ({ ...e, aliases: [...e.aliases] }))]
-  writeState(state)
-  console.log(`[einkaufsliste] ${fehlend.length} Artikel aus dem Seed übernommen`)
-}
-
-seedNachziehen()
-
-// Einmal beim Start, damit export/katalog.json auch dann aktuell ist, wenn seit
-// dem letzten Deploy niemand etwas geändert hat.
-try {
-  exportKatalog(readState())
-} catch (err) {
-  console.error('[einkaufsliste] Export beim Start fehlgeschlagen:', err.message)
-}
-
-// ── Rezeptbuch laden ──────────────────────────────────────────────────────────
-recipes = leseRezepte()
-
-// Einmalige Übernahme aus der Zeit, als die Rezepte noch im State standen.
-// Zusammengeführt statt ersetzt: sollte die Datei einmal hinterherhinken, geht
-// dabei kein Rezept verloren.
-try {
-  const alt = JSON.parse(readFileSync(STATE_FILE, 'utf8')).recipes
-  if (Array.isArray(alt) && alt.length) {
-    const bekannt = new Set(recipes.map((r) => normalize(r.name)))
-    const dazu = alt
-      .filter((r) => !bekannt.has(normalize(r.name)))
-      .map((r) => normalizeRecipe({ ...r, id: r.id || createId() }))
-    if (dazu.length) {
-      recipes = [...recipes, ...dazu]
-      console.log(`[einkaufsliste] ${dazu.length} Rezepte aus dem alten State übernommen`)
-    }
-  }
-} catch {
-  /* keine oder keine lesbare state.json – dann zählt allein die Datei */
-}
-schreibeRezepte()
-console.log(`[einkaufsliste] Rezeptbuch: ${recipes.length} Rezepte`)
-
-// Aufräumen: solange die Rezepte im State standen, lagen sie doppelt da.
-// readState liest sie nicht mehr, ein Schreibvorgang wirft sie endgültig raus.
-try {
-  const roh = JSON.parse(readFileSync(STATE_FILE, 'utf8'))
-  if ('recipes' in roh || 'removedSeedRecipes' in roh) {
-    writeState(readState())
-    console.log(
-      '[einkaufsliste] Rezepte aus state.json entfernt – sie stehen jetzt nur noch in export/rezepte.json',
-    )
-  }
-} catch {
-  /* ohne state.json gibt es nichts aufzuräumen */
-}
-
-// Wer die Datei von Hand ergänzt, soll nicht den Container neu starten müssen.
-// Beobachtet wird das Verzeichnis, weil atomares Schreiben die Datei ersetzt.
+// Wer eine der Dateien ersetzt – von Hand oder mit `git checkout` –, soll dafür
+// den Container nicht neu starten müssen. Beobachtet wird das Verzeichnis, weil
+// atomares Schreiben die Datei ersetzt (neuer Inode).
 let nachladen
 watch(EXPORT_DIR, (_event, datei) => {
-  if (datei && !String(datei).startsWith('rezepte.json')) return
+  const name = String(datei ?? '')
+  if (!['katalog.json', 'maerkte.json', 'rezepte.json'].includes(name)) return
   clearTimeout(nachladen)
   nachladen = setTimeout(() => {
-    const jetzt = existsSync(REZEPT_FILE) ? readFileSync(REZEPT_FILE, 'utf8') : ''
-    if (jetzt === letzterStand.get(REZEPT_FILE)) return // unser eigener Schreibvorgang
-    recipes = leseRezepte()
-    letzterStand.set(REZEPT_FILE, jetzt)
-    console.log(`[einkaufsliste] Rezeptbuch neu gelesen: ${recipes.length} Rezepte`)
+    const pfad = join(EXPORT_DIR, name)
+    const jetzt = existsSync(pfad) ? readFileSync(pfad, 'utf8') : ''
+    if (jetzt === letzterStand.get(pfad)) return // unser eigener Schreibvorgang
+    leseBuch()
+    console.log(`[einkaufsliste] ${name} neu gelesen`)
     try {
       broadcast(readState())
     } catch (err) {
@@ -336,11 +267,11 @@ function publicState(state) {
     lists: state.lists,
     categories: SEED_CATEGORIES,
     defaultCategoryOrder: DEFAULT_CATEGORY_ORDER,
-    catalog: state.catalog,
-    recipes,
+    catalog: buch.catalog,
+    recipes: buch.recipes,
     recipeGroups: SEED_RECIPE_GROUPS,
     unmatched: state.unmatched,
-    storeProfiles: state.storeProfiles,
+    storeProfiles: buch.storeProfiles,
   }
 }
 
@@ -367,6 +298,7 @@ function mutate(req, res, apply) {
       return res.status(result.reject.status).json({ error: result.reject.error })
     }
     writeState(state)
+    schreibeBuch()
     broadcast(state)
     res.json(publicState(state))
   } catch (err) {
@@ -451,7 +383,7 @@ app.put('/api/lists/:listId', (req, res) => {
 app.delete('/api/lists/:listId', (req, res) => {
   mutate(req, res, (state) => {
     state.lists = state.lists.filter((x) => x.id !== req.params.listId)
-    state.storeProfiles = state.storeProfiles.filter((p) => p.listId !== req.params.listId)
+    buch.storeProfiles = buch.storeProfiles.filter((p) => p.listId !== req.params.listId)
   })
 })
 
@@ -461,8 +393,8 @@ app.put('/api/lists/:listId/store-profile', (req, res) => {
   if (storeProfileId !== null && typeof storeProfileId !== 'string') {
     return res.status(400).json({ error: 'Invalid payload' })
   }
-  mutateList(req, res, (list, state) => {
-    if (storeProfileId && !state.storeProfiles.some((p) => p.id === storeProfileId)) {
+  mutateList(req, res, (list) => {
+    if (storeProfileId && !buch.storeProfiles.some((p) => p.id === storeProfileId)) {
       return { reject: { status: 404, error: 'Ladenprofil nicht gefunden.' } }
     }
     list.storeProfileId = storeProfileId
@@ -478,11 +410,11 @@ app.post('/api/store-profiles', (req, res) => {
     return res.status(400).json({ error: 'Invalid payload' })
   }
   mutate(req, res, (state) => {
-    if (state.storeProfiles.some((x) => x.id === p.id)) return
+    if (buch.storeProfiles.some((x) => x.id === p.id)) return
     if (!state.lists.some((l) => l.id === p.listId)) {
       return { reject: { status: 404, error: 'Liste nicht gefunden.' } }
     }
-    state.storeProfiles.push(
+    buch.storeProfiles.push(
       normalizeProfile({
         id: p.id,
         name: p.name.trim(),
@@ -501,8 +433,8 @@ app.put('/api/store-profiles/:id', (req, res) => {
   if (categoryOrder !== undefined && !Array.isArray(categoryOrder)) {
     return res.status(400).json({ error: 'Invalid payload' })
   }
-  mutate(req, res, (state) => {
-    const profile = state.storeProfiles.find((x) => x.id === req.params.id)
+  mutate(req, res, () => {
+    const profile = buch.storeProfiles.find((x) => x.id === req.params.id)
     if (!profile) return { reject: { status: 404, error: 'Markt nicht gefunden.' } }
     if (name !== undefined) profile.name = name.trim()
     if (categoryOrder !== undefined) {
@@ -515,7 +447,7 @@ app.put('/api/store-profiles/:id', (req, res) => {
 
 app.delete('/api/store-profiles/:id', (req, res) => {
   mutate(req, res, (state) => {
-    state.storeProfiles = state.storeProfiles.filter((x) => x.id !== req.params.id)
+    buch.storeProfiles = buch.storeProfiles.filter((x) => x.id !== req.params.id)
     // Listen, die gerade auf diesem Markt standen, fallen auf den Standard
     for (const list of state.lists) {
       if (list.storeProfileId === req.params.id) list.storeProfileId = null
@@ -637,36 +569,16 @@ function pruefeRezept(r) {
   return null
 }
 
-/**
- * Wie `mutate`, nur fürs Rezeptbuch: ändern, in die eine Datei schreiben, an
- * alle Geräte melden. Der Listen-State bleibt dabei unangetastet.
- */
-function mutateRecipes(req, res, apply) {
-  try {
-    const result = apply() || {}
-    if (result.reject) {
-      return res.status(result.reject.status).json({ error: result.reject.error })
-    }
-    schreibeRezepte()
-    const state = readState()
-    broadcast(state)
-    res.json(publicState(state))
-  } catch (err) {
-    console.error('[einkaufsliste] Rezept-Änderung fehlgeschlagen:', err.message)
-    res.status(500).json({ error: err.message })
-  }
-}
-
 app.post('/api/recipes', (req, res) => {
   const fehler = pruefeRezept(req.body)
   if (fehler) return res.status(400).json({ error: fehler })
-  mutateRecipes(req, res, () => {
+  mutate(req, res, () => {
     const r = normalizeRecipe({ ...req.body, id: req.body.id || createId() })
-    if (recipes.some((x) => x.id === r.id)) return
-    if (recipes.some((x) => normalize(x.name) === normalize(r.name))) {
+    if (buch.recipes.some((x) => x.id === r.id)) return
+    if (buch.recipes.some((x) => normalize(x.name) === normalize(r.name))) {
       return { reject: { status: 409, error: 'Dieses Rezept gibt es schon.' } }
     }
-    recipes.push(r)
+    buch.recipes.push(r)
   })
 })
 
@@ -680,9 +592,9 @@ app.put('/api/recipes/order', (req, res) => {
   if (!Array.isArray(ids) || ids.some((id) => typeof id !== 'string')) {
     return res.status(400).json({ error: 'Invalid payload' })
   }
-  mutateRecipes(req, res, () => {
+  mutate(req, res, () => {
     const rang = new Map(ids.map((id, index) => [id, index]))
-    recipes = [...recipes].sort(
+    buch.recipes = [...buch.recipes].sort(
       (a, b) => (rang.get(a.id) ?? Infinity) - (rang.get(b.id) ?? Infinity),
     )
   })
@@ -691,11 +603,11 @@ app.put('/api/recipes/order', (req, res) => {
 app.put('/api/recipes/:id', (req, res) => {
   const fehler = pruefeRezept({ name: 'x', ...req.body })
   if (fehler) return res.status(400).json({ error: fehler })
-  mutateRecipes(req, res, () => {
-    const rezept = recipes.find((x) => x.id === req.params.id)
+  mutate(req, res, () => {
+    const rezept = buch.recipes.find((x) => x.id === req.params.id)
     if (!rezept) return { reject: { status: 404, error: 'Rezept nicht gefunden.' } }
     const neu = normalizeRecipe({ ...rezept, ...req.body, id: rezept.id })
-    if (recipes.some((x) => x.id !== rezept.id && normalize(x.name) === normalize(neu.name))) {
+    if (buch.recipes.some((x) => x.id !== rezept.id && normalize(x.name) === normalize(neu.name))) {
       return { reject: { status: 409, error: 'Dieses Rezept gibt es schon.' } }
     }
     Object.assign(rezept, neu)
@@ -703,8 +615,8 @@ app.put('/api/recipes/:id', (req, res) => {
 })
 
 app.delete('/api/recipes/:id', (req, res) => {
-  mutateRecipes(req, res, () => {
-    recipes = recipes.filter((x) => x.id !== req.params.id)
+  mutate(req, res, () => {
+    buch.recipes = buch.recipes.filter((x) => x.id !== req.params.id)
   })
 })
 
@@ -794,21 +706,20 @@ app.post('/api/catalog', (req, res) => {
     const key = normalize(clean)
     // Schon vorhandene Schreibweisen bleiben erhalten – auch die eines
     // Seed-Artikels, der hier nur eine andere Kategorie bekommt.
-    const vorher = state.catalog.find((e) => normalize(e.name) === key)
+    const vorher = buch.catalog.find((e) => normalize(e.name) === key)
     const gemerkt = new Set([
       ...(vorher?.aliases ?? []),
       ...(Array.isArray(aliases) ? aliases.filter((a) => typeof a === 'string') : []),
     ])
-    state.catalog = state.catalog.filter((e) => normalize(e.name) !== key)
-    state.catalog.push({ name: clean, aliases: [...gemerkt], category_id: categoryId })
+    buch.catalog = buch.catalog.filter((e) => normalize(e.name) !== key)
+    buch.catalog.push({ name: clean, aliases: [...gemerkt], category_id: categoryId })
     state.unmatched = state.unmatched.filter((u) => normalize(u.name) !== key)
     applyToUnmatchedItems(state, clean, categoryId, clean)
   })
 })
 
 // Hängt eine weitere Schreibweise an einen bestehenden Artikel. Bei einem
-// Seed-Artikel entsteht dabei eine eigene Kopie in state.catalog, die den Seed
-// überdeckt – der Seed selbst bleibt unangetastet und aktualisierbar.
+// Der Katalog steht in genau einer Datei; die Änderung landet direkt dort.
 app.post('/api/catalog/alias', (req, res) => {
   const { name, alias } = req.body || {}
   if (typeof name !== 'string' || !name.trim() || typeof alias !== 'string' || !alias.trim()) {
@@ -816,7 +727,7 @@ app.post('/api/catalog/alias', (req, res) => {
   }
   mutate(req, res, (state) => {
     const key = normalize(name)
-    const eintrag = state.catalog.find((e) => normalize(e.name) === key)
+    const eintrag = buch.catalog.find((e) => normalize(e.name) === key)
     if (!eintrag) return { reject: { status: 404, error: 'Artikel nicht im Katalog.' } }
 
     const sauber = alias.trim()
@@ -828,8 +739,8 @@ app.post('/api/catalog/alias', (req, res) => {
     const aliase = eintrag.aliases.filter((a) => normalize(a) !== aliasKey)
     aliase.push(sauber)
 
-    state.catalog = state.catalog.filter((e) => normalize(e.name) !== key)
-    state.catalog.push({
+    buch.catalog = buch.catalog.filter((e) => normalize(e.name) !== key)
+    buch.catalog.push({
       name: eintrag.name,
       aliases: aliase,
       category_id: eintrag.category_id,
@@ -863,27 +774,24 @@ function sauberEintrag(e) {
 app.put('/api/catalog', (req, res) => {
   const fehler = pruefeEintrag(req.body)
   if (fehler) return res.status(400).json({ error: fehler })
-  mutate(req, res, (state) => {
+  mutate(req, res, () => {
     const eintrag = sauberEintrag(req.body)
     const key = normalize(eintrag.name)
-    state.catalog = state.catalog.filter((e) => normalize(e.name) !== key)
-    state.catalog.push(eintrag)
+    buch.catalog = buch.catalog.filter((e) => normalize(e.name) !== key)
+    buch.catalog.push(eintrag)
   })
 })
 
-// Artikel aus dem Katalog werfen. Kam er aus dem Seed, wird das vermerkt –
-// sonst stünde er beim nächsten Start wieder da.
+// Artikel aus dem Katalog werfen. Ohne Seed im Rücken ist er damit weg – die
+// alte Rückkehr beim nächsten Start gibt es nicht mehr.
 app.delete('/api/catalog', (req, res) => {
   const { name } = req.body || {}
   if (typeof name !== 'string' || !name.trim()) {
     return res.status(400).json({ error: 'Invalid payload' })
   }
-  mutate(req, res, (state) => {
+  mutate(req, res, () => {
     const key = normalize(name)
-    state.catalog = state.catalog.filter((e) => normalize(e.name) !== key)
-    if (SEED_CATALOG.some((e) => normalize(e.name) === key)) {
-      state.removedSeedNames.push(name.trim())
-    }
+    buch.catalog = buch.catalog.filter((e) => normalize(e.name) !== key)
   })
 })
 
