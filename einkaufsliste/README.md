@@ -111,18 +111,23 @@ oder ein Absturz kostet nichts, was schon in der App zu sehen war.
 
 **Ins git kommen die Dateien nicht von allein** – das wäre ein Commit pro
 Einkauf. Dafür gibt es [scripts/katalog-sichern.sh](scripts/katalog-sichern.sh):
-es committet ausschließlich die beiden Export-Dateien, wenn sich etwas geändert
-hat, und pusht nicht (das Repo ist öffentlich).
+es committet ausschließlich die beiden Dateien unter `export/`, wenn sich etwas
+geändert hat, und pusht nicht (das Repo ist öffentlich). Ein systemd-Timer
+erledigt das täglich um 03:20, zehn Minuten bevor `backup-sync` die Backups der
+anderen Apps in die Nextcloud lädt:
 
 ```sh
-einkaufsliste/scripts/katalog-sichern.sh          # von Hand
-0 3 * * * /home/tristans/homeserver-stack/einkaufsliste/scripts/katalog-sichern.sh   # oder per cron
+sudo cp scripts/einkauf-katalog.service scripts/einkauf-katalog.timer /etc/systemd/system/
+sudo systemctl enable --now einkauf-katalog.timer
+systemctl list-timers einkauf-katalog.timer      # Kontrolle
+einkaufsliste/scripts/katalog-sichern.sh         # oder jederzeit von Hand
 ```
 
-Der Seed (`seed/rezepte.json`, `seed/artikelkatalog.json`) ist davon unberührt:
-er ist der Auslieferungszustand für einen leeren Server. Wer dort etwas
-einträgt, ergänzt damit den Startbestand – beim nächsten Start übernimmt der
-Server, was in `data/state.json` noch fehlt.
+Der Seed (`seed/artikelkatalog.json`) ist davon unberührt: er ist der
+Auslieferungszustand des Katalogs für einen leeren Server. Wer dort etwas
+einträgt, ergänzt den Startbestand – beim nächsten Start übernimmt der Server,
+was in `data/state.json` noch fehlt. **Für Rezepte gibt es keinen Seed**, siehe
+unten.
 
 Ein regelmäßiges Backup des ganzen Stands gibt es damit bewusst nicht mehr – es
 hätte nur die Einkaufsliste zusätzlich gesichert, dafür aber die komplette Liste
@@ -192,12 +197,25 @@ einsortiert würde.
 
 ### Rezepte und was beim Zusammentreffen passiert
 
-Das Rezeptbuch liegt in `data/state.json` und – wie der Katalog, aber in einer
-**eigenen Datei** – in [export/rezepte.json](export/rezepte.json) fürs git. Zwei
-Dateien, zwei lesbare Diffs: ein neues Rezept bläht den Katalog-Diff nicht auf.
-[seed/rezepte.json](seed/rezepte.json) liefert die Startsammlung,
-[seed/rezeptgruppen.json](seed/rezeptgruppen.json) die Gruppen; nachgeliefert
-wird auch hier nur, was fehlt, und Gelöschtes bleibt gelöscht.
+Das Rezeptbuch steht in **genau einer Datei**:
+[export/rezepte.json](export/rezepte.json). Kein Seed, aus dem etwas nachgezogen
+wird, keine zweite Kopie im State – die Datei *ist* das Rezeptbuch. Sie liegt
+auf dem Host (Volume) und im git, und sie ist eine schlichte Liste, in die sich
+von Hand schreiben lässt:
+
+```jsonc
+[{ "name": "Porridge", "group": "vorrat",
+   "ingredients": [{ "name": "Haferflocken", "quantity": "500 g" }] }]
+```
+
+Der Server beobachtet die Datei: von Hand ergänzte Rezepte sind sofort in der
+App, ohne Neustart, und bekommen dabei ihre `id`. Umgekehrt schreibt jede
+Änderung in der App die Datei neu. Nur die Gruppen kommen weiterhin aus
+[seed/rezeptgruppen.json](seed/rezeptgruppen.json) – sie sind Konfiguration,
+keine Daten.
+
+Gelöscht ist gelöscht: ohne Seed gibt es nichts, was ein entferntes Rezept
+wieder zurückholt.
 
 Steht eine Zutat schon auf der Liste, sind zwei Zeilen mit demselben Artikel das
 Letzte, was im Laden hilft. Deshalb:

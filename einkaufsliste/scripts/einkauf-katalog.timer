@@ -1,0 +1,12 @@
+[Unit]
+Description=Katalog und Rezeptbuch der Einkaufsliste ins git schreiben
+
+[Timer]
+# Zehn Minuten vor backup-sync.timer (03:30): so liegt der frische Commit
+# schon vor, wenn die Backups in die Nextcloud gehen.
+OnCalendar=*-*-* 03:20
+# Holt einen verpassten Lauf nach, wenn der Server zu der Zeit aus war
+Persistent=true
+
+[Install]
+WantedBy=timers.target

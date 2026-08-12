@@ -713,65 +713,6 @@
       ]
     },
     {
-      "id": "msqi07no-39d8c039",
-      "name": "Schweinefleisch in Dillsoße mit Kartoffeln",
-      "group": "sonstiges",
-      "ingredients": [
-        {
-          "name": "Kartoffeln",
-          "quantity": "nach Bedarf"
-        },
-        {
-          "name": "Schweinefleisch",
-          "quantity": "1 kg"
-        },
-        {
-          "name": "Wasser",
-          "quantity": "1 l"
-        },
-        {
-          "name": "Zwiebel",
-          "quantity": "1 große"
-        },
-        {
-          "name": "Mehl",
-          "quantity": "6 leicht gehäufte EL"
-        },
-        {
-          "name": "Dill",
-          "quantity": "75 g"
-        },
-        {
-          "name": "Butterschmalz",
-          "quantity": "20 g"
-        },
-        {
-          "name": "Pimentkörner",
-          "quantity": "10"
-        },
-        {
-          "name": "Pfefferkörner",
-          "quantity": "20"
-        },
-        {
-          "name": "Lorbeerblätter",
-          "quantity": "3"
-        },
-        {
-          "name": "Salz",
-          "quantity": "10 g"
-        },
-        {
-          "name": "Gemüsebrühe",
-          "quantity": "2 gehäufte TL"
-        },
-        {
-          "name": "Pfeffer",
-          "quantity": "nach Geschmack"
-        }
-      ]
-    },
-    {
       "id": "msqi07no-6aa095f4",
       "name": "Schweinegulasch mit Kartoffeln und Sauerkraut",
       "group": "sonstiges",
@@ -886,109 +827,6 @@
         {
           "name": "Tomatenmark",
           "quantity": ""
-        }
-      ]
-    },
-    {
-      "id": "msqi07no-08e9c437",
-      "name": "Mexikanischer Bohneneintopf",
-      "group": "sonstiges",
-      "ingredients": [
-        {
-          "name": "weiße Bohnen",
-          "quantity": "500 g"
-        },
-        {
-          "name": "Wasser",
-          "quantity": "1,5 l"
-        },
-        {
-          "name": "Zwiebel",
-          "quantity": "1 mittelgroße"
-        },
-        {
-          "name": "rote Paprikaschoten",
-          "quantity": "2"
-        },
-        {
-          "name": "Lauch",
-          "quantity": "1/2 Stange"
-        },
-        {
-          "name": "Kasseler",
-          "quantity": "4–5 Scheiben / ca. 400 g"
-        },
-        {
-          "name": "Pizzatomaten",
-          "quantity": "3 Dosen à 400 g"
-        },
-        {
-          "name": "Gemüsemais",
-          "quantity": "1 Dose / 340 g"
-        },
-        {
-          "name": "grüne Bohnen",
-          "quantity": "1 Dose / 400 g"
-        },
-        {
-          "name": "Tomatenpaprika",
-          "quantity": "1 Glas / ca. 300 g"
-        },
-        {
-          "name": "Kidneybohnen",
-          "quantity": "1 Dose / 400 g"
-        },
-        {
-          "name": "Bohnenkraut",
-          "quantity": "1 gestrichener EL"
-        },
-        {
-          "name": "Majoran",
-          "quantity": "1 gehäufter EL"
-        },
-        {
-          "name": "Dill",
-          "quantity": "1 stark gehäufter EL"
-        },
-        {
-          "name": "Paprikapulver",
-          "quantity": "1 gehäufter EL"
-        },
-        {
-          "name": "Lorbeerblätter",
-          "quantity": "2"
-        },
-        {
-          "name": "Salz",
-          "quantity": "20 g"
-        },
-        {
-          "name": "Zucker",
-          "quantity": "10 g"
-        },
-        {
-          "name": "Tomatenmark",
-          "quantity": "1 gehäufter EL"
-        },
-        {
-          "name": "Paprikamark",
-          "quantity": "1 gehäufter EL"
-        },
-        {
-          "name": "Balsamico-Essig",
-          "quantity": "2 EL"
-        },
-        {
-          "name": "Pfeffer",
-          "quantity": "nach Geschmack"
-        },
-        {
-          "name": "Tabascosoße",
-          "quantity": "1 TL"
-        },
-        {
-          "name": "Butterschmalz",
-          "quantity": "20 g"
         }
       ]
     },
@@ -1649,33 +1487,6 @@
         {
           "name": "Salsa-Soße",
           "quantity": "3 EL, optional"
-        }
-      ]
-    },
-    {
-      "id": "msqi07no-db671886",
-      "name": "Nudeln mit Blattspinat",
-      "group": "sonstiges",
-      "ingredients": [
-        {
-          "name": "Blattspinat",
-          "quantity": "2 Päckchen à 450 g"
-        },
-        {
-          "name": "Nudeln",
-          "quantity": "500 g"
-        },
-        {
-          "name": "Parmesan",
-          "quantity": "zum Reiben"
-        },
-        {
-          "name": "Gorgonzola",
-          "quantity": "optional"
-        },
-        {
-          "name": "Salz und Pfeffer",
-          "quantity": "nach Geschmack"
         }
       ]
     },

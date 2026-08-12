@@ -1,5 +1,5 @@
 import express from 'express'
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, watch, writeFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -26,7 +26,6 @@ const SEED_CATALOG = JSON.parse(readFileSync(join(SEED_DIR, 'artikelkatalog.json
 const SEED_RECIPE_GROUPS = JSON.parse(
   readFileSync(join(SEED_DIR, 'rezeptgruppen.json'), 'utf8'),
 ).groups
-const SEED_RECIPES = JSON.parse(readFileSync(join(SEED_DIR, 'rezepte.json'), 'utf8'))
 const RECIPE_GROUP_IDS = new Set(SEED_RECIPE_GROUPS.map((g) => g.id))
 
 // Die Reihenfolge in kategorien.json ist die Standard-Reihenfolge im Laden.
@@ -62,8 +61,6 @@ function defaultState() {
     // Aus dem Seed gelöschte Artikel bzw. Rezepte: sonst wären sie beim
     // nächsten Start wieder da (siehe seedNachziehen)
     removedSeedNames: [],
-    recipes: [],
-    removedSeedRecipes: [],
     unmatched: [],
     // Kategorie-Reihenfolge pro Filiale, gepflegt in der Verwaltung
     storeProfiles: [],
@@ -135,8 +132,6 @@ function readState() {
     lists: Array.isArray(parsed.lists) ? parsed.lists.map(normalizeList) : [],
     catalog: Array.isArray(parsed.catalog) ? parsed.catalog : [],
     removedSeedNames: Array.isArray(parsed.removedSeedNames) ? parsed.removedSeedNames : [],
-    recipes: Array.isArray(parsed.recipes) ? parsed.recipes.map(normalizeRecipe) : [],
-    removedSeedRecipes: Array.isArray(parsed.removedSeedRecipes) ? parsed.removedSeedRecipes : [],
     unmatched: Array.isArray(parsed.unmatched) ? parsed.unmatched : [],
     storeProfiles: Array.isArray(parsed.storeProfiles)
       ? parsed.storeProfiles.map(normalizeProfile)
@@ -178,11 +173,33 @@ function schreibeWennNeu(datei, daten) {
   }
 }
 
-// Katalog und Rezeptbuch getrennt: zwei Dinge, zwei Dateien, zwei lesbare
-// Diffs. Ein neues Rezept soll den Katalog-Diff nicht aufblähen.
 function exportKatalog(state) {
   schreibeWennNeu(EXPORT_FILE, { catalog: state.catalog, storeProfiles: state.storeProfiles })
-  schreibeWennNeu(REZEPT_FILE, { recipes: state.recipes })
+}
+
+// ── Rezeptbuch ────────────────────────────────────────────────────────────────
+// Das Rezeptbuch steht in genau einer Datei: export/rezepte.json. Kein Seed, aus
+// dem etwas nachgezogen wird, keine zweite Kopie im State – wer die Datei von
+// Hand ergänzt, ergänzt damit das Rezeptbuch selbst. Sie liegt im git und auf
+// dem Host, überlebt also jeden Rebuild.
+let recipes = []
+
+function leseRezepte() {
+  if (!existsSync(REZEPT_FILE)) return []
+  try {
+    const roh = JSON.parse(readFileSync(REZEPT_FILE, 'utf8'))
+    // Von Hand geschrieben wird eine schlichte Liste; die frühere Fassung
+    // packte sie in ein Objekt – beides wird gelesen.
+    const liste = Array.isArray(roh) ? roh : Array.isArray(roh.recipes) ? roh.recipes : []
+    return liste.map((r) => normalizeRecipe({ ...r, id: r.id || createId() }))
+  } catch (err) {
+    console.error('[einkaufsliste] Rezeptbuch nicht lesbar:', err.message)
+    return recipes
+  }
+}
+
+function schreibeRezepte() {
+  schreibeWennNeu(REZEPT_FILE, recipes)
 }
 
 /**
@@ -191,16 +208,6 @@ function exportKatalog(state) {
  * genau die sind auch das Ersetzbare.
  */
 function restoreAusExport(state) {
-  if (existsSync(REZEPT_FILE)) {
-    try {
-      const gesichert = JSON.parse(readFileSync(REZEPT_FILE, 'utf8'))
-      if (Array.isArray(gesichert.recipes)) {
-        state.recipes = gesichert.recipes.map(normalizeRecipe)
-      }
-    } catch (err) {
-      console.error('[einkaufsliste] Rezeptbuch nicht lesbar:', err.message)
-    }
-  }
   if (!existsSync(EXPORT_FILE)) return
   try {
     const gesichert = JSON.parse(readFileSync(EXPORT_FILE, 'utf8'))
@@ -249,27 +256,11 @@ function seedNachziehen() {
     ...state.removedSeedNames.map(normalize),
   ])
   const fehlend = SEED_CATALOG.filter((e) => !bekannt.has(normalize(e.name)))
-
-  const bekannteRezepte = new Set([
-    ...state.recipes.map((r) => normalize(r.name)),
-    ...state.removedSeedRecipes.map(normalize),
-  ])
-  const fehlendeRezepte = SEED_RECIPES.filter((r) => !bekannteRezepte.has(normalize(r.name)))
-
-  if (fehlend.length === 0 && fehlendeRezepte.length === 0) return
+  if (fehlend.length === 0) return
 
   state.catalog = [...state.catalog, ...fehlend.map((e) => ({ ...e, aliases: [...e.aliases] }))]
-  state.recipes = [
-    ...state.recipes,
-    ...fehlendeRezepte.map((r) => normalizeRecipe({ ...r, id: createId() })),
-  ]
   writeState(state)
-  if (fehlend.length) {
-    console.log(`[einkaufsliste] ${fehlend.length} Artikel aus dem Seed übernommen`)
-  }
-  if (fehlendeRezepte.length) {
-    console.log(`[einkaufsliste] ${fehlendeRezepte.length} Rezepte aus dem Seed übernommen`)
-  }
+  console.log(`[einkaufsliste] ${fehlend.length} Artikel aus dem Seed übernommen`)
 }
 
 seedNachziehen()
@@ -282,13 +273,71 @@ try {
   console.error('[einkaufsliste] Export beim Start fehlgeschlagen:', err.message)
 }
 
+// ── Rezeptbuch laden ──────────────────────────────────────────────────────────
+recipes = leseRezepte()
+
+// Einmalige Übernahme aus der Zeit, als die Rezepte noch im State standen.
+// Zusammengeführt statt ersetzt: sollte die Datei einmal hinterherhinken, geht
+// dabei kein Rezept verloren.
+try {
+  const alt = JSON.parse(readFileSync(STATE_FILE, 'utf8')).recipes
+  if (Array.isArray(alt) && alt.length) {
+    const bekannt = new Set(recipes.map((r) => normalize(r.name)))
+    const dazu = alt
+      .filter((r) => !bekannt.has(normalize(r.name)))
+      .map((r) => normalizeRecipe({ ...r, id: r.id || createId() }))
+    if (dazu.length) {
+      recipes = [...recipes, ...dazu]
+      console.log(`[einkaufsliste] ${dazu.length} Rezepte aus dem alten State übernommen`)
+    }
+  }
+} catch {
+  /* keine oder keine lesbare state.json – dann zählt allein die Datei */
+}
+schreibeRezepte()
+console.log(`[einkaufsliste] Rezeptbuch: ${recipes.length} Rezepte`)
+
+// Aufräumen: solange die Rezepte im State standen, lagen sie doppelt da.
+// readState liest sie nicht mehr, ein Schreibvorgang wirft sie endgültig raus.
+try {
+  const roh = JSON.parse(readFileSync(STATE_FILE, 'utf8'))
+  if ('recipes' in roh || 'removedSeedRecipes' in roh) {
+    writeState(readState())
+    console.log(
+      '[einkaufsliste] Rezepte aus state.json entfernt – sie stehen jetzt nur noch in export/rezepte.json',
+    )
+  }
+} catch {
+  /* ohne state.json gibt es nichts aufzuräumen */
+}
+
+// Wer die Datei von Hand ergänzt, soll nicht den Container neu starten müssen.
+// Beobachtet wird das Verzeichnis, weil atomares Schreiben die Datei ersetzt.
+let nachladen
+watch(EXPORT_DIR, (_event, datei) => {
+  if (datei && !String(datei).startsWith('rezepte.json')) return
+  clearTimeout(nachladen)
+  nachladen = setTimeout(() => {
+    const jetzt = existsSync(REZEPT_FILE) ? readFileSync(REZEPT_FILE, 'utf8') : ''
+    if (jetzt === letzterStand.get(REZEPT_FILE)) return // unser eigener Schreibvorgang
+    recipes = leseRezepte()
+    letzterStand.set(REZEPT_FILE, jetzt)
+    console.log(`[einkaufsliste] Rezeptbuch neu gelesen: ${recipes.length} Rezepte`)
+    try {
+      broadcast(readState())
+    } catch (err) {
+      console.error('[einkaufsliste] Broadcast nach Dateiänderung:', err.message)
+    }
+  }, 300)
+})
+
 function publicState(state) {
   return {
     lists: state.lists,
     categories: SEED_CATEGORIES,
     defaultCategoryOrder: DEFAULT_CATEGORY_ORDER,
     catalog: state.catalog,
-    recipes: state.recipes,
+    recipes,
     recipeGroups: SEED_RECIPE_GROUPS,
     unmatched: state.unmatched,
     storeProfiles: state.storeProfiles,
@@ -588,45 +637,56 @@ function pruefeRezept(r) {
   return null
 }
 
+/**
+ * Wie `mutate`, nur fürs Rezeptbuch: ändern, in die eine Datei schreiben, an
+ * alle Geräte melden. Der Listen-State bleibt dabei unangetastet.
+ */
+function mutateRecipes(req, res, apply) {
+  try {
+    const result = apply() || {}
+    if (result.reject) {
+      return res.status(result.reject.status).json({ error: result.reject.error })
+    }
+    schreibeRezepte()
+    const state = readState()
+    broadcast(state)
+    res.json(publicState(state))
+  } catch (err) {
+    console.error('[einkaufsliste] Rezept-Änderung fehlgeschlagen:', err.message)
+    res.status(500).json({ error: err.message })
+  }
+}
+
 app.post('/api/recipes', (req, res) => {
   const fehler = pruefeRezept(req.body)
   if (fehler) return res.status(400).json({ error: fehler })
-  mutate(req, res, (state) => {
+  mutateRecipes(req, res, () => {
     const r = normalizeRecipe({ ...req.body, id: req.body.id || createId() })
-    if (state.recipes.some((x) => x.id === r.id)) return
-    if (state.recipes.some((x) => normalize(x.name) === normalize(r.name))) {
+    if (recipes.some((x) => x.id === r.id)) return
+    if (recipes.some((x) => normalize(x.name) === normalize(r.name))) {
       return { reject: { status: 409, error: 'Dieses Rezept gibt es schon.' } }
     }
-    state.recipes.push(r)
+    recipes.push(r)
   })
 })
 
 app.put('/api/recipes/:id', (req, res) => {
   const fehler = pruefeRezept({ name: 'x', ...req.body })
   if (fehler) return res.status(400).json({ error: fehler })
-  mutate(req, res, (state) => {
-    const rezept = state.recipes.find((x) => x.id === req.params.id)
+  mutateRecipes(req, res, () => {
+    const rezept = recipes.find((x) => x.id === req.params.id)
     if (!rezept) return { reject: { status: 404, error: 'Rezept nicht gefunden.' } }
     const neu = normalizeRecipe({ ...rezept, ...req.body, id: rezept.id })
-    if (
-      state.recipes.some((x) => x.id !== rezept.id && normalize(x.name) === normalize(neu.name))
-    ) {
+    if (recipes.some((x) => x.id !== rezept.id && normalize(x.name) === normalize(neu.name))) {
       return { reject: { status: 409, error: 'Dieses Rezept gibt es schon.' } }
     }
     Object.assign(rezept, neu)
   })
 })
 
-// Kam das Rezept aus dem Seed, wird das vermerkt – sonst stünde es beim
-// nächsten Start wieder da.
 app.delete('/api/recipes/:id', (req, res) => {
-  mutate(req, res, (state) => {
-    const rezept = state.recipes.find((x) => x.id === req.params.id)
-    if (!rezept) return
-    state.recipes = state.recipes.filter((x) => x.id !== req.params.id)
-    if (SEED_RECIPES.some((r) => normalize(r.name) === normalize(rezept.name))) {
-      state.removedSeedRecipes.push(rezept.name)
-    }
+  mutateRecipes(req, res, () => {
+    recipes = recipes.filter((x) => x.id !== req.params.id)
   })
 })
 

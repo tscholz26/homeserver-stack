@@ -1,0 +1,8 @@
+[Unit]
+Description=Katalog und Rezeptbuch der Einkaufsliste committen
+
+[Service]
+Type=oneshot
+User=tristans
+WorkingDirectory=/home/tristans/homeserver-stack/einkaufsliste
+ExecStart=/home/tristans/homeserver-stack/einkaufsliste/scripts/katalog-sichern.sh
