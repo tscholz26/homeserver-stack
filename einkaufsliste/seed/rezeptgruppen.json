@@ -1,0 +1,7 @@
+{
+  "groups": [
+    { "id": "frisch", "emoji": "🥗", "label": "Frisch gekocht" },
+    { "id": "vorrat", "emoji": "🥫", "label": "Aus dem Vorrat" },
+    { "id": "saisonal", "emoji": "🍂", "label": "Saisonal" }
+  ]
+}

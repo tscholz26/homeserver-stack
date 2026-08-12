@@ -1,5 +1,6 @@
 import { computed, reactive, ref } from 'vue'
 import { findCatalogMatch, type CatalogEntry } from '@/utils/matching'
+import { mengeZusammenfassen } from '@/utils/mengen'
 
 export type ListType = 'kategorisiert' | 'flach'
 
@@ -38,6 +39,24 @@ export interface StoreProfile {
   categoryOrder: string[]
 }
 
+export interface RecipeIngredient {
+  name: string
+  quantity: string
+}
+
+export interface Recipe {
+  id: string
+  name: string
+  group: string
+  ingredients: RecipeIngredient[]
+}
+
+export interface RecipeGroup {
+  id: string
+  emoji: string
+  label: string
+}
+
 export interface UnmatchedEntry {
   id: string
   name: string
@@ -50,6 +69,8 @@ export interface AppState {
   categories: Category[]
   defaultCategoryOrder: string[]
   catalog: CatalogEntry[]
+  recipes: Recipe[]
+  recipeGroups: RecipeGroup[]
   unmatched: UnmatchedEntry[]
   storeProfiles: StoreProfile[]
 }
@@ -86,6 +107,8 @@ function createStore() {
     categories: [],
     defaultCategoryOrder: [],
     catalog: [],
+    recipes: [],
+    recipeGroups: [],
     unmatched: [],
     storeProfiles: [],
   })
@@ -98,6 +121,8 @@ function createStore() {
     state.categories = data.categories ?? []
     state.defaultCategoryOrder = data.defaultCategoryOrder ?? []
     state.catalog = data.catalog ?? []
+    state.recipes = data.recipes ?? []
+    state.recipeGroups = data.recipeGroups ?? []
     state.unmatched = data.unmatched ?? []
     state.storeProfiles = data.storeProfiles ?? []
     // Der Serverstand weiß noch nichts von Haken, die hier auf Netz warten
@@ -387,6 +412,78 @@ function createStore() {
     return sendChange(`/lists/${list.id}/store-profile`, 'PUT', { storeProfileId: profileId })
   }
 
+  // ── Rezepte ────────────────────────────────────────────────────────────────
+  /** Rezepte nach Gruppen, leere Gruppen fallen weg. */
+  const recipesByGroup = computed(() =>
+    state.recipeGroups
+      .map((group) => ({
+        group,
+        recipes: state.recipes
+          .filter((r) => r.group === group.id)
+          .sort((a, b) => a.name.localeCompare(b.name, 'de')),
+      }))
+      .filter((g) => g.recipes.length > 0),
+  )
+
+  function addRecipe(name: string, group: string, ingredients: RecipeIngredient[] = []) {
+    return sendChange('/recipes', 'POST', { id: createId(), name: name.trim(), group, ingredients })
+  }
+
+  function saveRecipe(id: string, changes: Partial<Omit<Recipe, 'id'>>) {
+    return sendChange(`/recipes/${id}`, 'PUT', changes)
+  }
+
+  function removeRecipe(id: string) {
+    return sendChange(`/recipes/${id}`, 'DELETE')
+  }
+
+  /**
+   * Ein Rezept auf die Liste. `zeilen` kommt aus dem Fenster davor und enthält
+   * nur, was wirklich mitsoll – mit der Entscheidung, ob eine Zutat in einen
+   * vorhandenen Artikel wandert oder eine eigene Zeile bekommt.
+   */
+  function addRecipeToList(
+    list: List,
+    zeilen: {
+      name: string
+      quantity: string
+      categoryId: string
+      matchedName: string
+      mergeIn: string | null
+    }[],
+  ) {
+    const items = []
+    const quantities = []
+
+    for (const zeile of zeilen) {
+      const vorhanden = zeile.mergeIn
+        ? list.items.find((i) => i.id === zeile.mergeIn && !i.done)
+        : undefined
+      if (vorhanden) {
+        // Erst hier zusammenrechnen: die Menge auf der Liste kann sich
+        // geändert haben, während das Fenster offen war.
+        const zusammen = mengeZusammenfassen(vorhanden.quantity, zeile.quantity)
+        vorhanden.quantity = zusammen
+        quantities.push({ itemId: vorhanden.id, quantity: zusammen })
+      } else {
+        const item: Item = {
+          id: createId(),
+          name: zeile.name.trim(),
+          quantity: zeile.quantity.trim(),
+          categoryId: list.type === 'flach' ? 'sonstiges' : zeile.categoryId,
+          matched: list.type === 'flach' || Boolean(zeile.matchedName),
+          matchedName: zeile.matchedName,
+          done: false,
+          addedAt: new Date().toISOString(),
+        }
+        list.items.push(item)
+        items.push(item)
+      }
+    }
+
+    return sendChange(`/lists/${list.id}/add-batch`, 'POST', { items, quantities })
+  }
+
   // ── Kategorien & Reihenfolge ───────────────────────────────────────────────
   const categoryById = computed(() => {
     const map: Record<string, Category> = {}
@@ -550,6 +647,11 @@ function createStore() {
     updateStoreProfile,
     removeStoreProfile,
     selectStoreProfile,
+    recipesByGroup,
+    addRecipe,
+    saveRecipe,
+    removeRecipe,
+    addRecipeToList,
     categoryById,
     categoryOrderFor,
     groupsFor,

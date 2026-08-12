@@ -1,0 +1,200 @@
+[
+  {
+    "name": "Pinsa mit Rucola und Rohschinken",
+    "group": "frisch",
+    "ingredients": [
+      { "name": "Pinsateig", "quantity": "2 St." },
+      { "name": "Passierte Tomaten", "quantity": "200 g" },
+      { "name": "Mozzarella", "quantity": "2 Kugeln" },
+      { "name": "Rucola", "quantity": "1 Packung" },
+      { "name": "Schinken roh", "quantity": "100 g" },
+      { "name": "Parmesan", "quantity": "50 g" },
+      { "name": "Olivenöl", "quantity": "" }
+    ]
+  },
+  {
+    "name": "Spaghetti Bolognese",
+    "group": "frisch",
+    "ingredients": [
+      { "name": "Spaghetti", "quantity": "500 g" },
+      { "name": "Hackfleisch", "quantity": "500 g" },
+      { "name": "Passierte Tomaten", "quantity": "700 g" },
+      { "name": "Tomatenmark", "quantity": "1 Tube" },
+      { "name": "Zwiebeln", "quantity": "2 St." },
+      { "name": "Knoblauch", "quantity": "3 Zehen" },
+      { "name": "Karotten", "quantity": "2 St." },
+      { "name": "Parmesan", "quantity": "100 g" }
+    ]
+  },
+  {
+    "name": "Flammkuchen",
+    "group": "frisch",
+    "ingredients": [
+      { "name": "Flammkuchenteig", "quantity": "2 St." },
+      { "name": "Schmand", "quantity": "200 g" },
+      { "name": "Speckwürfel", "quantity": "150 g" },
+      { "name": "Zwiebeln", "quantity": "2 St." },
+      { "name": "Streukäse", "quantity": "100 g" }
+    ]
+  },
+  {
+    "name": "Ofengemüse mit Feta",
+    "group": "frisch",
+    "ingredients": [
+      { "name": "Kartoffeln", "quantity": "1 kg" },
+      { "name": "Zucchini", "quantity": "2 St." },
+      { "name": "Paprika", "quantity": "2 St." },
+      { "name": "Aubergine", "quantity": "1 St." },
+      { "name": "Feta", "quantity": "200 g" },
+      { "name": "Olivenöl", "quantity": "" },
+      { "name": "Oregano", "quantity": "" }
+    ]
+  },
+  {
+    "name": "Lachs mit Gnocchi und Spinat",
+    "group": "frisch",
+    "ingredients": [
+      { "name": "Lachsfilet", "quantity": "400 g" },
+      { "name": "Gnocchi (frisch)", "quantity": "500 g" },
+      { "name": "Spinat (frisch)", "quantity": "300 g" },
+      { "name": "Sahne", "quantity": "200 g" },
+      { "name": "Zitrone", "quantity": "1 St." },
+      { "name": "Knoblauch", "quantity": "2 Zehen" }
+    ]
+  },
+  {
+    "name": "Tortellini mit Pesto und Cherrytomaten",
+    "group": "frisch",
+    "ingredients": [
+      { "name": "Tortellini (frisch)", "quantity": "500 g" },
+      { "name": "Pesto", "quantity": "1 Glas" },
+      { "name": "Cherrytomaten", "quantity": "250 g" },
+      { "name": "Rucola", "quantity": "1 Packung" },
+      { "name": "Parmesan", "quantity": "50 g" }
+    ]
+  },
+  {
+    "name": "Burger",
+    "group": "frisch",
+    "ingredients": [
+      { "name": "Hamburger Buns", "quantity": "4 St." },
+      { "name": "Hackfleisch", "quantity": "500 g" },
+      { "name": "Cheddar", "quantity": "8 Scheiben" },
+      { "name": "Tomaten", "quantity": "2 St." },
+      { "name": "Salat", "quantity": "1 St." },
+      { "name": "Zwiebeln", "quantity": "1 St." },
+      { "name": "Ketchup", "quantity": "" },
+      { "name": "Mayonnaise", "quantity": "" }
+    ]
+  },
+  {
+    "name": "Hähnchen-Curry mit Reis",
+    "group": "frisch",
+    "ingredients": [
+      { "name": "Hähnchenbrust", "quantity": "500 g" },
+      { "name": "Kokosmilch", "quantity": "400 ml" },
+      { "name": "Currypaste", "quantity": "1 Glas" },
+      { "name": "Paprika", "quantity": "2 St." },
+      { "name": "Basmati-Reis", "quantity": "300 g" },
+      { "name": "Ingwer", "quantity": "1 St." },
+      { "name": "Limette", "quantity": "1 St." }
+    ]
+  },
+  {
+    "name": "Griechischer Salat",
+    "group": "frisch",
+    "ingredients": [
+      { "name": "Tomaten", "quantity": "4 St." },
+      { "name": "Gurke", "quantity": "1 St." },
+      { "name": "Paprika", "quantity": "1 St." },
+      { "name": "Zwiebeln", "quantity": "1 St." },
+      { "name": "Feta", "quantity": "200 g" },
+      { "name": "Oliven", "quantity": "1 Glas" },
+      { "name": "Olivenöl", "quantity": "" }
+    ]
+  },
+  {
+    "name": "Maultaschen mit Kartoffelsalat",
+    "group": "frisch",
+    "ingredients": [
+      { "name": "Maultaschen", "quantity": "6 St." },
+      { "name": "Kartoffeln", "quantity": "1 kg" },
+      { "name": "Zwiebeln", "quantity": "1 St." },
+      { "name": "Essig", "quantity": "" },
+      { "name": "Gemüsebrühe", "quantity": "" },
+      { "name": "Schnittlauch", "quantity": "1 Bund" }
+    ]
+  },
+  {
+    "name": "Shakshuka",
+    "group": "frisch",
+    "ingredients": [
+      { "name": "Eier", "quantity": "6 St." },
+      { "name": "Passierte Tomaten", "quantity": "700 g" },
+      { "name": "Paprika", "quantity": "2 St." },
+      { "name": "Zwiebeln", "quantity": "1 St." },
+      { "name": "Knoblauch", "quantity": "2 Zehen" },
+      { "name": "Kreuzkümmel", "quantity": "" },
+      { "name": "Feta", "quantity": "100 g" },
+      { "name": "Baguette", "quantity": "1 St." }
+    ]
+  },
+  {
+    "name": "Linsen-Dal mit Reis",
+    "group": "vorrat",
+    "ingredients": [
+      { "name": "Rote Linsen", "quantity": "300 g" },
+      { "name": "Kokosmilch", "quantity": "400 ml" },
+      { "name": "Currypaste", "quantity": "1 Glas" },
+      { "name": "Zwiebeln", "quantity": "2 St." },
+      { "name": "Ingwer", "quantity": "1 St." },
+      { "name": "Basmati-Reis", "quantity": "300 g" }
+    ]
+  },
+  {
+    "name": "Chili sin Carne",
+    "group": "vorrat",
+    "ingredients": [
+      { "name": "Kidneybohnen (Dose)", "quantity": "2 Dosen" },
+      { "name": "Mais (Dose)", "quantity": "1 Dose" },
+      { "name": "Tomaten (Dose)", "quantity": "2 Dosen" },
+      { "name": "Paprika", "quantity": "2 St." },
+      { "name": "Zwiebeln", "quantity": "2 St." },
+      { "name": "Kreuzkümmel", "quantity": "" },
+      { "name": "Basmati-Reis", "quantity": "250 g" }
+    ]
+  },
+  {
+    "name": "Nudeln mit Tomatensauce",
+    "group": "vorrat",
+    "ingredients": [
+      { "name": "Penne", "quantity": "500 g" },
+      { "name": "Passierte Tomaten", "quantity": "700 g" },
+      { "name": "Knoblauch", "quantity": "2 Zehen" },
+      { "name": "Olivenöl", "quantity": "" },
+      { "name": "Parmesan", "quantity": "50 g" }
+    ]
+  },
+  {
+    "name": "Kichererbsen-Curry",
+    "group": "vorrat",
+    "ingredients": [
+      { "name": "Kichererbsen (Dose)", "quantity": "2 Dosen" },
+      { "name": "Kokosmilch", "quantity": "400 ml" },
+      { "name": "Passierte Tomaten", "quantity": "400 g" },
+      { "name": "Currypaste", "quantity": "1 Glas" },
+      { "name": "Basmati-Reis", "quantity": "250 g" }
+    ]
+  },
+  {
+    "name": "Porridge",
+    "group": "vorrat",
+    "ingredients": [
+      { "name": "Haferflocken", "quantity": "500 g" },
+      { "name": "Hafermilch", "quantity": "1 l" },
+      { "name": "Honig", "quantity": "1 Glas" },
+      { "name": "Zimt", "quantity": "" },
+      { "name": "Bananen", "quantity": "4 St." }
+    ]
+  }
+]

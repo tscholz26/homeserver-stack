@@ -9,6 +9,7 @@ const STATE_FILE = join(DATA_DIR, 'state.json')
 const SEED_DIR = join(__dirname, 'seed')
 const EXPORT_DIR = join(__dirname, 'export')
 const EXPORT_FILE = join(EXPORT_DIR, 'katalog.json')
+const REZEPT_FILE = join(EXPORT_DIR, 'rezepte.json')
 const PORT = Number(process.env.PORT) || 2608
 
 mkdirSync(DATA_DIR, { recursive: true })
@@ -22,6 +23,11 @@ const SEED_CATEGORIES = JSON.parse(
   readFileSync(join(SEED_DIR, 'kategorien.json'), 'utf8'),
 ).categories
 const SEED_CATALOG = JSON.parse(readFileSync(join(SEED_DIR, 'artikelkatalog.json'), 'utf8'))
+const SEED_RECIPE_GROUPS = JSON.parse(
+  readFileSync(join(SEED_DIR, 'rezeptgruppen.json'), 'utf8'),
+).groups
+const SEED_RECIPES = JSON.parse(readFileSync(join(SEED_DIR, 'rezepte.json'), 'utf8'))
+const RECIPE_GROUP_IDS = new Set(SEED_RECIPE_GROUPS.map((g) => g.id))
 
 // Die Reihenfolge in kategorien.json ist die Standard-Reihenfolge im Laden.
 // „sonstiges“ hängt immer hinten und wird nie umsortiert.
@@ -53,9 +59,11 @@ function defaultState() {
     // Der komplette Katalog, beim ersten Start aus dem Seed befüllt und danach
     // in der Verwaltung frei bearbeitbar
     catalog: [],
-    // Aus dem Seed gelöschte Artikel: sonst wären sie beim nächsten Start
-    // wieder da (siehe seedNachziehen)
+    // Aus dem Seed gelöschte Artikel bzw. Rezepte: sonst wären sie beim
+    // nächsten Start wieder da (siehe seedNachziehen)
     removedSeedNames: [],
+    recipes: [],
+    removedSeedRecipes: [],
     unmatched: [],
     // Kategorie-Reihenfolge pro Filiale, gepflegt in der Verwaltung
     storeProfiles: [],
@@ -88,6 +96,24 @@ function normalizeList(l) {
   }
 }
 
+function normalizeIngredient(z) {
+  return {
+    name: String(z?.name ?? '').trim(),
+    quantity: typeof z?.quantity === 'string' ? z.quantity.trim() : '',
+  }
+}
+
+function normalizeRecipe(r) {
+  return {
+    id: r.id,
+    name: r.name,
+    group: RECIPE_GROUP_IDS.has(r.group) ? r.group : 'frisch',
+    ingredients: Array.isArray(r.ingredients)
+      ? r.ingredients.map(normalizeIngredient).filter((z) => z.name)
+      : [],
+  }
+}
+
 function normalizeProfile(p) {
   return {
     id: p.id,
@@ -109,6 +135,8 @@ function readState() {
     lists: Array.isArray(parsed.lists) ? parsed.lists.map(normalizeList) : [],
     catalog: Array.isArray(parsed.catalog) ? parsed.catalog : [],
     removedSeedNames: Array.isArray(parsed.removedSeedNames) ? parsed.removedSeedNames : [],
+    recipes: Array.isArray(parsed.recipes) ? parsed.recipes.map(normalizeRecipe) : [],
+    removedSeedRecipes: Array.isArray(parsed.removedSeedRecipes) ? parsed.removedSeedRecipes : [],
     unmatched: Array.isArray(parsed.unmatched) ? parsed.unmatched : [],
     storeProfiles: Array.isArray(parsed.storeProfiles)
       ? parsed.storeProfiles.map(normalizeProfile)
@@ -130,25 +158,31 @@ function writeState(data) {
 // die stecken in Monaten Nachpflege. Deshalb liegen genau die beiden in einer
 // eigenen Datei, die – anders als data/ – ins git gehört und den Rechner damit
 // verlassen kann.
-let letzterExport = existsSync(EXPORT_FILE) ? readFileSync(EXPORT_FILE, 'utf8') : null
-
-function exportInhalt(state) {
-  return `${JSON.stringify({ catalog: state.catalog, storeProfiles: state.storeProfiles }, null, 2)}\n`
+const letzterStand = new Map()
+for (const datei of [EXPORT_FILE, REZEPT_FILE]) {
+  if (existsSync(datei)) letzterStand.set(datei, readFileSync(datei, 'utf8'))
 }
 
-function exportKatalog(state) {
+function schreibeWennNeu(datei, daten) {
   try {
-    const inhalt = exportInhalt(state)
-    if (inhalt === letzterExport) return
-    const tmp = `${EXPORT_FILE}.tmp`
+    const inhalt = `${JSON.stringify(daten, null, 2)}\n`
+    if (inhalt === letzterStand.get(datei)) return
+    const tmp = `${datei}.tmp`
     writeFileSync(tmp, inhalt, 'utf8')
-    renameSync(tmp, EXPORT_FILE)
-    letzterExport = inhalt
-    console.log('[einkaufsliste] Katalog nach export/katalog.json geschrieben')
+    renameSync(tmp, datei)
+    letzterStand.set(datei, inhalt)
+    console.log(`[einkaufsliste] ${datei.split('/').pop()} geschrieben`)
   } catch (err) {
     // Ein fehlgeschlagener Export darf die Änderung selbst nicht kippen
     console.error('[einkaufsliste] Export fehlgeschlagen:', err.message)
   }
+}
+
+// Katalog und Rezeptbuch getrennt: zwei Dinge, zwei Dateien, zwei lesbare
+// Diffs. Ein neues Rezept soll den Katalog-Diff nicht aufblähen.
+function exportKatalog(state) {
+  schreibeWennNeu(EXPORT_FILE, { catalog: state.catalog, storeProfiles: state.storeProfiles })
+  schreibeWennNeu(REZEPT_FILE, { recipes: state.recipes })
 }
 
 /**
@@ -157,6 +191,16 @@ function exportKatalog(state) {
  * genau die sind auch das Ersetzbare.
  */
 function restoreAusExport(state) {
+  if (existsSync(REZEPT_FILE)) {
+    try {
+      const gesichert = JSON.parse(readFileSync(REZEPT_FILE, 'utf8'))
+      if (Array.isArray(gesichert.recipes)) {
+        state.recipes = gesichert.recipes.map(normalizeRecipe)
+      }
+    } catch (err) {
+      console.error('[einkaufsliste] Rezeptbuch nicht lesbar:', err.message)
+    }
+  }
   if (!existsSync(EXPORT_FILE)) return
   try {
     const gesichert = JSON.parse(readFileSync(EXPORT_FILE, 'utf8'))
@@ -205,11 +249,27 @@ function seedNachziehen() {
     ...state.removedSeedNames.map(normalize),
   ])
   const fehlend = SEED_CATALOG.filter((e) => !bekannt.has(normalize(e.name)))
-  if (fehlend.length === 0) return
+
+  const bekannteRezepte = new Set([
+    ...state.recipes.map((r) => normalize(r.name)),
+    ...state.removedSeedRecipes.map(normalize),
+  ])
+  const fehlendeRezepte = SEED_RECIPES.filter((r) => !bekannteRezepte.has(normalize(r.name)))
+
+  if (fehlend.length === 0 && fehlendeRezepte.length === 0) return
 
   state.catalog = [...state.catalog, ...fehlend.map((e) => ({ ...e, aliases: [...e.aliases] }))]
+  state.recipes = [
+    ...state.recipes,
+    ...fehlendeRezepte.map((r) => normalizeRecipe({ ...r, id: createId() })),
+  ]
   writeState(state)
-  console.log(`[einkaufsliste] ${fehlend.length} Artikel aus dem Seed übernommen`)
+  if (fehlend.length) {
+    console.log(`[einkaufsliste] ${fehlend.length} Artikel aus dem Seed übernommen`)
+  }
+  if (fehlendeRezepte.length) {
+    console.log(`[einkaufsliste] ${fehlendeRezepte.length} Rezepte aus dem Seed übernommen`)
+  }
 }
 
 seedNachziehen()
@@ -228,6 +288,8 @@ function publicState(state) {
     categories: SEED_CATEGORIES,
     defaultCategoryOrder: DEFAULT_CATEGORY_ORDER,
     catalog: state.catalog,
+    recipes: state.recipes,
+    recipeGroups: SEED_RECIPE_GROUPS,
     unmatched: state.unmatched,
     storeProfiles: state.storeProfiles,
   }
@@ -513,6 +575,110 @@ app.put('/api/lists/:listId/order', (req, res) => {
 app.post('/api/lists/:listId/finish', (req, res) => {
   mutateList(req, res, (list) => {
     list.items = list.items.filter((x) => !x.done)
+  })
+})
+
+// ── Rezepte ───────────────────────────────────────────────────────────────────
+function pruefeRezept(r) {
+  if (!r || typeof r.name !== 'string' || !r.name.trim()) return 'Name fehlt'
+  if (r.group !== undefined && !RECIPE_GROUP_IDS.has(r.group)) return 'Unbekannte Gruppe'
+  if (r.ingredients !== undefined && !Array.isArray(r.ingredients)) {
+    return 'Zutaten müssen eine Liste sein'
+  }
+  return null
+}
+
+app.post('/api/recipes', (req, res) => {
+  const fehler = pruefeRezept(req.body)
+  if (fehler) return res.status(400).json({ error: fehler })
+  mutate(req, res, (state) => {
+    const r = normalizeRecipe({ ...req.body, id: req.body.id || createId() })
+    if (state.recipes.some((x) => x.id === r.id)) return
+    if (state.recipes.some((x) => normalize(x.name) === normalize(r.name))) {
+      return { reject: { status: 409, error: 'Dieses Rezept gibt es schon.' } }
+    }
+    state.recipes.push(r)
+  })
+})
+
+app.put('/api/recipes/:id', (req, res) => {
+  const fehler = pruefeRezept({ name: 'x', ...req.body })
+  if (fehler) return res.status(400).json({ error: fehler })
+  mutate(req, res, (state) => {
+    const rezept = state.recipes.find((x) => x.id === req.params.id)
+    if (!rezept) return { reject: { status: 404, error: 'Rezept nicht gefunden.' } }
+    const neu = normalizeRecipe({ ...rezept, ...req.body, id: rezept.id })
+    if (
+      state.recipes.some((x) => x.id !== rezept.id && normalize(x.name) === normalize(neu.name))
+    ) {
+      return { reject: { status: 409, error: 'Dieses Rezept gibt es schon.' } }
+    }
+    Object.assign(rezept, neu)
+  })
+})
+
+// Kam das Rezept aus dem Seed, wird das vermerkt – sonst stünde es beim
+// nächsten Start wieder da.
+app.delete('/api/recipes/:id', (req, res) => {
+  mutate(req, res, (state) => {
+    const rezept = state.recipes.find((x) => x.id === req.params.id)
+    if (!rezept) return
+    state.recipes = state.recipes.filter((x) => x.id !== req.params.id)
+    if (SEED_RECIPES.some((r) => normalize(r.name) === normalize(rezept.name))) {
+      state.removedSeedRecipes.push(rezept.name)
+    }
+  })
+})
+
+/**
+ * Ein ganzes Rezept auf die Liste: neue Artikel anlegen und bei Artikeln, die
+ * schon draufstehen, die Menge fortschreiben. Beides in einem Request, damit
+ * die Liste nicht halb gefüllt dasteht, wenn unterwegs die Verbindung abreißt.
+ */
+app.post('/api/lists/:listId/add-batch', (req, res) => {
+  const { items, quantities } = req.body || {}
+  if (!Array.isArray(items) || !Array.isArray(quantities)) {
+    return res.status(400).json({ error: 'Invalid payload' })
+  }
+  for (const i of items) {
+    if (!i || typeof i.id !== 'string' || typeof i.name !== 'string' || !i.name.trim()) {
+      return res.status(400).json({ error: 'Invalid payload' })
+    }
+    if (typeof i.categoryId !== 'string' || !CATEGORY_IDS.has(i.categoryId)) {
+      return res.status(400).json({ error: 'Unbekannte Kategorie' })
+    }
+  }
+  for (const q of quantities) {
+    if (!q || typeof q.itemId !== 'string' || typeof q.quantity !== 'string') {
+      return res.status(400).json({ error: 'Invalid payload' })
+    }
+  }
+
+  mutateList(req, res, (list, state) => {
+    for (const q of quantities) {
+      const item = list.items.find((x) => x.id === q.itemId)
+      if (item) item.quantity = q.quantity.trim()
+    }
+    for (const i of items) {
+      if (list.items.some((x) => x.id === i.id)) continue
+      const item = normalizeItem({ ...i, name: i.name.trim(), done: false })
+      list.items.push(item)
+      if (list.type === 'kategorisiert' && !item.matched) {
+        const key = normalize(item.name)
+        const known = state.unmatched.find((u) => normalize(u.name) === key)
+        if (known) {
+          known.count += 1
+          known.lastAddedAt = item.addedAt
+        } else {
+          state.unmatched.push({
+            id: createId(),
+            name: item.name,
+            count: 1,
+            lastAddedAt: item.addedAt,
+          })
+        }
+      }
+    }
   })
 })
 

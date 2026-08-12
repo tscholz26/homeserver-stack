@@ -1658,18 +1658,6 @@
       "category_id": "backen_gewuerze"
     },
     {
-      "name": "Schokolade",
-      "aliases": [
-        "Tafelschokolade",
-        "Zartbitterschokolade",
-        "Vollmilchschokolade",
-        "weiße Schokolade",
-        "Schoki",
-        "Kuvertüre"
-      ],
-      "category_id": "suesses_snacks"
-    },
-    {
       "name": "Marmelade",
       "aliases": [
         "Konfitüre",
@@ -3023,6 +3011,19 @@
         "Pinsateig"
       ],
       "category_id": "brot_backwaren"
+    },
+    {
+      "name": "Schokolade",
+      "aliases": [
+        "Tafelschokolade",
+        "Zartbitterschokolade",
+        "Vollmilchschokolade",
+        "weiße Schokolade",
+        "Schoki",
+        "Kuvertüre",
+        "Dunkle schoko"
+      ],
+      "category_id": "suesses_snacks"
     }
   ],
   "storeProfiles": [

@@ -3,11 +3,13 @@ import { computed, nextTick, onBeforeUnmount, onMounted, onUpdated, ref, useTemp
 import Sortable from 'sortablejs'
 import { useEinkaufStore } from '@/composables/useEinkaufStore'
 import ArtikelZeile from '@/components/ArtikelZeile.vue'
+import RezeptFenster from '@/components/RezeptFenster.vue'
 
 const store = useEinkaufStore()
 
 const menge = ref('')
 const name = ref('')
+const rezepteOffen = ref(false)
 const nameFeld = useTemplateRef<HTMLInputElement>('nameFeld')
 
 const liste = computed(() => store.activeList.value)
@@ -156,7 +158,19 @@ onBeforeUnmount(() => beobachter?.disconnect())
         />
         <button type="submit" class="plus" title="Hinzufügen">+</button>
       </form>
+
+      <!-- Ganze Rezepte kommen über ein eigenes Fenster dazu -->
+      <button
+        v-if="liste?.type === 'kategorisiert'"
+        type="button"
+        class="rezepte"
+        @click="rezepteOffen = true"
+      >
+        🍲 Rezept zum Einkauf hinzufügen
+      </button>
     </div>
+
+    <RezeptFenster v-if="rezepteOffen && liste" :list="liste" @close="rezepteOffen = false" />
 
     <p v-if="!liste" class="leer">Noch keine Liste vorhanden – anlegen in der Verwaltung.</p>
 
@@ -335,6 +349,19 @@ onBeforeUnmount(() => beobachter?.disconnect())
   font-size: 1.4rem;
   font-weight: 700;
   line-height: 1;
+  cursor: pointer;
+}
+
+.rezepte {
+  width: 100%;
+  margin-top: 0.4rem;
+  padding: 0.5rem;
+  border: 1px dashed color-mix(in srgb, var(--violet) 35%, transparent);
+  border-radius: 0.8rem;
+  background: color-mix(in srgb, var(--violet) 6%, transparent);
+  color: var(--violet);
+  font-size: 0.88rem;
+  font-weight: 600;
   cursor: pointer;
 }
 

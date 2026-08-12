@@ -42,6 +42,12 @@ Handys gleichzeitig abgehakt. Erreichbar unter
   Kategorie-Überschriften aus. Sortiert wird weiter nach Laden-Reihenfolge, nur
   sammelt sich das Abgehakte dann am Ende der ganzen Liste statt am Fuß jeder
   Kategorie
+- **Rezepte**: „🍲 Rezept zum Einkauf hinzufügen“ auf dem Listenbildschirm
+  öffnet das Rezeptbuch (nach Gruppen: frisch gekocht, aus dem Vorrat,
+  saisonal). Ein Tipp zeigt die Zutaten – dort wird abgewählt, was schon zu
+  Hause ist, und die Menge für **diesen einen Einkauf** angepasst. Das Rezept
+  selbst bleibt davon unberührt; über den Stift ✎ wird es dauerhaft geändert
+  oder neu angelegt
 - **Märkte**: pro kategorisierter Liste beliebig viele Filialen mit eigener
   Kategorie-Reihenfolge; der aktive Markt wird in der Verwaltung gewählt und
   taucht beim Einkaufen nicht auf
@@ -114,6 +120,8 @@ mit ins (öffentliche) Repo gezogen. Das alte Verzeichnis `backups/` kann weg.
 | POST | `/api/lists/:id/items/:itemId/check` | `{ done }` setzen |
 | DELETE | `/api/lists/:id/items/:itemId` | Artikel entfernen |
 | PUT | `/api/lists/:id/order` | neue Reihenfolge der Artikel (Handsortierung) |
+| POST | `/api/lists/:id/add-batch` | ganzes Rezept: neue Artikel und fortgeschriebene Mengen |
+| POST / PUT / DELETE | `/api/recipes[/:id]` | Rezept anlegen / ändern / löschen |
 | POST | `/api/lists/:id/finish` | „Einkauf beenden“: Abgehaktes löschen |
 | POST | `/api/catalog` | `{ name, category_id }` dauerhaft zuordnen |
 | POST | `/api/catalog/alias` | `{ name, alias }` – Schreibweise an einen Artikel hängen |
@@ -159,6 +167,33 @@ Die Vorschläge unter „Schreibweise eines vorhandenen Artikels“ kommen aus
 `suggestCatalogEntries()` und sind absichtlich lockerer als das Matching beim
 Eintippen: „Kokosjoghurt“ schlägt Joghurt vor, ohne dass es dort automatisch
 einsortiert würde.
+
+### Rezepte und was beim Zusammentreffen passiert
+
+Das Rezeptbuch liegt in `data/state.json` und – wie der Katalog, aber in einer
+**eigenen Datei** – in [export/rezepte.json](export/rezepte.json) fürs git. Zwei
+Dateien, zwei lesbare Diffs: ein neues Rezept bläht den Katalog-Diff nicht auf.
+[seed/rezepte.json](seed/rezepte.json) liefert die Startsammlung,
+[seed/rezeptgruppen.json](seed/rezeptgruppen.json) die Gruppen; nachgeliefert
+wird auch hier nur, was fehlt, und Gelöschtes bleibt gelöscht.
+
+Steht eine Zutat schon auf der Liste, sind zwei Zeilen mit demselben Artikel das
+Letzte, was im Laden hilft. Deshalb:
+
+- **Erkannt** wird die Dopplung über den Katalogartikel, nicht über den Text –
+  „Kirschtomaten“ auf der Liste und „Cherrytomaten“ im Rezept sind dasselbe.
+  Abgehaktes zählt nicht mit: was im Wagen liegt, ist erledigt.
+- **Zusammengelegt** werden Mengen nur bei gleicher Einheit: `250 g` + `200 g`
+  wird `450 g`, `2 Stück` + `1 St.` wird `3 St.`. Unterschiedliche Einheiten
+  stehen nebeneinander: `1 Packung + 200 g`. Eine erfundene Umrechnung wäre im
+  Laden schlimmer als beide Angaben zu sehen (`mengeZusammenfassen` in
+  [mengen.ts](src/utils/mengen.ts)).
+- **Entschieden** wird pro Zutat: das Fenster zeigt „steht schon drauf (250 g) →
+  wird 450 g“ und daneben den Knopf „getrennt“, wenn es doch eine eigene Zeile
+  sein soll.
+
+Gerechnet wird erst beim Hinzufügen und mit der Menge, die dann auf der Liste
+steht – hat das andere Gerät sie inzwischen geändert, zählt die neue.
 
 ### Märkte
 

@@ -2959,5 +2959,21 @@
       "Gummiringe"
     ],
     "category_id": "drogerie"
+  },
+  {
+    "name": "Pinsateig",
+    "aliases": [
+      "Pinsa Teig",
+      "Pinsa"
+    ],
+    "category_id": "brot_backwaren"
+  },
+  {
+    "name": "Cheddar",
+    "aliases": [
+      "Cheddarkäse",
+      "Cheddar Scheiben"
+    ],
+    "category_id": "milch_kuehlwaren"
   }
 ]
