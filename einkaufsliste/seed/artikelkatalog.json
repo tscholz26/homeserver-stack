@@ -438,7 +438,8 @@
       "Filet",
       "Lendenbraten",
       "Schweinefleisch",
-      "Schweinelendenbraten"
+      "Schweinelendenbraten",
+      "Schweinelendchen"
     ],
     "category_id": "fleisch_wurst"
   },
@@ -1005,7 +1006,8 @@
       "Spaghettini",
       "Linguine",
       "Tagliatelle",
-      "Fettuccine"
+      "Fettuccine",
+      "Bandnudeln"
     ],
     "category_id": "nudeln_reis"
   },
@@ -2079,7 +2081,8 @@
     "name": "Salami",
     "aliases": [
       "Salamiwurst",
-      "Salamischeiben"
+      "Salamischeiben",
+      "Edelsalami"
     ],
     "category_id": "fleisch_wurst"
   },
@@ -2975,5 +2978,154 @@
       "Cheddar Scheiben"
     ],
     "category_id": "milch_kuehlwaren"
+  },
+  {
+    "name": "Jagdwurst",
+    "aliases": [
+      "Lyoner Fleischwurst",
+      "Lyoner",
+      "Fleischwurst"
+    ],
+    "category_id": "fleisch_wurst"
+  },
+  {
+    "name": "Kalbsfleisch",
+    "aliases": [
+      "Kalb",
+      "Kalbfleisch"
+    ],
+    "category_id": "fleisch_wurst"
+  },
+  {
+    "name": "Suppenhuhn",
+    "aliases": [
+      "Suppenhühner",
+      "Suppenhähnchen"
+    ],
+    "category_id": "fleisch_wurst"
+  },
+  {
+    "name": "Kaninchenkeulen",
+    "aliases": [
+      "Kaninchen",
+      "Kaninchenbraten"
+    ],
+    "category_id": "fleisch_wurst"
+  },
+  {
+    "name": "Heumilchkäse",
+    "aliases": [
+      "Heumilch Käse"
+    ],
+    "category_id": "milch_kuehlwaren"
+  },
+  {
+    "name": "Schmelzkäse",
+    "aliases": [
+      "Schmelzkäsescheiben",
+      "Schmelzkäse Ecken"
+    ],
+    "category_id": "milch_kuehlwaren"
+  },
+  {
+    "name": "Suppengrün",
+    "aliases": [
+      "Suppengemüse",
+      "Bund Suppengrün"
+    ],
+    "category_id": "obst_gemuese"
+  },
+  {
+    "name": "Majoran",
+    "aliases": [
+      "getrockneter Majoran"
+    ],
+    "category_id": "backen_gewuerze"
+  },
+  {
+    "name": "Bohnenkraut",
+    "aliases": [
+      "getrocknetes Bohnenkraut"
+    ],
+    "category_id": "backen_gewuerze"
+  },
+  {
+    "name": "Rosmarin",
+    "aliases": [
+      "getrockneter Rosmarin",
+      "Rosmarinnadeln"
+    ],
+    "category_id": "backen_gewuerze"
+  },
+  {
+    "name": "Liebstöckel",
+    "aliases": [
+      "Maggikraut"
+    ],
+    "category_id": "backen_gewuerze"
+  },
+  {
+    "name": "Wacholderbeeren",
+    "aliases": [
+      "Wacholder"
+    ],
+    "category_id": "backen_gewuerze"
+  },
+  {
+    "name": "Kräuter der Provence",
+    "aliases": [
+      "Provence-Kräuter",
+      "Kräutermischung"
+    ],
+    "category_id": "backen_gewuerze"
+  },
+  {
+    "name": "Kräutersoße",
+    "aliases": [
+      "Kräutersauce",
+      "Grüne Soße"
+    ],
+    "category_id": "nudeln_reis"
+  },
+  {
+    "name": "Salsasoße",
+    "aliases": [
+      "Salsa-Soße",
+      "Salsa",
+      "Salsasauce"
+    ],
+    "category_id": "nudeln_reis"
+  },
+  {
+    "name": "Tabascosoße",
+    "aliases": [
+      "Tabasco",
+      "Tabascosauce"
+    ],
+    "category_id": "nudeln_reis"
+  },
+  {
+    "name": "Gemüsemais",
+    "aliases": [
+      "Mais Gemüse"
+    ],
+    "category_id": "konserven"
+  },
+  {
+    "name": "Getrocknete Steinpilze",
+    "aliases": [
+      "Steinpilze getrocknet",
+      "getrocknete Pilze"
+    ],
+    "category_id": "konserven"
+  },
+  {
+    "name": "Trockenerbsen",
+    "aliases": [
+      "ungeschälte Erbsen",
+      "geschälte Erbsen",
+      "Schälerbsen"
+    ],
+    "category_id": "konserven"
   }
 ]

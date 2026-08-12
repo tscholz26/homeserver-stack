@@ -99,8 +99,30 @@ git add einkaufsliste/export/katalog.json && git commit -m "Katalogstand"
 ```
 
 Fehlt `data/state.json` beim Start (neuer Rechner, geleertes Volume), holt sich
-der Server Katalog und Märkte von dort zurück; die Listen sind dann leer.
-Nachgeladen aus dem Seed wird anschließend nur, was auch dort noch fehlt.
+der Server Katalog, Märkte und Rezepte von dort zurück; die Listen sind dann
+leer. Nachgeladen aus dem Seed wird anschließend nur, was auch dort noch fehlt.
+
+**Wann wird geschrieben?** Sofort bei jeder Änderung – Haken, neuer Artikel,
+Rezept gespeichert: derselbe Request schreibt `data/state.json` und, wenn
+Katalog, Märkte oder Rezepte betroffen sind, die Dateien unter `export/`. Es
+gibt keinen Puffer und keinen Zeitplan, nach dem noch etwas verloren gehen
+könnte. Der Container hält nichts im Speicher zurück; ein `docker compose down`
+oder ein Absturz kostet nichts, was schon in der App zu sehen war.
+
+**Ins git kommen die Dateien nicht von allein** – das wäre ein Commit pro
+Einkauf. Dafür gibt es [scripts/katalog-sichern.sh](scripts/katalog-sichern.sh):
+es committet ausschließlich die beiden Export-Dateien, wenn sich etwas geändert
+hat, und pusht nicht (das Repo ist öffentlich).
+
+```sh
+einkaufsliste/scripts/katalog-sichern.sh          # von Hand
+0 3 * * * /home/tristans/homeserver-stack/einkaufsliste/scripts/katalog-sichern.sh   # oder per cron
+```
+
+Der Seed (`seed/rezepte.json`, `seed/artikelkatalog.json`) ist davon unberührt:
+er ist der Auslieferungszustand für einen leeren Server. Wer dort etwas
+einträgt, ergänzt damit den Startbestand – beim nächsten Start übernimmt der
+Server, was in `data/state.json` noch fehlt.
 
 Ein regelmäßiges Backup des ganzen Stands gibt es damit bewusst nicht mehr – es
 hätte nur die Einkaufsliste zusätzlich gesichert, dafür aber die komplette Liste
@@ -186,8 +208,13 @@ Letzte, was im Laden hilft. Deshalb:
 - **Zusammengelegt** werden Mengen nur bei gleicher Einheit: `250 g` + `200 g`
   wird `450 g`, `2 Stück` + `1 St.` wird `3 St.`. Unterschiedliche Einheiten
   stehen nebeneinander: `1 Packung + 200 g`. Eine erfundene Umrechnung wäre im
-  Laden schlimmer als beide Angaben zu sehen (`mengeZusammenfassen` in
+  Laden schlimmer als beide Angaben zu sehen (`mengenZusammenfassen` in
   [mengen.ts](src/utils/mengen.ts)).
+- **Nicht angehängt**: eine schon zusammengelegte Angabe wird beim nächsten Mal
+  wieder in ihre Teile zerlegt, gleiche Einheiten summiert und jede
+  Freitext-Angabe nur einmal behalten. Zwölf Rezepte mit „nach Geschmack“
+  ergeben „nach Geschmack“ – die erste Fassung hängte stur an und produzierte
+  Zeilen mit 26 Gliedern, die den Artikelnamen aus der Zeile drückten.
 - **Entschieden** wird pro Zutat: das Fenster zeigt „steht schon drauf (250 g) →
   wird 450 g“ und daneben den Knopf „getrennt“, wenn es doch eine eigene Zeile
   sein soll.

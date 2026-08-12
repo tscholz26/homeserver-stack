@@ -1,14 +1,14 @@
 /**
- * Zwei Mengenangaben zu einer machen.
+ * Mengenangaben zusammenlegen.
  *
  * Steht „Cherrytomaten 250 g“ schon auf der Liste und ein Rezept will noch
  * einmal 200 g, soll daraus ein Eintrag mit 450 g werden – nicht zwei Zeilen,
  * die man im Laden beide suchen muss.
  *
- * Zusammengerechnet wird nur, was dieselbe Einheit hat. „1 Packung“ und
- * „200 g“ lassen sich nicht addieren, ohne sich etwas auszudenken; die stehen
- * deshalb nebeneinander („1 Packung + 200 g“). Lieber eine ehrliche Zeile als
- * eine erfundene Zahl.
+ * Was sich nicht rechnen lässt („1 Packung“ und „200 g“), steht nebeneinander.
+ * Aber: jede Angabe nur einmal. Zwanzig Rezepte mit „nach Geschmack“ ergeben
+ * „nach Geschmack“, nicht zwanzig davon – daran ist die erste Fassung
+ * gescheitert.
  */
 
 /** Schreibweisen derselben Einheit, damit „St.“ und „Stück“ zusammenfinden. */
@@ -33,6 +33,7 @@ const EINHEITEN: Record<string, string> = {
   'pck.': 'Packung',
   packung: 'Packung',
   packungen: 'Packung',
+  päckchen: 'Päckchen',
   pkg: 'Packung',
   dose: 'Dose',
   dosen: 'Dose',
@@ -52,6 +53,8 @@ const EINHEITEN: Record<string, string> = {
   tuben: 'Tube',
   el: 'EL',
   tl: 'TL',
+  prise: 'Prise',
+  prisen: 'Prise',
 }
 
 interface Menge {
@@ -83,20 +86,42 @@ export function formatMenge(menge: Menge): string {
 }
 
 /**
- * Ergibt die Menge, die nach dem Zusammenlegen auf der Zeile steht.
- * Leere Angaben verschwinden, gleiche Einheiten werden addiert, alles andere
- * bleibt nebeneinander sichtbar.
+ * Eine bereits zusammengelegte Angabe wieder in ihre Teile zerlegen, damit ein
+ * dritter Zusatz nicht einfach hinten angehängt wird.
  */
-export function mengeZusammenfassen(vorhanden: string, dazu: string): string {
-  const a = (vorhanden ?? '').trim()
-  const b = (dazu ?? '').trim()
-  if (!a) return b
-  if (!b) return a
+function teile(text: string): string[] {
+  return text
+    .split('+')
+    .map((t) => t.trim())
+    .filter(Boolean)
+}
 
-  const links = parseMenge(a)
-  const rechts = parseMenge(b)
-  if (links && rechts && links.einheit === rechts.einheit) {
-    return formatMenge({ zahl: links.zahl + rechts.zahl, einheit: links.einheit })
+/**
+ * Fasst beliebig viele Angaben zu einer zusammen: gleiche Einheiten addiert,
+ * alles andere einmalig nebeneinander.
+ */
+export function mengenZusammenfassen(angaben: string[]): string {
+  const summen = new Map<string, number>()
+  const rest: string[] = []
+  const gesehen = new Set<string>()
+
+  for (const angabe of angaben.flatMap(teile)) {
+    const menge = parseMenge(angabe)
+    if (menge) {
+      summen.set(menge.einheit, (summen.get(menge.einheit) ?? 0) + menge.zahl)
+      continue
+    }
+    const key = angabe.toLowerCase()
+    if (gesehen.has(key)) continue
+    gesehen.add(key)
+    rest.push(angabe)
   }
-  return `${a} + ${b}`
+
+  const gerechnet = [...summen].map(([einheit, zahl]) => formatMenge({ zahl, einheit }))
+  return [...gerechnet, ...rest].join(' + ')
+}
+
+/** Zwei Angaben zu einer machen – der Normalfall beim Hinzufügen. */
+export function mengeZusammenfassen(vorhanden: string, dazu: string): string {
+  return mengenZusammenfassen([vorhanden ?? '', dazu ?? ''])
 }

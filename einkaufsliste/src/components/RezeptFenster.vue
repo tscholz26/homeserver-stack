@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onUpdated, reactive, ref, useTemplateRef } from 'vue'
+import Sortable from 'sortablejs'
 import {
   useEinkaufStore,
   type List,
@@ -114,6 +115,43 @@ function zutatDazu() {
 function zutatWeg(index: number) {
   entwurf.zutaten.splice(index, 1)
 }
+
+// Zutaten in die Reihenfolge ziehen, in der man sie braucht – angefasst wird
+// nur der Griff, damit die Eingabefelder bedienbar bleiben.
+const zutatenListe = useTemplateRef<HTMLElement>('zutatenListe')
+const ziehend = ref(false)
+let sortable: Sortable | undefined
+
+function buildSortable() {
+  sortable?.destroy()
+  sortable = undefined
+  if (modus.value !== 'bearbeiten' || !zutatenListe.value) return
+  sortable = new Sortable(zutatenListe.value, {
+    draggable: '.zutat-zeile',
+    handle: '.griff',
+    animation: 150,
+    onStart: () => (ziehend.value = true),
+    onEnd: (evt) => {
+      ziehend.value = false
+      // SortableJS hat den Knoten verschoben; wir setzen ihn zurück und lassen
+      // Vue aus dem Entwurf neu zeichnen.
+      evt.from.insertBefore(evt.item, evt.from.children[evt.oldIndex ?? 0] ?? null)
+      const { oldIndex, newIndex } = evt
+      if (oldIndex == null || newIndex == null || oldIndex === newIndex) return
+      const [raus] = entwurf.zutaten.splice(oldIndex, 1)
+      if (raus) entwurf.zutaten.splice(newIndex, 0, raus)
+    },
+  })
+}
+
+onUpdated(() => {
+  if (!ziehend.value) buildSortable()
+})
+
+onBeforeUnmount(() => {
+  sortable?.destroy()
+  sortable = undefined
+})
 
 async function rezeptSpeichern() {
   const name = entwurf.name.trim()
@@ -260,8 +298,9 @@ function zurueck() {
             </option>
           </select>
 
-          <ul class="zutaten">
-            <li v-for="(z, index) in entwurf.zutaten" :key="index">
+          <ul ref="zutatenListe" class="zutaten">
+            <li v-for="(z, index) in entwurf.zutaten" :key="index" class="zutat-zeile">
+              <span class="griff" title="Zutat verschieben">⠿</span>
               <input
                 v-model="z.name"
                 class="zutat"
@@ -447,7 +486,26 @@ section ul li {
 }
 
 .zutaten .zutat {
-  flex: 1 1 9rem;
+  flex: 1 1 7rem;
+}
+
+.griff {
+  flex-shrink: 0;
+  padding: 0.35rem 0.2rem;
+  color: color-mix(in srgb, var(--muted) 55%, transparent);
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.griff:active {
+  cursor: grabbing;
+}
+
+.sortable-ghost {
+  opacity: 0.4;
 }
 
 .zutaten .menge {

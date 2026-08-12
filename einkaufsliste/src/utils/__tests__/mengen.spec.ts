@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mengeZusammenfassen, parseMenge } from '@/utils/mengen'
+import { mengenZusammenfassen, mengeZusammenfassen, parseMenge } from '@/utils/mengen'
 
 describe('parseMenge', () => {
   it('trennt Zahl und Einheit', () => {
@@ -39,5 +39,30 @@ describe('mengeZusammenfassen', () => {
     expect(mengeZusammenfassen('', '200 g')).toBe('200 g')
     expect(mengeZusammenfassen('200 g', '')).toBe('200 g')
     expect(mengeZusammenfassen('', '')).toBe('')
+  })
+
+  it('rechnet auch dann weiter, wenn schon etwas nebeneinander steht', () => {
+    // Sonst wächst die Angabe mit jedem Rezept um ein Glied
+    // Die Reihenfolge folgt dem ersten Auftreten der Einheit
+    expect(mengeZusammenfassen('1 Becher + 30 g', '20 g')).toBe('1 Becher + 50 g')
+    expect(mengeZusammenfassen('500 g + 1 Packung', '250 g')).toBe('750 g + 1 Packung')
+  })
+
+  it('schreibt dieselbe Angabe nicht zweimal hin', () => {
+    expect(mengeZusammenfassen('nach Geschmack', 'nach Geschmack')).toBe('nach Geschmack')
+    expect(mengeZusammenfassen('etwas', 'Etwas')).toBe('etwas')
+  })
+})
+
+describe('mengenZusammenfassen', () => {
+  it('hält auch 25 Angaben kurz', () => {
+    // Genau der Fall, der die Liste unlesbar gemacht hat: ein Dutzend Rezepte
+    // mit „nach Geschmack“ und ein paar Gramm-Angaben
+    const angaben = ['1 Prise', '5 g', 'nach Geschmack', '10 g', 'nach Geschmack', '20 g']
+    expect(mengenZusammenfassen(angaben)).toBe('1 Prise + 35 g + nach Geschmack')
+  })
+
+  it('trennt nach Einheiten', () => {
+    expect(mengenZusammenfassen(['700 ml', '250 ml', '2 l'])).toBe('950 ml + 2 l')
   })
 })

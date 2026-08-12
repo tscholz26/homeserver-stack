@@ -11,14 +11,54 @@ const waehlbareKategorien = computed(() =>
   store.state.categories.filter((c) => c.id !== 'sonstiges'),
 )
 
+/**
+ * Was noch keiner Kategorie zugeordnet ist – aus zwei Quellen zusammengelegt:
+ * Artikel, die gerade auf einer Liste unter „Sonstiges“ liegen, und Namen, die
+ * irgendwann einmal eingetippt und nie zugeordnet wurden.
+ */
+interface OffenerName {
+  key: string
+  name: string
+  aufListen: number
+  count: number
+  /** id des Historien-Eintrags, nur der lässt sich verwerfen */
+  unmatchedId: string | null
+}
+
+const offeneNamen = computed<OffenerName[]>(() => {
+  const namen = new Map<string, OffenerName>()
+
+  for (const { item } of store.sonstigesItems.value) {
+    const key = normalize(item.name)
+    const vorhanden = namen.get(key)
+    if (vorhanden) vorhanden.aufListen += 1
+    else namen.set(key, { key, name: item.name, aufListen: 1, count: 0, unmatchedId: null })
+  }
+
+  for (const u of store.unmatched.value) {
+    const key = normalize(u.name)
+    const vorhanden = namen.get(key)
+    if (vorhanden) {
+      vorhanden.count = u.count
+      vorhanden.unmatchedId = u.id
+    } else {
+      namen.set(key, { key, name: u.name, aufListen: 0, count: u.count, unmatchedId: u.id })
+    }
+  }
+
+  return [...namen.values()].sort(
+    (a, b) => b.aufListen - a.aufListen || b.count - a.count || a.name.localeCompare(b.name, 'de'),
+  )
+})
+
 // Auswahl pro nicht zugeordnetem Artikel, bis auf „Speichern“ getippt wird
 const auswahl = reactive<Record<string, string>>({})
 
-function zuordnen(id: string, name: string) {
-  const categoryId = auswahl[id]
+function zuordnen(key: string, name: string) {
+  const categoryId = auswahl[key]
   if (!categoryId) return
   store.assignCategory(name, categoryId)
-  delete auswahl[id]
+  delete auswahl[key]
 }
 
 // ── Schreibweisen ─────────────────────────────────────────────────────────────
@@ -31,11 +71,11 @@ function vorschlaege(name: string) {
   return suggestCatalogEntries(name, store.state.catalog)
 }
 
-function alsSchreibweise(id: string, name: string, ziel: string) {
+function alsSchreibweise(key: string, name: string, ziel: string) {
   if (!ziel.trim()) return
   store.addAlias(ziel, name)
-  delete aliasOffen[id]
-  delete aliasZiel[id]
+  delete aliasOffen[key]
+  delete aliasZiel[key]
 }
 
 // ── Märkte ────────────────────────────────────────────────────────────────────
@@ -221,20 +261,16 @@ function anlegen() {
     <section>
       <h2>Nicht zugeordnete Artikel</h2>
       <p class="hinweis">
-        Alles, was beim Hinzufügen nicht im Katalog stand. Entweder als eigener Artikel in eine
-        Kategorie – oder als weitere Schreibweise eines Artikels, den es schon gibt. Was deswegen
-        gerade unter „Sonstiges“ liegt, rutscht dabei gleich mit.
-      </p>
-
-      <p v-if="!store.unmatched.value.length" class="leer">
-        Nichts offen – alles ließ sich zuordnen.
+        Alles, was beim Hinzufügen nicht im Katalog stand – ob es gerade auf einer Liste liegt oder
+        nur einmal eingetippt wurde. Entweder als eigener Artikel in eine Kategorie, oder als
+        weitere Schreibweise eines Artikels, den es schon gibt. Was deswegen unter „Sonstiges“
+        liegt, rutscht dabei gleich mit.
       </p>
 
       <div v-if="store.sonstigesItems.value.length" class="card offen nachtraeglich">
         <p class="hinweis">
-          {{ store.sonstigesItems.value.length }} Artikel in den Listen liegen unter „Sonstiges“.
-          Seit sie eingetragen wurden, ist der Katalog gewachsen – ein Durchlauf holt nach, was
-          inzwischen bekannt ist.
+          {{ store.sonstigesItems.value.length }} Artikel auf den Listen liegen unter „Sonstiges“.
+          Ist der Katalog seitdem gewachsen, holt ein Durchlauf nach, was inzwischen bekannt ist.
         </p>
         <div class="zeile">
           <button type="button" class="primaer" :disabled="rematchLaeuft" @click="nochmalPruefen">
@@ -244,23 +280,39 @@ function anlegen() {
         </div>
       </div>
 
+      <p v-if="!offeneNamen.length" class="leer">Nichts offen – alles ließ sich zuordnen.</p>
+
       <ul v-else class="karten">
-        <li v-for="eintrag in store.unmatched.value" :key="eintrag.id" class="card offen">
+        <li v-for="eintrag in offeneNamen" :key="eintrag.key" class="card offen">
           <div class="kopf">
             <span class="name">{{ eintrag.name }}</span>
-            <span class="anzahl" :title="`${eintrag.count}× eingegeben`">{{ eintrag.count }}×</span>
+            <span
+              v-if="eintrag.aufListen"
+              class="anzahl"
+              :title="`steht ${eintrag.aufListen}× auf den Listen`"
+            >
+              {{ eintrag.aufListen }}× auf der Liste
+            </span>
+            <span
+              v-else
+              class="anzahl"
+              :title="`${eintrag.count}× eingegeben, steht aktuell auf keiner Liste`"
+            >
+              {{ eintrag.count }}× eingegeben
+            </span>
             <button
+              v-if="eintrag.unmatchedId"
               type="button"
               class="weg"
               title="Verwerfen (z. B. Vertipper)"
-              @click="store.dismissUnmatched(eintrag.id)"
+              @click="store.dismissUnmatched(eintrag.unmatchedId)"
             >
               ×
             </button>
           </div>
 
           <div class="zeile">
-            <select v-model="auswahl[eintrag.id]" :aria-label="`Kategorie für ${eintrag.name}`">
+            <select v-model="auswahl[eintrag.key]" :aria-label="`Kategorie für ${eintrag.name}`">
               <option value="">Kategorie wählen …</option>
               <option v-for="k in waehlbareKategorien" :key="k.id" :value="k.id">
                 {{ k.emoji }} {{ k.label }}
@@ -269,8 +321,8 @@ function anlegen() {
             <button
               type="button"
               class="primaer"
-              :disabled="!auswahl[eintrag.id]"
-              @click="zuordnen(eintrag.id, eintrag.name)"
+              :disabled="!auswahl[eintrag.key]"
+              @click="zuordnen(eintrag.key, eintrag.name)"
             >
               Speichern
             </button>
@@ -279,12 +331,12 @@ function anlegen() {
           <button
             type="button"
             class="schalter"
-            @click="aliasOffen[eintrag.id] = !aliasOffen[eintrag.id]"
+            @click="aliasOffen[eintrag.key] = !aliasOffen[eintrag.key]"
           >
-            {{ aliasOffen[eintrag.id] ? '– ' : '+ ' }}Schreibweise eines vorhandenen Artikels
+            {{ aliasOffen[eintrag.key] ? '– ' : '+ ' }}Schreibweise eines vorhandenen Artikels
           </button>
 
-          <div v-if="aliasOffen[eintrag.id]" class="alias">
+          <div v-if="aliasOffen[eintrag.key]" class="alias">
             <!-- Vorschläge aus dem Katalog: ein Tipp genügt -->
             <div v-if="vorschlaege(eintrag.name).length" class="chips">
               <button
@@ -292,26 +344,26 @@ function anlegen() {
                 :key="v.name"
                 type="button"
                 class="chip"
-                @click="alsSchreibweise(eintrag.id, eintrag.name, v.name)"
+                @click="alsSchreibweise(eintrag.key, eintrag.name, v.name)"
               >
                 {{ v.name }}
               </button>
             </div>
             <div class="zeile">
               <input
-                v-model="aliasZiel[eintrag.id]"
-                :list="`katalog-${eintrag.id}`"
+                v-model="aliasZiel[eintrag.key]"
+                :list="`katalog-${eintrag.key}`"
                 placeholder="Artikel suchen …"
                 :aria-label="`Artikel, zu dem ${eintrag.name} gehört`"
               />
-              <datalist :id="`katalog-${eintrag.id}`">
+              <datalist :id="`katalog-${eintrag.key}`">
                 <option v-for="n in store.catalogNames.value" :key="n" :value="n" />
               </datalist>
               <button
                 type="button"
                 class="primaer"
-                :disabled="!aliasZiel[eintrag.id]"
-                @click="alsSchreibweise(eintrag.id, eintrag.name, aliasZiel[eintrag.id] ?? '')"
+                :disabled="!aliasZiel[eintrag.key]"
+                @click="alsSchreibweise(eintrag.key, eintrag.name, aliasZiel[eintrag.key] ?? '')"
               >
                 Merken
               </button>

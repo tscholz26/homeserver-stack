@@ -3024,6 +3024,54 @@
         "Dunkle schoko"
       ],
       "category_id": "suesses_snacks"
+    },
+    {
+      "name": "Pinsateig",
+      "aliases": [
+        "Pinsa Teig",
+        "Pinsa"
+      ],
+      "category_id": "brot_backwaren"
+    },
+    {
+      "name": "Burgersoße",
+      "aliases": [],
+      "category_id": "nudeln_reis"
+    },
+    {
+      "name": "Heumilchkäse",
+      "aliases": [],
+      "category_id": "milch_kuehlwaren"
+    },
+    {
+      "name": "Bohnenkraut",
+      "aliases": [],
+      "category_id": "backen_gewuerze"
+    },
+    {
+      "name": "Tabascosoße",
+      "aliases": [],
+      "category_id": "nudeln_reis"
+    },
+    {
+      "name": "getrocknete Steinpilze",
+      "aliases": [],
+      "category_id": "konserven"
+    },
+    {
+      "name": "Schweinelendchen",
+      "aliases": [],
+      "category_id": "fleisch_wurst"
+    },
+    {
+      "name": "Kräuter der Provence",
+      "aliases": [],
+      "category_id": "backen_gewuerze"
+    },
+    {
+      "name": "Kalbsfleisch",
+      "aliases": [],
+      "category_id": "fleisch_wurst"
     }
   ],
   "storeProfiles": [

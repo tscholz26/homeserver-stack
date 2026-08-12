@@ -261,7 +261,9 @@ function alsSchreibweise(artikel: string) {
   color: inherit;
   font-size: 1.02rem;
   text-align: left;
-  overflow-wrap: anywhere;
+  /* „anywhere“ erlaubt dem Layout, den Namen auf einen Buchstaben pro Zeile
+     zu quetschen. „break-word“ bricht nur, wenn ein Wort allein zu lang ist. */
+  overflow-wrap: break-word;
   cursor: pointer;
 }
 
@@ -272,13 +274,19 @@ function alsSchreibweise(artikel: string) {
 }
 
 .menge {
-  flex-shrink: 0;
+  /* Zusammengelegte Mengen können lang werden („950 ml + 2 l + nach Bedarf“).
+     Sie dürfen dann umbrechen, aber nie mehr als die halbe Zeile nehmen –
+     sonst bleibt für den Namen nichts übrig. */
+  flex: 0 1 auto;
+  max-width: 45%;
   padding: 0.15rem 0.5rem;
   border: 1px solid var(--line);
   border-radius: 0.5rem;
   color: var(--muted);
   font-size: 0.8rem;
+  line-height: 1.35;
   font-variant-numeric: tabular-nums;
+  overflow-wrap: break-word;
 }
 
 .weg {
