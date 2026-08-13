@@ -1,18 +1,12 @@
 [
   {
-    "id": "msqhngzn-47c5a12f",
-    "name": "Pinsa",
-    "group": "sonstiges",
-    "ingredients": []
-  },
-  {
     "id": "msqhngzo-88e15fdd",
-    "name": "Flammkuchen",
+    "name": "Flammkuchen (2 Personen)",
     "group": "frisch",
     "ingredients": [
       {
         "name": "Flammkuchenteig",
-        "quantity": "1 p.P."
+        "quantity": "2"
       },
       {
         "name": "Schmand",
@@ -46,20 +40,16 @@
   },
   {
     "id": "msqhngzo-90a14675",
-    "name": "(Halloumi) Burger",
+    "name": "Halloumi Burger",
     "group": "frisch",
     "ingredients": [
       {
         "name": "Burger Buns",
-        "quantity": ""
+        "quantity": "2 p.P."
       },
       {
-        "name": "Hackfleisch",
-        "quantity": ""
-      },
-      {
-        "name": "Cheddar",
-        "quantity": ""
+        "name": "Halloumi",
+        "quantity": "1 p.P."
       },
       {
         "name": "Tomaten",
@@ -68,6 +58,10 @@
       {
         "name": "Kopfsalat",
         "quantity": "1"
+      },
+      {
+        "name": "Gewürzgurken",
+        "quantity": ""
       },
       {
         "name": "Gemüsezwiebeln",
@@ -84,62 +78,52 @@
       {
         "name": "Burgersoße",
         "quantity": ""
-      },
-      {
-        "name": "Halloumi",
-        "quantity": "1 p.P."
-      },
-      {
-        "name": "Gewürzgurken",
-        "quantity": ""
       }
     ]
   },
   {
-    "id": "msqhngzo-eced5e8c",
-    "name": "Hähnchen-Curry mit Reis",
-    "group": "sonstiges",
-    "ingredients": []
-  },
-  {
-    "id": "msqhngzo-6c7bdc20",
-    "name": "Griechischer Salat/Tomate Gurke Paprika",
+    "id": "msqi07no-80fa843f",
+    "name": "Zitronenlauch mit Gnocchi",
     "group": "frisch",
     "ingredients": [
       {
-        "name": "Tomaten",
-        "quantity": "2-3"
+        "name": "Lauch",
+        "quantity": "4 mittelgroße Stangen"
       },
       {
-        "name": "Gurke",
+        "name": "Zitrone",
         "quantity": "1"
       },
       {
-        "name": "Feta",
-        "quantity": "1"
+        "name": "Knoblauch",
+        "quantity": "2 Zehen"
       },
       {
-        "name": "Oliven",
+        "name": "Butter",
+        "quantity": "1–2 EL"
+      },
+      {
+        "name": "Schlagsahne",
+        "quantity": "500 g"
+      },
+      {
+        "name": "Milch",
+        "quantity": "ca. 100 ml"
+      },
+      {
+        "name": "Gnocchi",
+        "quantity": "1000–1200 g"
+      },
+      {
+        "name": "Muskatnuss",
         "quantity": ""
-      },
-      {
-        "name": "Olivenöl",
-        "quantity": ""
-      },
-      {
-        "name": "Paprika",
-        "quantity": "1"
-      },
-      {
-        "name": "Eisbergsalat für Chantal",
-        "quantity": "1"
       }
     ]
   },
   {
     "id": "msqhngzp-955be25a",
     "name": "Shakshuka",
-    "group": "sonstiges",
+    "group": "familienkochbuch",
     "ingredients": [
       {
         "name": "Eier",
@@ -176,6 +160,33 @@
     ]
   },
   {
+    "id": "msqi07no-3f98c567",
+    "name": "Gnocchi Auflauf",
+    "group": "frisch",
+    "ingredients": [
+      {
+        "name": "Gnocchi",
+        "quantity": "1200 g"
+      },
+      {
+        "name": "Heumilchkäse",
+        "quantity": "200 g"
+      },
+      {
+        "name": "Schlagsahne",
+        "quantity": "700 g"
+      },
+      {
+        "name": "Cherrytomaten",
+        "quantity": "250 g"
+      },
+      {
+        "name": "Zwiebeln",
+        "quantity": "4 große"
+      }
+    ]
+  },
+  {
     "id": "msqhngzp-39fd443c",
     "name": "Kichererbsen-Curry aus Australien",
     "group": "vorrat",
@@ -186,7 +197,7 @@
       },
       {
         "name": "Kokosmilch",
-        "quantity": ""
+        "quantity": "2-3 Dosen"
       },
       {
         "name": "Tomatenmark",
@@ -207,9 +218,60 @@
     ]
   },
   {
+    "id": "msqi07no-e649e287",
+    "name": "Nudeln mit Gorgonzolasoße und Walnüssen",
+    "group": "familienkochbuch",
+    "ingredients": [
+      {
+        "name": "Nudeln",
+        "quantity": "500 g"
+      },
+      {
+        "name": "Gorgonzola",
+        "quantity": "200 g"
+      },
+      {
+        "name": "Zwiebel",
+        "quantity": "1 große"
+      },
+      {
+        "name": "Schlagsahne",
+        "quantity": "200 g"
+      },
+      {
+        "name": "Wasser",
+        "quantity": "250 ml"
+      },
+      {
+        "name": "Gemüsebrühe",
+        "quantity": "1 TL"
+      },
+      {
+        "name": "Milch",
+        "quantity": "100 ml"
+      },
+      {
+        "name": "Mehl",
+        "quantity": "1 gehäufter EL / 26 g"
+      },
+      {
+        "name": "Walnüsse",
+        "quantity": "eine Handvoll"
+      },
+      {
+        "name": "Butterschmalz",
+        "quantity": "20 g"
+      },
+      {
+        "name": "Pfeffer",
+        "quantity": "nach Geschmack"
+      }
+    ]
+  },
+  {
     "id": "msqi07no-c8a3b1e9",
     "name": "Gorgonzola Risotto",
-    "group": "sonstiges",
+    "group": "familienkochbuch",
     "ingredients": [
       {
         "name": "Zwiebeln",
@@ -254,61 +316,147 @@
     ]
   },
   {
-    "id": "msqi07no-df885986",
-    "name": "Saure Kartoffelstückchen",
-    "group": "sonstiges",
+    "id": "msqi07no-9e137599",
+    "name": "Risotto mit Steinpilzen",
+    "group": "familienkochbuch",
     "ingredients": [
       {
-        "name": "Kartoffeln",
-        "quantity": "1000 g"
-      },
-      {
-        "name": "Wasser",
-        "quantity": "1,5 l"
-      },
-      {
         "name": "Zwiebeln",
-        "quantity": "3 Stück"
-      },
-      {
-        "name": "Jagdwurst",
-        "quantity": "300 g"
-      },
-      {
-        "name": "Gewürzgurken",
-        "quantity": "250 g"
-      },
-      {
-        "name": "Gurkenwasser",
-        "quantity": "250 ml"
-      },
-      {
-        "name": "Mehl",
-        "quantity": "5 EL / 90 g"
+        "quantity": "2 Stück"
       },
       {
         "name": "Butterschmalz",
         "quantity": "20 g"
       },
       {
+        "name": "Weißwein",
+        "quantity": "300 ml"
+      },
+      {
+        "name": "Wasser",
+        "quantity": "2 l"
+      },
+      {
         "name": "Gemüsebrühe",
-        "quantity": "1 gehäufter EL"
+        "quantity": "für 2 l Wasser / ca. 40 g"
       },
       {
-        "name": "Zucker",
-        "quantity": "3 leicht gehäufte TL / 20 g"
+        "name": "Risottoreis",
+        "quantity": "500 g"
       },
       {
-        "name": "Essig",
-        "quantity": "25 ml"
+        "name": "Schlagsahne",
+        "quantity": "3 EL"
+      },
+      {
+        "name": "getrocknete Steinpilze",
+        "quantity": "40 g"
+      },
+      {
+        "name": "Parmesan",
+        "quantity": "100 g"
       },
       {
         "name": "Salz",
-        "quantity": "15 g"
+        "quantity": "7 g"
       },
       {
         "name": "Pfeffer",
         "quantity": "nach Geschmack"
+      }
+    ]
+  },
+  {
+    "id": "msqi07no-06f3b4f9",
+    "name": "Chili con Carne",
+    "group": "frisch",
+    "ingredients": [
+      {
+        "name": "Hackfleisch Rind",
+        "quantity": "500+ g"
+      },
+      {
+        "name": "Pizzatomaten",
+        "quantity": "3 Dosen"
+      },
+      {
+        "name": "Kidneybohnen",
+        "quantity": "2-3 Dosen"
+      },
+      {
+        "name": "Mais",
+        "quantity": "1+ große Dose"
+      },
+      {
+        "name": "Gelbe Zwiebel",
+        "quantity": "1"
+      },
+      {
+        "name": "Dunkle Schokolade",
+        "quantity": "25 g"
+      },
+      {
+        "name": "Chili con Carne Gewürzmischung Papa",
+        "quantity": ""
+      },
+      {
+        "name": "Tomatenmark",
+        "quantity": ""
+      }
+    ]
+  },
+  {
+    "id": "msqi07no-8f2be20a",
+    "name": "Züricher Geschnetzeltes mit Spätzle",
+    "group": "frisch",
+    "ingredients": [
+      {
+        "name": "Hähnchenbrustfilets",
+        "quantity": "2/3"
+      },
+      {
+        "name": "Hähnchenfleisch",
+        "quantity": "400/600 g"
+      },
+      {
+        "name": "Kalbsfleisch",
+        "quantity": "alternativ"
+      },
+      {
+        "name": "Zwiebeln",
+        "quantity": "1/2 große"
+      },
+      {
+        "name": "Spätzle",
+        "quantity": "1500/2000 g"
+      },
+      {
+        "name": "Weißwein",
+        "quantity": "300/550 ml"
+      },
+      {
+        "name": "Schlagsahne",
+        "quantity": "400/800 g"
+      },
+      {
+        "name": "Mehl",
+        "quantity": "2/4 gehäufte EL"
+      },
+      {
+        "name": "Milch",
+        "quantity": "100/300 ml"
+      },
+      {
+        "name": "Salz",
+        "quantity": "10/15 g"
+      },
+      {
+        "name": "Pfeffer",
+        "quantity": "nach Geschmack"
+      },
+      {
+        "name": "Butterschmalz",
+        "quantity": "60 g"
       }
     ]
   },
@@ -352,80 +500,37 @@
     ]
   },
   {
-    "id": "msqi07no-5af91048",
-    "name": "Eierkuchen mit Marmelade oder Zimt und Zucker",
-    "group": "sonstiges",
+    "id": "msqi07no-5c074e9f",
+    "name": "Käse-Lauch-Suppe mit Hackfleisch",
+    "group": "frisch",
     "ingredients": [
       {
-        "name": "Buttermilch",
-        "quantity": "1 Becher / 500 g"
+        "name": "Hackepeter",
+        "quantity": "500/800 g"
       },
-      {
-        "name": "Eier",
-        "quantity": "5 große oder 6 kleine"
-      },
-      {
-        "name": "Mehl",
-        "quantity": "150 g"
-      },
-      {
-        "name": "Butterschmalz",
-        "quantity": "20 g"
-      },
-      {
-        "name": "Marmelade oder Apfelmus",
-        "quantity": "zum Bestreichen"
-      },
-      {
-        "name": "Salz",
-        "quantity": "1 Prise"
-      },
-      {
-        "name": "Vanillinzucker",
-        "quantity": "1 Päckchen / 8 g"
-      },
-      {
-        "name": "Zucker und Zimt",
-        "quantity": "nach Geschmack"
-      }
-    ]
-  },
-  {
-    "id": "msqi07no-80fa843f",
-    "name": "Zitronenlauch mit Gnocchi",
-    "group": "sonstiges",
-    "ingredients": [
       {
         "name": "Lauch",
-        "quantity": "4 mittelgroße Stangen"
+        "quantity": "4/6 große Stangen"
       },
       {
-        "name": "Zitrone",
-        "quantity": "1"
+        "name": "Schmelzkäse",
+        "quantity": "250/400 g"
       },
       {
-        "name": "Knoblauch",
-        "quantity": "2 Zehen"
+        "name": "Creme fraiche",
+        "quantity": "100/200 g"
       },
       {
-        "name": "Butter",
-        "quantity": "1–2 EL"
+        "name": "Wasser",
+        "quantity": "0,8/1,2 l"
       },
       {
-        "name": "Schlagsahne",
-        "quantity": "500 g"
-      },
-      {
-        "name": "Milch",
-        "quantity": "ca. 100 ml"
-      },
-      {
-        "name": "Gnocchi",
-        "quantity": "1000–1200 g"
+        "name": "Gemüsebrühe",
+        "quantity": "2/3 gehäufte TL"
       },
       {
         "name": "Salz",
-        "quantity": "nach Geschmack"
+        "quantity": "10/15 g"
       },
       {
         "name": "Pfeffer",
@@ -434,13 +539,70 @@
       {
         "name": "Muskatnuss",
         "quantity": "etwas"
+      },
+      {
+        "name": "Butterschmalz",
+        "quantity": "20 g"
       }
     ]
   },
   {
+    "id": "msqi07no-557da920",
+    "name": "Schnitzel mit Spargel und Kartoffeln",
+    "group": "saisonal",
+    "ingredients": [
+      {
+        "name": "Kartoffeln",
+        "quantity": "nach Bedarf"
+      },
+      {
+        "name": "weißer Spargel",
+        "quantity": "10–20 Stangen"
+      },
+      {
+        "name": "Schweineschnitzel oder Putenschnitzel",
+        "quantity": "4"
+      },
+      {
+        "name": "Zitrone",
+        "quantity": "1 kleine"
+      },
+      {
+        "name": "Mehl",
+        "quantity": "nach Bedarf"
+      },
+      {
+        "name": "Semmelbrösel",
+        "quantity": "nach Bedarf"
+      },
+      {
+        "name": "Ei",
+        "quantity": "1"
+      },
+      {
+        "name": "Kräutersoße",
+        "quantity": "2 Päckchen"
+      },
+      {
+        "name": "Butterschmalz",
+        "quantity": "20 g"
+      },
+      {
+        "name": "Salz und Pfeffer",
+        "quantity": "nach Geschmack"
+      }
+    ]
+  },
+  {
+    "id": "msqi07no-21ae31e8",
+    "name": "Spaghetti Carbonara",
+    "group": "frisch",
+    "ingredients": []
+  },
+  {
     "id": "msqi07no-7c098a19",
     "name": "Lachsnudeln",
-    "group": "sonstiges",
+    "group": "vorrat",
     "ingredients": [
       {
         "name": "Nudeln",
@@ -497,225 +659,29 @@
     ]
   },
   {
-    "id": "msqi07no-3f98c567",
-    "name": "Gnocchi Auflauf",
-    "group": "sonstiges",
-    "ingredients": [
-      {
-        "name": "Gnocchi",
-        "quantity": "1200 g"
-      },
-      {
-        "name": "Heumilchkäse",
-        "quantity": "200 g"
-      },
-      {
-        "name": "Schlagsahne",
-        "quantity": "700 g"
-      },
-      {
-        "name": "Cherrytomaten",
-        "quantity": "250 g"
-      },
-      {
-        "name": "Zwiebeln",
-        "quantity": "4 große"
-      },
-      {
-        "name": "Salz",
-        "quantity": "5 g"
-      },
-      {
-        "name": "Pfeffer",
-        "quantity": "nach Geschmack"
-      }
-    ]
-  },
-  {
-    "id": "msqi07no-557da920",
-    "name": "Schnitzel mit Spargel und Kartoffeln",
-    "group": "sonstiges",
-    "ingredients": [
-      {
-        "name": "Kartoffeln",
-        "quantity": "nach Bedarf"
-      },
-      {
-        "name": "weißer Spargel",
-        "quantity": "10–20 Stangen"
-      },
-      {
-        "name": "Schweineschnitzel oder Putenschnitzel",
-        "quantity": "4"
-      },
-      {
-        "name": "Zitrone",
-        "quantity": "1 kleine"
-      },
-      {
-        "name": "Mehl",
-        "quantity": "nach Bedarf"
-      },
-      {
-        "name": "Semmelbrösel",
-        "quantity": "nach Bedarf"
-      },
-      {
-        "name": "Ei",
-        "quantity": "1"
-      },
-      {
-        "name": "Kräutersoße",
-        "quantity": "2 Päckchen"
-      },
-      {
-        "name": "Butterschmalz",
-        "quantity": "20 g"
-      },
-      {
-        "name": "Salz und Pfeffer",
-        "quantity": "nach Geschmack"
-      }
-    ]
-  },
-  {
-    "id": "msqi07no-06f3b4f9",
-    "name": "Chili con Carne",
+    "id": "msqi07no-5af91048",
+    "name": "Eierkuchen (2 Personen/6 Eierkuchen)",
     "group": "frisch",
     "ingredients": [
       {
-        "name": "Hackfleisch Rind",
-        "quantity": "500+ g"
+        "name": "Buttermilch",
+        "quantity": "500 ml"
       },
       {
-        "name": "Pizzatomaten",
-        "quantity": "3 Dosen"
-      },
-      {
-        "name": "Kidneybohnen",
-        "quantity": "2-3 Dosen"
-      },
-      {
-        "name": "Mais",
-        "quantity": "1 groß Dose"
-      },
-      {
-        "name": "Gelbe Zwiebel",
-        "quantity": "1"
-      },
-      {
-        "name": "Dunkle Schokolade",
-        "quantity": "25 g"
-      },
-      {
-        "name": "Chili con Carne Gewürzmischung Papa",
-        "quantity": ""
-      },
-      {
-        "name": "Tomatenmark",
-        "quantity": ""
-      }
-    ]
-  },
-  {
-    "id": "msqi07no-5c074e9f",
-    "name": "Käse-Lauch-Suppe mit Hackfleisch",
-    "group": "sonstiges",
-    "ingredients": [
-      {
-        "name": "Hackepeter",
-        "quantity": "500/800 g"
-      },
-      {
-        "name": "Lauch",
-        "quantity": "4/6 große Stangen"
-      },
-      {
-        "name": "Schmelzkäse",
-        "quantity": "250/400 g"
-      },
-      {
-        "name": "Creme fraiche",
-        "quantity": "100/200 g"
-      },
-      {
-        "name": "Wasser",
-        "quantity": "0,8/1,2 l"
-      },
-      {
-        "name": "Gemüsebrühe",
-        "quantity": "2/3 gehäufte TL"
-      },
-      {
-        "name": "Salz",
-        "quantity": "10/15 g"
-      },
-      {
-        "name": "Pfeffer",
-        "quantity": "nach Geschmack"
-      },
-      {
-        "name": "Muskatnuss",
-        "quantity": "etwas"
-      },
-      {
-        "name": "Butterschmalz",
-        "quantity": "20 g"
-      }
-    ]
-  },
-  {
-    "id": "msqi07no-8f2be20a",
-    "name": "Züricher Geschnetzeltes mit Spätzle",
-    "group": "sonstiges",
-    "ingredients": [
-      {
-        "name": "Hähnchenbrustfilets",
-        "quantity": "2/3"
-      },
-      {
-        "name": "Hähnchenfleisch",
-        "quantity": "400/600 g"
-      },
-      {
-        "name": "Kalbsfleisch",
-        "quantity": "alternativ"
-      },
-      {
-        "name": "Zwiebeln",
-        "quantity": "1/2 große"
-      },
-      {
-        "name": "Spätzle",
-        "quantity": "1500/2000 g"
-      },
-      {
-        "name": "Weißwein",
-        "quantity": "300/550 ml"
-      },
-      {
-        "name": "Schlagsahne",
-        "quantity": "400/800 g"
+        "name": "Eier",
+        "quantity": "5 große oder 6 kleine"
       },
       {
         "name": "Mehl",
-        "quantity": "2/4 gehäufte EL"
+        "quantity": "150 g"
       },
       {
-        "name": "Milch",
-        "quantity": "100/300 ml"
+        "name": "Vanillinzucker",
+        "quantity": "1 Päckchen"
       },
       {
-        "name": "Salz",
-        "quantity": "10/15 g"
-      },
-      {
-        "name": "Pfeffer",
-        "quantity": "nach Geschmack"
-      },
-      {
-        "name": "Butterschmalz",
-        "quantity": "60 g"
+        "name": "Zucker und Zimt",
+        "quantity": ""
       }
     ]
   },
@@ -751,9 +717,187 @@
     ]
   },
   {
+    "id": "msqi07no-b37dfa1d",
+    "name": "Spaghetti Tetrazzini",
+    "group": "familienkochbuch",
+    "ingredients": [
+      {
+        "name": "Nudeln",
+        "quantity": "500 g"
+      },
+      {
+        "name": "Hähnchenbrustfilet",
+        "quantity": "400 g"
+      },
+      {
+        "name": "Champignons",
+        "quantity": "350–400 g"
+      },
+      {
+        "name": "getrocknete Steinpilze",
+        "quantity": "15–20 g"
+      },
+      {
+        "name": "Weißwein",
+        "quantity": "200 ml"
+      },
+      {
+        "name": "Schlagsahne",
+        "quantity": "500 ml"
+      },
+      {
+        "name": "Parmesan",
+        "quantity": "200 g"
+      },
+      {
+        "name": "Butterschmalz",
+        "quantity": "20 g"
+      },
+      {
+        "name": "Salz",
+        "quantity": "10 g"
+      },
+      {
+        "name": "Pfeffer",
+        "quantity": "nach Geschmack"
+      }
+    ]
+  },
+  {
+    "id": "9fba2470-6deb-4a56-a06b-aa8c194686bc",
+    "name": "Ofengemüse mit Gnocchi",
+    "group": "frisch",
+    "ingredients": []
+  },
+  {
+    "id": "msqi07no-df885986",
+    "name": "Saure Kartoffelstückchen",
+    "group": "familienkochbuch",
+    "ingredients": [
+      {
+        "name": "Kartoffeln",
+        "quantity": "1000 g"
+      },
+      {
+        "name": "Wasser",
+        "quantity": "1,5 l"
+      },
+      {
+        "name": "Zwiebeln",
+        "quantity": "3 Stück"
+      },
+      {
+        "name": "Jagdwurst",
+        "quantity": "300 g"
+      },
+      {
+        "name": "Gewürzgurken",
+        "quantity": "250 g"
+      },
+      {
+        "name": "Gurkenwasser",
+        "quantity": "250 ml"
+      },
+      {
+        "name": "Mehl",
+        "quantity": "5 EL / 90 g"
+      },
+      {
+        "name": "Butterschmalz",
+        "quantity": "20 g"
+      },
+      {
+        "name": "Gemüsebrühe",
+        "quantity": "1 gehäufter EL"
+      },
+      {
+        "name": "Zucker",
+        "quantity": "3 leicht gehäufte TL / 20 g"
+      },
+      {
+        "name": "Essig",
+        "quantity": "25 ml"
+      },
+      {
+        "name": "Salz",
+        "quantity": "15 g"
+      },
+      {
+        "name": "Pfeffer",
+        "quantity": "nach Geschmack"
+      }
+    ]
+  },
+  {
+    "id": "msqkgyyn-f7b159a0",
+    "name": "Griechischer Salat",
+    "group": "frisch",
+    "ingredients": [
+      {
+        "name": "Tomaten",
+        "quantity": "2"
+      },
+      {
+        "name": "Gurke",
+        "quantity": "1"
+      },
+      {
+        "name": "Paprika",
+        "quantity": "1"
+      },
+      {
+        "name": "Feta",
+        "quantity": "1"
+      },
+      {
+        "name": "Oliven",
+        "quantity": "optional"
+      },
+      {
+        "name": "Olivenöl",
+        "quantity": ""
+      }
+    ]
+  },
+  {
+    "id": "msqi07no-ea7bbcf1",
+    "name": "Pflaumenklöße mit brauner Butter, Zimt und Zucker",
+    "group": "sonstiges",
+    "ingredients": [
+      {
+        "name": "Kartoffeln",
+        "quantity": "2/2,5 kg"
+      },
+      {
+        "name": "Mehl",
+        "quantity": "ca. 500/625 g"
+      },
+      {
+        "name": "Eier",
+        "quantity": "2 Eigelb"
+      },
+      {
+        "name": "Salz",
+        "quantity": "7 g"
+      },
+      {
+        "name": "Pflaumen",
+        "quantity": "22"
+      },
+      {
+        "name": "Butter",
+        "quantity": "75 g"
+      },
+      {
+        "name": "Zucker und Zimt",
+        "quantity": "nach Geschmack"
+      }
+    ]
+  },
+  {
     "id": "msqi07no-3724ff0f",
     "name": "Fischfilet mit Kartoffeln, Rotkraut und Senfsoße",
-    "group": "sonstiges",
+    "group": "familienkochbuch",
     "ingredients": [
       {
         "name": "Kartoffeln",
@@ -806,296 +950,6 @@
     ]
   },
   {
-    "id": "msqi07no-e649e287",
-    "name": "Nudeln mit Gorgonzolasoße und Walnüssen",
-    "group": "sonstiges",
-    "ingredients": [
-      {
-        "name": "Nudeln",
-        "quantity": "500 g"
-      },
-      {
-        "name": "Gorgonzola",
-        "quantity": "200 g"
-      },
-      {
-        "name": "Zwiebel",
-        "quantity": "1 große"
-      },
-      {
-        "name": "Schlagsahne",
-        "quantity": "200 g"
-      },
-      {
-        "name": "Wasser",
-        "quantity": "250 ml"
-      },
-      {
-        "name": "Gemüsebrühe",
-        "quantity": "1 TL"
-      },
-      {
-        "name": "Milch",
-        "quantity": "100 ml"
-      },
-      {
-        "name": "Mehl",
-        "quantity": "1 gehäufter EL / 26 g"
-      },
-      {
-        "name": "Walnüsse",
-        "quantity": "eine Handvoll"
-      },
-      {
-        "name": "Butterschmalz",
-        "quantity": "20 g"
-      },
-      {
-        "name": "Pfeffer",
-        "quantity": "nach Geschmack"
-      }
-    ]
-  },
-  {
-    "id": "msqi07no-66937010",
-    "name": "Spaghetti mit Paprika und Schafskäse",
-    "group": "sonstiges",
-    "ingredients": [
-      {
-        "name": "Nudeln",
-        "quantity": "250 g"
-      },
-      {
-        "name": "rote Zwiebel",
-        "quantity": "1 große"
-      },
-      {
-        "name": "Paprika",
-        "quantity": "3 kleinere"
-      },
-      {
-        "name": "Schafskäse",
-        "quantity": "1/2 Packung"
-      },
-      {
-        "name": "Parmesan",
-        "quantity": "2 TL"
-      },
-      {
-        "name": "Butterschmalz",
-        "quantity": "20 g"
-      },
-      {
-        "name": "Paprikapaste",
-        "quantity": "1 TL"
-      },
-      {
-        "name": "Paprikamark",
-        "quantity": "alternativ 2 gehäufte TL"
-      },
-      {
-        "name": "Pesto",
-        "quantity": "2 stark gehäufte TL"
-      },
-      {
-        "name": "Salz",
-        "quantity": "5 g"
-      },
-      {
-        "name": "Pfeffer",
-        "quantity": "nach Geschmack"
-      },
-      {
-        "name": "Essig",
-        "quantity": "2 EL"
-      },
-      {
-        "name": "Sojasoße",
-        "quantity": "2 EL"
-      },
-      {
-        "name": "Hot-Chili-Sauce",
-        "quantity": "1 EL"
-      }
-    ]
-  },
-  {
-    "id": "msqi07no-b37dfa1d",
-    "name": "Spaghetti Tetrazzini",
-    "group": "sonstiges",
-    "ingredients": [
-      {
-        "name": "Nudeln",
-        "quantity": "500 g"
-      },
-      {
-        "name": "Hähnchenbrustfilet",
-        "quantity": "400 g"
-      },
-      {
-        "name": "Champignons",
-        "quantity": "350–400 g"
-      },
-      {
-        "name": "getrocknete Steinpilze",
-        "quantity": "15–20 g"
-      },
-      {
-        "name": "Weißwein",
-        "quantity": "200 ml"
-      },
-      {
-        "name": "Schlagsahne",
-        "quantity": "500 ml"
-      },
-      {
-        "name": "Parmesan",
-        "quantity": "200 g"
-      },
-      {
-        "name": "Butterschmalz",
-        "quantity": "20 g"
-      },
-      {
-        "name": "Salz",
-        "quantity": "10 g"
-      },
-      {
-        "name": "Pfeffer",
-        "quantity": "nach Geschmack"
-      }
-    ]
-  },
-  {
-    "id": "msqi07no-21ae31e8",
-    "name": "Spaghetti Carbonara",
-    "group": "sonstiges",
-    "ingredients": [
-      {
-        "name": "Schinkenwürfel",
-        "quantity": "150 g"
-      },
-      {
-        "name": "Spaghetti",
-        "quantity": "500 g"
-      },
-      {
-        "name": "Parmesan",
-        "quantity": "30 g"
-      },
-      {
-        "name": "Sahne",
-        "quantity": "400 ml"
-      },
-      {
-        "name": "Eier",
-        "quantity": "6"
-      },
-      {
-        "name": "Zwiebel",
-        "quantity": "1"
-      },
-      {
-        "name": "Butterschmalz",
-        "quantity": "20 g"
-      },
-      {
-        "name": "Salz",
-        "quantity": "5 g"
-      },
-      {
-        "name": "Pfeffer",
-        "quantity": "nach Geschmack"
-      }
-    ]
-  },
-  {
-    "id": "msqi07no-ea7bbcf1",
-    "name": "Pflaumenklöße mit brauner Butter, Zimt und Zucker",
-    "group": "familienkochbuch",
-    "ingredients": [
-      {
-        "name": "Kartoffeln",
-        "quantity": "2/2,5 kg"
-      },
-      {
-        "name": "Mehl",
-        "quantity": "ca. 500/625 g"
-      },
-      {
-        "name": "Eier",
-        "quantity": "2 Eigelb"
-      },
-      {
-        "name": "Salz",
-        "quantity": "7 g"
-      },
-      {
-        "name": "Pflaumen",
-        "quantity": "22"
-      },
-      {
-        "name": "Butter",
-        "quantity": "75 g"
-      },
-      {
-        "name": "Zucker und Zimt",
-        "quantity": "nach Geschmack"
-      }
-    ]
-  },
-  {
-    "id": "msqi07no-9e137599",
-    "name": "Risotto mit Steinpilzen",
-    "group": "sonstiges",
-    "ingredients": [
-      {
-        "name": "Zwiebeln",
-        "quantity": "2 Stück"
-      },
-      {
-        "name": "Butterschmalz",
-        "quantity": "20 g"
-      },
-      {
-        "name": "Weißwein",
-        "quantity": "300 ml"
-      },
-      {
-        "name": "Wasser",
-        "quantity": "2 l"
-      },
-      {
-        "name": "Gemüsebrühe",
-        "quantity": "für 2 l Wasser / ca. 40 g"
-      },
-      {
-        "name": "Risottoreis",
-        "quantity": "500 g"
-      },
-      {
-        "name": "Schlagsahne",
-        "quantity": "3 EL"
-      },
-      {
-        "name": "getrocknete Steinpilze",
-        "quantity": "40 g"
-      },
-      {
-        "name": "Parmesan",
-        "quantity": "100 g"
-      },
-      {
-        "name": "Salz",
-        "quantity": "7 g"
-      },
-      {
-        "name": "Pfeffer",
-        "quantity": "nach Geschmack"
-      }
-    ]
-  },
-  {
     "id": "msqi07no-0d2f432a",
     "name": "Kaiserschmarrn",
     "group": "sonstiges",
@@ -1135,48 +989,9 @@
     ]
   },
   {
-    "id": "msqi07no-707e24f2",
-    "name": "Käsespätzle",
-    "group": "sonstiges",
-    "ingredients": [
-      {
-        "name": "Mehl",
-        "quantity": "700 g"
-      },
-      {
-        "name": "Wasser",
-        "quantity": "350 ml"
-      },
-      {
-        "name": "Eier",
-        "quantity": "7"
-      },
-      {
-        "name": "geriebener Käse",
-        "quantity": "??? g"
-      },
-      {
-        "name": "Butter",
-        "quantity": "??? g"
-      },
-      {
-        "name": "Salz",
-        "quantity": ""
-      },
-      {
-        "name": "Muskatnuss",
-        "quantity": ""
-      },
-      {
-        "name": "Pfeffer",
-        "quantity": ""
-      }
-    ]
-  },
-  {
     "id": "msqi07no-869320e7",
     "name": "Quiche Lorraine + Spargelquiche",
-    "group": "sonstiges",
+    "group": "familienkochbuch",
     "ingredients": [
       {
         "name": "Mehl",
@@ -1255,7 +1070,7 @@
   {
     "id": "msqi07no-ec67d3df",
     "name": "Kartoffelgratin",
-    "group": "sonstiges",
+    "group": "familienkochbuch",
     "ingredients": [
       {
         "name": "Kartoffeln",
@@ -1270,159 +1085,206 @@
         "quantity": "150 ml"
       },
       {
-        "name": "Salz",
-        "quantity": "??? TL"
-      },
-      {
-        "name": "Pfeffer",
-        "quantity": "nach Geschmack"
-      },
-      {
         "name": "Muskat",
         "quantity": "nach Geschmack"
       }
     ]
   },
   {
-    "id": "9fba2470-6deb-4a56-a06b-aa8c194686bc",
-    "name": "Ofengemüse",
-    "group": "sonstiges",
+    "id": "b917cb2b-6c60-4ae6-b3e8-e0d8b8b0945d",
+    "name": "Chantals Curry",
+    "group": "frisch",
     "ingredients": []
   },
   {
-    "id": "msqkgyyn-fbdefd09",
-    "name": "Pinsa mit Rucola und Rohschinken",
+    "id": "d5a3b362-8d73-4ffe-b60c-0decaa8e31e1",
+    "name": "Maultaschensalat",
     "group": "frisch",
-    "ingredients": [
-      {
-        "name": "Pinsateig",
-        "quantity": "2 St."
-      },
-      {
-        "name": "Passierte Tomaten",
-        "quantity": "200 g"
-      },
-      {
-        "name": "Mozzarella",
-        "quantity": "2 Kugeln"
-      },
-      {
-        "name": "Rucola",
-        "quantity": "1 Packung"
-      },
-      {
-        "name": "Schinken roh",
-        "quantity": "100 g"
-      },
-      {
-        "name": "Parmesan",
-        "quantity": "50 g"
-      },
-      {
-        "name": "Olivenöl",
-        "quantity": ""
-      }
-    ]
+    "ingredients": []
   },
   {
-    "id": "msqkgyyn-dc674080",
-    "name": "Burger",
+    "id": "55336775-33fb-4aee-91e0-92bc143a7c6f",
+    "name": "Lasagne",
     "group": "frisch",
-    "ingredients": [
-      {
-        "name": "Hamburger Buns",
-        "quantity": "4 St."
-      },
-      {
-        "name": "Hackfleisch",
-        "quantity": "500 g"
-      },
-      {
-        "name": "Cheddar",
-        "quantity": "8 Scheiben"
-      },
-      {
-        "name": "Tomaten",
-        "quantity": "2 St."
-      },
-      {
-        "name": "Salat",
-        "quantity": "1 St."
-      },
-      {
-        "name": "Zwiebeln",
-        "quantity": "1 St."
-      },
-      {
-        "name": "Ketchup",
-        "quantity": ""
-      },
-      {
-        "name": "Mayonnaise",
-        "quantity": ""
-      }
-    ]
+    "ingredients": []
   },
   {
-    "id": "msqkgyyn-f7b159a0",
-    "name": "Griechischer Salat",
+    "id": "2112f5f1-17ce-48b9-b46f-6d7594ad76b6",
+    "name": "Caesars Salad mit Halloumiwürfeln (optional Pommes)",
+    "group": "frisch",
+    "ingredients": []
+  },
+  {
+    "id": "5d0160bc-f9d6-4d31-83f8-385bdf05f7a7",
+    "name": "Spätzle mit Rahmsoße, Hühnchen und Röstzwiebeln",
+    "group": "frisch",
+    "ingredients": []
+  },
+  {
+    "id": "c9f4acc8-8703-416f-8c7c-766a130c8af1",
+    "name": "Udonnudeln mit Erdnussoße Max",
+    "group": "frisch",
+    "ingredients": []
+  },
+  {
+    "id": "df4c84a0-065d-4ae6-a204-abe1c4b95bc3",
+    "name": "Halloumi Pitas",
+    "group": "frisch",
+    "ingredients": []
+  },
+  {
+    "id": "7373c5f7-2b75-43bc-b694-eb77428b5579",
+    "name": "Chantals Zitronen-Sahne-Pesto Nudeln mit gebackenen Zucchini Bites",
+    "group": "frisch",
+    "ingredients": []
+  },
+  {
+    "id": "3f2b3f4b-e2d0-4561-9332-64711a87930a",
+    "name": "Nudeln mit Pilzsoße",
+    "group": "frisch",
+    "ingredients": []
+  },
+  {
+    "id": "msqhngzo-6c7bdc20",
+    "name": "Griechischer Salat/Tomate Gurke Paprika",
     "group": "frisch",
     "ingredients": [
       {
         "name": "Tomaten",
-        "quantity": "4 St."
+        "quantity": "2-3"
       },
       {
         "name": "Gurke",
-        "quantity": "1 St."
-      },
-      {
-        "name": "Paprika",
-        "quantity": "1 St."
-      },
-      {
-        "name": "Zwiebeln",
-        "quantity": "1 St."
+        "quantity": "1"
       },
       {
         "name": "Feta",
-        "quantity": "200 g"
+        "quantity": "1"
       },
       {
         "name": "Oliven",
-        "quantity": "1 Glas"
+        "quantity": ""
       },
       {
         "name": "Olivenöl",
         "quantity": ""
+      },
+      {
+        "name": "Paprika",
+        "quantity": "1"
+      },
+      {
+        "name": "Eisbergsalat für Chantal",
+        "quantity": "1"
       }
     ]
   },
   {
-    "id": "msqkgyyn-e0309797",
-    "name": "Kichererbsen-Curry",
+    "id": "ab832aa1-2157-4c4c-951f-8826bfe9d8e4",
+    "name": "Rote-Beete-Salat",
+    "group": "frisch",
+    "ingredients": []
+  },
+  {
+    "id": "3d714869-5e50-4c29-9891-13889f0a7b32",
+    "name": "Mango-Avocado-Salat und Lachsfilet",
+    "group": "frisch",
+    "ingredients": []
+  },
+  {
+    "id": "0a7c9c21-a8ee-4abc-95d9-6ca271ffd1f2",
+    "name": "Moussaka",
+    "group": "suesses",
+    "ingredients": []
+  },
+  {
+    "id": "dab8b69d-4827-4c44-862c-d087972b635e",
+    "name": "Aubergine mit Feta und Tomatensoße überbacken",
+    "group": "suesses",
+    "ingredients": []
+  },
+  {
+    "id": "cb7c5747-b2fe-48fc-9c3c-9d3d7b144da8",
+    "name": "Nudelsalat auf Pestobasis",
+    "group": "frisch",
+    "ingredients": []
+  },
+  {
+    "id": "747ac9c8-5c97-4fac-ad83-6f9a4d99c662",
+    "name": "Baguette und Käse, Ofenkäse",
+    "group": "frisch",
+    "ingredients": []
+  },
+  {
+    "id": "51e9f638-258f-4c69-9cc1-86c059da513a",
+    "name": "Rote Beete Pasta",
     "group": "vorrat",
-    "ingredients": [
-      {
-        "name": "Kichererbsen (Dose)",
-        "quantity": "2 Dosen"
-      },
-      {
-        "name": "Kokosmilch",
-        "quantity": "400 ml"
-      },
-      {
-        "name": "Passierte Tomaten",
-        "quantity": "400 g"
-      },
-      {
-        "name": "Currypaste",
-        "quantity": "1 Glas"
-      },
-      {
-        "name": "Basmati-Reis",
-        "quantity": "250 g"
-      }
-    ]
+    "ingredients": []
+  },
+  {
+    "id": "4a337b81-04c5-4d08-8640-9af782e6d9aa",
+    "name": "Tomaten-Feta-Pasta aus dem Ofen von Chantal",
+    "group": "vorrat",
+    "ingredients": []
+  },
+  {
+    "id": "15fc2a87-428c-41c2-beb2-4132bd6d980e",
+    "name": "Hotdogs",
+    "group": "vorrat",
+    "ingredients": []
+  },
+  {
+    "id": "c5160c37-6484-4421-be63-c1f9ebd13c4b",
+    "name": "Sandwichtoast",
+    "group": "vorrat",
+    "ingredients": []
+  },
+  {
+    "id": "29c209c7-07d6-440b-a13e-51da464ad90b",
+    "name": "Tortelliniauflauf",
+    "group": "vorrat",
+    "ingredients": []
+  },
+  {
+    "id": "f7934f74-9a13-42b0-a3ff-fa0bbc54eb27",
+    "name": "Zitronenpasta",
+    "group": "vorrat",
+    "ingredients": []
+  },
+  {
+    "id": "598f91cf-0017-4fe2-aa39-cf991ab6e535",
+    "name": "Papa-Nudeln",
+    "group": "vorrat",
+    "ingredients": []
+  },
+  {
+    "id": "msqhngzn-47c5a12f",
+    "name": "Pinsa",
+    "group": "frisch",
+    "ingredients": []
+  },
+  {
+    "id": "82bfd11a-3b01-4537-9134-e31fa85ba684",
+    "name": "Linsencurry und selbstgemachtes Naan",
+    "group": "vorrat",
+    "ingredients": []
+  },
+  {
+    "id": "c5de8d6d-99ab-4ae7-8fc3-cb9e15c38e67",
+    "name": "Spargel-Tomaten-Salat",
+    "group": "saisonal",
+    "ingredients": []
+  },
+  {
+    "id": "bff97421-90db-456d-9d60-6e2d463086e8",
+    "name": "Kürbissuppe",
+    "group": "saisonal",
+    "ingredients": []
+  },
+  {
+    "id": "0b53bb29-d42a-48e4-9740-44f99e0914f5",
+    "name": "Gefüllter Butternut Kürbis aus dem Ofen",
+    "group": "saisonal",
+    "ingredients": []
   }
 ]
