@@ -131,6 +131,62 @@ export function findCatalogMatch(input: string, catalog: CatalogEntry[]): Catalo
 }
 
 /**
+ * Vorschläge beim Tippen: welche Schreibweisen aus dem Katalog fangen mit dem
+ * an, was schon dasteht?
+ *
+ * Bewusst nur Teilstring, kein Levenshtein: hier geht es ums Tippen sparen, und
+ * dabei ist ein Vorschlag, den man nicht erklären kann, schlimmer als keiner.
+ * Vertipper fängt beim Absenden ohnehin {@link findCatalogMatch} ab.
+ *
+ * Zurück kommt die Schreibweise, die getroffen hat – nicht der Katalogname.
+ * Wer „kirsch“ tippt, meint Kirschtomaten und will das auch auf der Liste
+ * lesen; die Kategorie holt der Treffer trotzdem aus demselben Eintrag.
+ */
+const MIN_LENGTH_FOR_COMPLETION = 2
+
+export function vervollstaendige(input: string, catalog: CatalogEntry[], limit = 6): string[] {
+  const needle = normalize(input)
+  if (needle.length < MIN_LENGTH_FOR_COMPLETION) return []
+
+  // Rang: 0 = fängt damit an, 1 = am Wortanfang mittendrin, 2 = irgendwo drin.
+  // Ein Wortanfang ist der stärkere Hinweis („…tomaten“ vor „Zitronentomaten“).
+  const gefunden: { text: string; rang: number; laenge: number }[] = []
+  const gesehen = new Set<string>()
+
+  for (const entry of catalog) {
+    let bester: { text: string; rang: number } | null = null
+
+    // Der Name steht vorn: bei gleichem Rang gewinnt er gegen seine Aliase
+    for (const text of [entry.name, ...(entry.aliases ?? [])]) {
+      const term = normalize(text)
+      if (!term || term === needle) continue
+
+      const rang = term.startsWith(needle)
+        ? 0
+        : containsAtWordStart(term, needle)
+          ? 1
+          : term.includes(needle)
+            ? 2
+            : -1
+      if (rang < 0) continue
+      if (!bester || rang < bester.rang) bester = { text, rang }
+    }
+
+    if (!bester) continue
+    const key = normalize(bester.text)
+    if (gesehen.has(key)) continue
+    gesehen.add(key)
+    gefunden.push({ text: bester.text, rang: bester.rang, laenge: key.length })
+  }
+
+  // Kurz vor lang: „Milch“ ist als Vorschlag nützlicher als „Milchreis“
+  return gefunden
+    .sort((a, b) => a.rang - b.rang || a.laenge - b.laenge || a.text.localeCompare(b.text, 'de'))
+    .slice(0, limit)
+    .map((x) => x.text)
+}
+
+/**
  * Vorschläge für „welcher Artikel ist das denn?“ in der Verwaltung.
  *
  * Bewusst lockerer als {@link findCatalogMatch}: hier zählt jede Ähnlichkeit,

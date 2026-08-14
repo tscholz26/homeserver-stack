@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, onUpdated, ref, useTemplateRef } from 'vue'
 import Sortable from 'sortablejs'
 import { useEinkaufStore } from '@/composables/useEinkaufStore'
+import { vervollstaendige } from '@/utils/matching'
 import ArtikelZeile from '@/components/ArtikelZeile.vue'
 import RezeptFenster from '@/components/RezeptFenster.vue'
 
@@ -21,14 +22,26 @@ const mitKategorien = computed(() => liste.value?.type === 'kategorisiert' && !s
 const offen = computed(() => liste.value?.items.filter((i) => !i.done).length ?? 0)
 const erledigt = computed(() => liste.value?.items.filter((i) => i.done).length ?? 0)
 
-function hinzufuegen() {
-  if (!liste.value || !name.value.trim()) return
-  store.addItem(liste.value, name.value, menge.value)
+function eintragen(artikel: string) {
+  if (!liste.value || !artikel.trim()) return
+  store.addItem(liste.value, artikel, menge.value)
   name.value = ''
   menge.value = ''
   // Auf dem Handy bleibt die Tastatur so für den nächsten Artikel offen
   nextTick(() => nameFeld.value?.focus())
 }
+
+function hinzufuegen() {
+  eintragen(name.value)
+}
+
+/**
+ * Vorschläge aus dem Katalog, während getippt wird. Der Katalog liegt ohnehin
+ * komplett im Browser – das kostet also keinen Request und spart auf dem Handy
+ * die halbe Eingabe. Ein Tipp auf den Vorschlag trägt gleich ein: Der Umweg
+ * über „Feld füllen, dann + drücken“ wäre genau ein Tipp zu viel.
+ */
+const vorschlaege = computed(() => vervollstaendige(name.value, store.state.catalog))
 
 function haken(itemId: string, done: boolean) {
   if (liste.value) store.setDone(liste.value, itemId, done)
@@ -158,6 +171,19 @@ onBeforeUnmount(() => beobachter?.disconnect())
         />
         <button type="submit" class="plus" title="Hinzufügen">+</button>
       </form>
+
+      <!-- Was der Katalog zum Angetippten kennt: ein Tipp trägt es ein -->
+      <div v-if="vorschlaege.length" class="vorschlaege">
+        <button
+          v-for="v in vorschlaege"
+          :key="v"
+          type="button"
+          class="vorschlag"
+          @click="eintragen(v)"
+        >
+          {{ v }}
+        </button>
+      </div>
 
       <!-- Ganze Rezepte kommen über ein eigenes Fenster dazu -->
       <button
@@ -349,6 +375,34 @@ onBeforeUnmount(() => beobachter?.disconnect())
   font-size: 1.4rem;
   font-weight: 700;
   line-height: 1;
+  cursor: pointer;
+}
+
+/* Eine Reihe, die zur Seite scrollt: die Liste darunter soll nicht bei jedem
+   Buchstaben um mehrere Zeilen springen. */
+.vorschlaege {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 0.1rem;
+}
+
+.vorschlaege::-webkit-scrollbar {
+  display: none;
+}
+
+.vorschlag {
+  flex-shrink: 0;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--cyan) 30%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cyan) 8%, white);
+  color: var(--cyan);
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
 }
 

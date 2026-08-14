@@ -6,6 +6,7 @@ import {
   levenshtein,
   normalize,
   suggestCatalogEntries,
+  vervollstaendige,
   type CatalogEntry,
 } from '@/utils/matching'
 
@@ -87,6 +88,44 @@ describe('findCatalogMatch', () => {
   it('rät bei sehr kurzen Eingaben nicht', () => {
     // „xyz“ läge über die Distanz sonst neben zig Einträgen
     expect(findCatalogMatch('xyz', catalog)).toBeNull()
+  })
+})
+
+describe('vervollstaendige', () => {
+  it('schlägt vor, was mit dem Getippten anfängt', () => {
+    expect(vervollstaendige('cherry', catalog)).toContain('Cherrytomaten')
+  })
+
+  it('nimmt die getippte Schreibweise, nicht den Katalognamen', () => {
+    // „Kirschtomaten“ ist ein Alias von „Cherrytomaten“ – wer es so tippt,
+    // will es auch so auf der Liste lesen. Die Kategorie stimmt trotzdem.
+    expect(vervollstaendige('kirsch', catalog)).toContain('Kirschtomaten')
+    expect(findCatalogMatch('Kirschtomaten', catalog)?.name).toBe('Cherrytomaten')
+  })
+
+  it('stellt das Kurze und den Wortanfang nach vorn', () => {
+    // Von allem, was mit „mil“ anfängt, ist das kürzeste der beste Vorschlag
+    expect(vervollstaendige('mil', catalog)[0]).toBe('Milch')
+
+    // „Hafermilch“ hat das Wort in der Mitte und steht deshalb hinter „Milchreis“
+    const treffer = vervollstaendige('milch', catalog)
+    expect(treffer.indexOf('Milchreis')).toBeLessThan(treffer.indexOf('Hafermilch'))
+  })
+
+  it('nennt jeden Artikel nur einmal', () => {
+    const treffer = vervollstaendige('tomate', catalog)
+    expect(new Set(treffer).size).toBe(treffer.length)
+  })
+
+  it('schweigt bei ein, zwei Buchstaben und beim fertigen Wort', () => {
+    expect(vervollstaendige('m', catalog)).toEqual([])
+    // Steht der Name schon vollständig da, ist der Vorschlag nur im Weg
+    expect(vervollstaendige('Vollmilch', catalog)).not.toContain('Vollmilch')
+  })
+
+  it('rät nicht bei Vertippern – dafür ist das Matching beim Absenden da', () => {
+    expect(vervollstaendige('Zuchini', catalog)).toEqual([])
+    expect(findCatalogMatch('Zuchini', catalog)?.name).toBe('Zucchini')
   })
 })
 
