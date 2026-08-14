@@ -99,6 +99,17 @@ describe('Mengen-Stepper', () => {
     w.unmount()
   })
 
+  it('lässt die Zahl selbst die Bearbeitung aufklappen', async () => {
+    // Auf die Menge tippen heißt dasselbe wie auf den Namen tippen – sie
+    // gehört zum Artikel, nicht zu den Knöpfen daneben
+    const w = zeile(false, '25 g')
+    expect(w.find('.bearbeiten').exists()).toBe(false)
+    await w.find('.menge').trigger('click')
+    expect(w.find('.bearbeiten').exists()).toBe(true)
+    expect(w.emitted('menge')).toBeUndefined()
+    w.unmount()
+  })
+
   it('hält sich beim Einkaufen raus', async () => {
     // Abgehakt wird nichts mehr geplant – da ist der Stepper nur im Weg
     const w = zeile(true, '2 Packungen')

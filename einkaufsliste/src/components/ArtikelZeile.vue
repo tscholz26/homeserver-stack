@@ -151,7 +151,11 @@ function alsSchreibweise(artikel: string) {
 
       <!-- Menge und Stepper sind ein Feld: − │ 250 g │ +. Ohne Angabe bleibt
            nur das +, das aus der stillen Eins eine Zwei macht. -->
-      <div v-if="stufbar && !item.done" class="stepper" :class="{ leer: !item.quantity }">
+      <div
+        v-if="stufbar && !item.done"
+        class="stepper"
+        :class="{ leer: !item.quantity, 'ohne-minus': !kannRunter }"
+      >
         <button
           v-if="kannRunter"
           type="button"
@@ -161,7 +165,11 @@ function alsSchreibweise(artikel: string) {
         >
           −
         </button>
-        <span v-if="item.quantity" class="menge">{{ item.quantity }}</span>
+        <!-- Die Zahl selbst gehört zum Artikel, nicht zum Stepper: ein Tipp
+             darauf klappt genau wie der Name die Bearbeitung auf. -->
+        <button v-if="item.quantity" type="button" class="menge" @click="oeffnen">
+          {{ item.quantity }}
+        </button>
         <button
           type="button"
           class="stufe"
@@ -172,7 +180,9 @@ function alsSchreibweise(artikel: string) {
           +
         </button>
       </div>
-      <span v-else-if="item.quantity" class="menge">{{ item.quantity }}</span>
+      <button v-else-if="item.quantity" type="button" class="menge" @click="oeffnen">
+        {{ item.quantity }}
+      </button>
 
       <button type="button" class="weg" title="Artikel entfernen" @click="emit('remove')">×</button>
     </div>
@@ -372,9 +382,15 @@ function alsSchreibweise(artikel: string) {
 
 .stepper .menge {
   max-width: 8rem;
-  padding: 0.15rem 0.1rem;
+  padding: 0.15rem 0.15rem;
   border: none;
   text-align: center;
+}
+
+/* Ohne − klebt die Zahl sonst am Rahmen, während das + seine 2 rem breit ist
+   und mitten darin sitzt: links muss dieselbe Luft nachwachsen. */
+.stepper.ohne-minus .menge {
+  padding-left: 0.65rem;
 }
 
 .menge {
@@ -386,11 +402,13 @@ function alsSchreibweise(artikel: string) {
   padding: 0.15rem 0.5rem;
   border: 1px solid var(--line);
   border-radius: 0.5rem;
+  background: transparent;
   color: var(--muted);
   font-size: 0.8rem;
   line-height: 1.35;
   font-variant-numeric: tabular-nums;
   overflow-wrap: break-word;
+  cursor: pointer;
 }
 
 .weg {
