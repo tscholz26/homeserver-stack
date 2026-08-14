@@ -51,6 +51,27 @@ const offeneNamen = computed<OffenerName[]>(() => {
   )
 })
 
+// ── Reiter ────────────────────────────────────────────────────────────────────
+// Vier Aufgaben, die nichts miteinander zu tun haben, standen bisher als eine
+// lange Rolle untereinander – auf dem Handy scrollt man am Katalog vorbei, um
+// an die Listen zu kommen. Jetzt ist immer nur eine davon zu sehen.
+type ReiterId = 'offen' | 'katalog' | 'maerkte' | 'listen'
+
+const reiter = ref<ReiterId>(offeneNamen.value.length ? 'offen' : 'katalog')
+
+const reiterListe = computed(() => [
+  // Das Offene zuerst und mit Zahl: nur hier wartet wirklich Arbeit
+  { id: 'offen' as const, label: 'Offen', zahl: offeneNamen.value.length, achtung: true },
+  { id: 'katalog' as const, label: 'Katalog', zahl: store.state.catalog.length, achtung: false },
+  {
+    id: 'maerkte' as const,
+    label: 'Märkte',
+    zahl: store.state.storeProfiles.length,
+    achtung: false,
+  },
+  { id: 'listen' as const, label: 'Listen', zahl: store.state.lists.length, achtung: false },
+])
+
 // Auswahl pro nicht zugeordnetem Artikel, bis auf „Speichern“ getippt wird
 const auswahl = reactive<Record<string, string>>({})
 
@@ -257,18 +278,32 @@ function anlegen() {
 
 <template>
   <div class="seite">
+    <!-- Immer nur eine Aufgabe auf einmal; die Zahl sagt, wo etwas wartet -->
+    <nav class="reiter">
+      <button
+        v-for="r in reiterListe"
+        :key="r.id"
+        type="button"
+        class="reiter-knopf"
+        :class="{ aktiv: reiter === r.id }"
+        :aria-pressed="reiter === r.id"
+        @click="reiter = r.id"
+      >
+        {{ r.label }}
+        <span v-if="r.zahl" class="zahl" :class="{ achtung: r.achtung }">{{ r.zahl }}</span>
+      </button>
+    </nav>
+
     <!-- ── Nicht zugeordnete Artikel ───────────────────────────────────────── -->
-    <section>
-      <h2>Nicht zugeordnete Artikel</h2>
+    <section v-if="reiter === 'offen'">
       <p class="hinweis">
-        Alles, was beim Hinzufügen nicht im Katalog stand – ob es gerade auf einer Liste liegt oder
-        nur einmal eingetippt wurde. Entweder als eigener Artikel in eine Kategorie, oder als
-        weitere Schreibweise eines Artikels, den es schon gibt. Was deswegen unter „Sonstiges“
-        liegt, rutscht dabei gleich mit.
+        Alles, was beim Hinzufügen nicht im Katalog stand. Entweder als eigener Artikel in eine
+        Kategorie, oder als weitere Schreibweise eines Artikels, den es schon gibt. Was deswegen
+        unter „Sonstiges“ liegt, rutscht dabei gleich mit.
       </p>
 
-      <div v-if="store.sonstigesItems.value.length" class="card offen nachtraeglich">
-        <p class="hinweis">
+      <div v-if="store.sonstigesItems.value.length" class="card offen">
+        <p class="hinweis knapp">
           {{ store.sonstigesItems.value.length }} Artikel auf den Listen liegen unter „Sonstiges“.
           Ist der Katalog seitdem gewachsen, holt ein Durchlauf nach, was inzwischen bekannt ist.
         </p>
@@ -276,11 +311,11 @@ function anlegen() {
           <button type="button" class="primaer" :disabled="rematchLaeuft" @click="nochmalPruefen">
             {{ rematchLaeuft ? 'Läuft …' : 'Nochmal zuordnen' }}
           </button>
-          <span v-if="rematchErgebnis" class="ok">{{ rematchErgebnis }}</span>
+          <span v-if="rematchErgebnis" class="erfolg">{{ rematchErgebnis }}</span>
         </div>
       </div>
 
-      <p v-if="!offeneNamen.length" class="leer">Nichts offen – alles ließ sich zuordnen.</p>
+      <p v-if="!offeneNamen.length" class="leer gross">Nichts offen – alles ließ sich zuordnen.</p>
 
       <ul v-else class="karten">
         <li v-for="eintrag in offeneNamen" :key="eintrag.key" class="card offen">
@@ -336,7 +371,7 @@ function anlegen() {
             {{ aliasOffen[eintrag.key] ? '– ' : '+ ' }}Schreibweise eines vorhandenen Artikels
           </button>
 
-          <div v-if="aliasOffen[eintrag.key]" class="alias">
+          <div v-if="aliasOffen[eintrag.key]" class="alias-feld">
             <!-- Vorschläge aus dem Katalog: ein Tipp genügt -->
             <div v-if="vorschlaege(eintrag.name).length" class="chips">
               <button
@@ -373,135 +408,28 @@ function anlegen() {
       </ul>
     </section>
 
-    <!-- ── Märkte ──────────────────────────────────────────────────────────── -->
-    <section v-for="liste in kategorisierteListen" :key="liste.id">
-      <h2>Märkte für {{ liste.name }}</h2>
-      <p class="hinweis">
-        Jede Filiale hat ihren eigenen Weg durch den Laden. Der aktive Markt bestimmt, in welcher
-        Reihenfolge die Kategorien beim Einkaufen stehen.
-      </p>
-
-      <div class="card offen">
-        <label class="aktiv">
-          <span>Ich kaufe gerade ein bei</span>
-          <select
-            :value="liste.storeProfileId ?? ''"
-            @change="
-              store.selectStoreProfile(liste, ($event.target as HTMLSelectElement).value || null)
-            "
-          >
-            <option value="">Standard-Reihenfolge</option>
-            <option v-for="p in store.profilesFor(liste)" :key="p.id" :value="p.id">
-              {{ p.name }}
-            </option>
-          </select>
-        </label>
-      </div>
-
-      <ul class="karten">
-        <li v-for="p in store.profilesFor(liste)" :key="p.id" class="card offen">
-          <div class="zeile">
-            <input
-              :value="marktNamen[p.id] ?? p.name"
-              :aria-label="`Name von ${p.name}`"
-              @input="marktNamen[p.id] = ($event.target as HTMLInputElement).value"
-              @blur="marktUmbenennen(p.id, p.name)"
-              @keyup.enter="marktUmbenennen(p.id, p.name)"
-            />
-            <button type="button" class="loeschen" @click="marktLoeschen(p.id, p.name)">
-              Löschen
-            </button>
-          </div>
-
-          <button type="button" class="schalter" @click="marktOffen[p.id] = !marktOffen[p.id]">
-            {{ marktOffen[p.id] ? '– ' : '+ ' }}Reihenfolge der Kategorien
-          </button>
-
-          <ol v-if="marktOffen[p.id]" :ref="(el) => setSortListe(p.id, el)" class="reihenfolge">
-            <li v-for="id in reihenfolge(p.id)" :key="id" class="kat-zeile">
-              <span class="griff" title="Verschieben">⠿</span>
-              <span class="kat">
-                {{ store.categoryById.value[id]?.emoji }}
-                {{ store.categoryById.value[id]?.label ?? id }}
-              </span>
-            </li>
-          </ol>
-        </li>
-      </ul>
-
-      <form class="card offen" @submit.prevent="marktAnlegen(liste.id)">
-        <div class="zeile">
-          <input
-            :value="neuerMarkt[liste.id] ?? ''"
-            placeholder="Neuer Markt, z. B. Rewe Felsenkeller"
-            aria-label="Name des neuen Marktes"
-            @input="neuerMarkt[liste.id] = ($event.target as HTMLInputElement).value"
-          />
-          <button type="submit" class="primaer">Anlegen</button>
-        </div>
-      </form>
-    </section>
-
-    <!-- ── Listen ──────────────────────────────────────────────────────────── -->
-    <section>
-      <h2>Listen</h2>
-      <ul class="karten">
-        <li v-for="l in store.state.lists" :key="l.id" class="card offen">
-          <div class="zeile">
-            <input
-              :value="namen[l.id] ?? l.name"
-              :aria-label="`Name von ${l.name}`"
-              @input="namen[l.id] = ($event.target as HTMLInputElement).value"
-              @blur="umbenennen(l.id, l.name)"
-              @keyup.enter="umbenennen(l.id, l.name)"
-            />
-            <button type="button" class="loeschen" @click="loeschen(l.id, l.name)">Löschen</button>
-          </div>
-          <p class="typ">
-            {{ l.type === 'kategorisiert' ? 'Nach Kategorien sortiert' : 'Einfache Liste' }}
-            · {{ l.items.length }} Artikel
-          </p>
-        </li>
-      </ul>
-
-      <form class="card offen" @submit.prevent="anlegen">
-        <div class="zeile">
-          <input v-model="neuerName" placeholder="Neue Liste" aria-label="Name der neuen Liste" />
-          <button type="submit" class="primaer">Anlegen</button>
-        </div>
-        <div class="typen">
-          <label>
-            <input v-model="neuerTyp" type="radio" value="kategorisiert" />
-            nach Kategorien
-          </label>
-          <label>
-            <input v-model="neuerTyp" type="radio" value="flach" />
-            einfache Liste
-          </label>
-        </div>
-      </form>
-    </section>
-
     <!-- ── Katalog ─────────────────────────────────────────────────────────── -->
-    <section>
-      <h2>Katalog</h2>
+    <section v-else-if="reiter === 'katalog'">
       <p class="hinweis">
         {{ store.state.catalog.length }} Artikel entscheiden, in welche Kategorie ein eingetippter
-        Name wandert. Suchen, dann Kategorie oder Schreibweisen anpassen.
+        Name wandert – und was beim Tippen vorgeschlagen wird.
       </p>
 
-      <div class="card offen">
-        <input
-          v-model="suche"
-          type="search"
-          placeholder="Artikel oder Schreibweise suchen …"
-          aria-label="Katalog durchsuchen"
-        />
-        <p v-if="suche && !treffer.length" class="leer">Nichts gefunden.</p>
-        <p v-else-if="treffer.length > TREFFER_MAX" class="leer">
-          {{ treffer.length }} Treffer – die ersten {{ TREFFER_MAX }} stehen unten.
-        </p>
-      </div>
+      <input
+        v-model="suche"
+        type="search"
+        class="suchfeld"
+        placeholder="Artikel oder Schreibweise suchen …"
+        aria-label="Katalog durchsuchen"
+      />
+
+      <p v-if="!suche" class="leer gross">
+        Bei {{ store.state.catalog.length }} Artikeln führt nur die Suche zum Ziel.
+      </p>
+      <p v-else-if="!treffer.length" class="leer gross">Nichts gefunden.</p>
+      <p v-else-if="treffer.length > TREFFER_MAX" class="leer">
+        {{ treffer.length }} Treffer – die ersten {{ TREFFER_MAX }} stehen unten.
+      </p>
 
       <ul v-if="treffer.length" class="karten">
         <li v-for="eintrag in treffer.slice(0, TREFFER_MAX)" :key="eintrag.name" class="card offen">
@@ -528,7 +456,7 @@ function anlegen() {
           </select>
 
           <div v-if="eintrag.aliases.length" class="chips">
-            <span v-for="alias in eintrag.aliases" :key="alias" class="alias">
+            <span v-for="alias in eintrag.aliases" :key="alias" class="schreibweise">
               {{ alias }}
               <button
                 type="button"
@@ -560,15 +488,12 @@ function anlegen() {
         </li>
       </ul>
 
-      <form class="card offen" @submit.prevent="artikelAnlegen">
+      <form class="card offen neu" @submit.prevent="artikelAnlegen">
+        <h3>Neuer Artikel</h3>
         <!-- Auf dem Handy untereinander: ein Auswahlfeld mit „Gekühlte
              Convenience-Produkte“ passt neben ein Textfeld nicht auf 360 px -->
         <div class="zeile felder">
-          <input
-            v-model="neuerArtikel"
-            placeholder="Neuer Artikel"
-            aria-label="Name des neuen Artikels"
-          />
+          <input v-model="neuerArtikel" placeholder="Name" aria-label="Name des neuen Artikels" />
           <select v-model="neuerArtikelKategorie" aria-label="Kategorie des neuen Artikels">
             <option value="">Kategorie …</option>
             <option v-for="k in waehlbareKategorien" :key="k.id" :value="k.id">
@@ -586,6 +511,126 @@ function anlegen() {
       </form>
     </section>
 
+    <!-- ── Märkte ──────────────────────────────────────────────────────────── -->
+    <section v-else-if="reiter === 'maerkte'">
+      <p class="hinweis">
+        Jede Filiale hat ihren eigenen Weg durch den Laden. Der aktive Markt bestimmt, in welcher
+        Reihenfolge die Kategorien beim Einkaufen stehen.
+      </p>
+
+      <div v-for="liste in kategorisierteListen" :key="liste.id" class="block">
+        <h3 v-if="kategorisierteListen.length > 1">{{ liste.name }}</h3>
+
+        <label class="card offen aktiv">
+          <span>Ich kaufe gerade ein bei</span>
+          <select
+            :value="liste.storeProfileId ?? ''"
+            @change="
+              store.selectStoreProfile(liste, ($event.target as HTMLSelectElement).value || null)
+            "
+          >
+            <option value="">Standard-Reihenfolge</option>
+            <option v-for="p in store.profilesFor(liste)" :key="p.id" :value="p.id">
+              {{ p.name }}
+            </option>
+          </select>
+        </label>
+
+        <ul class="karten">
+          <li v-for="p in store.profilesFor(liste)" :key="p.id" class="card offen">
+            <div class="zeile">
+              <input
+                :value="marktNamen[p.id] ?? p.name"
+                :aria-label="`Name von ${p.name}`"
+                @input="marktNamen[p.id] = ($event.target as HTMLInputElement).value"
+                @blur="marktUmbenennen(p.id, p.name)"
+                @keyup.enter="marktUmbenennen(p.id, p.name)"
+              />
+              <button type="button" class="loeschen" @click="marktLoeschen(p.id, p.name)">
+                Löschen
+              </button>
+            </div>
+
+            <button type="button" class="schalter" @click="marktOffen[p.id] = !marktOffen[p.id]">
+              {{ marktOffen[p.id] ? '– ' : '+ ' }}Reihenfolge der Kategorien
+            </button>
+
+            <ol v-if="marktOffen[p.id]" :ref="(el) => setSortListe(p.id, el)" class="reihenfolge">
+              <li v-for="id in reihenfolge(p.id)" :key="id" class="kat-zeile">
+                <span class="griff" title="Verschieben">⠿</span>
+                <span class="kat">
+                  {{ store.categoryById.value[id]?.emoji }}
+                  {{ store.categoryById.value[id]?.label ?? id }}
+                </span>
+              </li>
+            </ol>
+          </li>
+        </ul>
+
+        <form class="card offen neu" @submit.prevent="marktAnlegen(liste.id)">
+          <h3>Neuer Markt</h3>
+          <div class="zeile">
+            <input
+              :value="neuerMarkt[liste.id] ?? ''"
+              placeholder="z. B. Rewe Felsenkeller"
+              aria-label="Name des neuen Marktes"
+              @input="neuerMarkt[liste.id] = ($event.target as HTMLInputElement).value"
+            />
+            <button type="submit" class="primaer">Anlegen</button>
+          </div>
+        </form>
+      </div>
+
+      <p v-if="!kategorisierteListen.length" class="leer gross">
+        Märkte gibt es nur für Listen nach Kategorien.
+      </p>
+    </section>
+
+    <!-- ── Listen ──────────────────────────────────────────────────────────── -->
+    <section v-else>
+      <p class="hinweis">
+        Die Tab-Leiste beim Einkaufen ist nur zum Wechseln da – angelegt, umbenannt und gelöscht
+        wird hier.
+      </p>
+
+      <ul class="karten">
+        <li v-for="l in store.state.lists" :key="l.id" class="card offen">
+          <div class="zeile">
+            <input
+              :value="namen[l.id] ?? l.name"
+              :aria-label="`Name von ${l.name}`"
+              @input="namen[l.id] = ($event.target as HTMLInputElement).value"
+              @blur="umbenennen(l.id, l.name)"
+              @keyup.enter="umbenennen(l.id, l.name)"
+            />
+            <button type="button" class="loeschen" @click="loeschen(l.id, l.name)">Löschen</button>
+          </div>
+          <p class="typ">
+            {{ l.type === 'kategorisiert' ? 'Nach Kategorien sortiert' : 'Einfache Liste' }}
+            · {{ l.items.length }} Artikel
+          </p>
+        </li>
+      </ul>
+
+      <form class="card offen neu" @submit.prevent="anlegen">
+        <h3>Neue Liste</h3>
+        <div class="zeile">
+          <input v-model="neuerName" placeholder="Name" aria-label="Name der neuen Liste" />
+          <button type="submit" class="primaer">Anlegen</button>
+        </div>
+        <div class="typen">
+          <label>
+            <input v-model="neuerTyp" type="radio" value="kategorisiert" />
+            nach Kategorien
+          </label>
+          <label>
+            <input v-model="neuerTyp" type="radio" value="flach" />
+            einfache Liste
+          </label>
+        </div>
+      </form>
+    </section>
+
     <p class="fuss">
       Kategorie, Menge und Schreibweise eines einzelnen Artikels lassen sich auch direkt in der
       Liste ändern: auf den Namen tippen.
@@ -595,26 +640,85 @@ function anlegen() {
 
 <style scoped>
 .seite {
-  padding: 0.8rem 0 2rem;
+  padding: 0.5rem 0 2rem;
   /* Nichts darf quer aus dem Handy herausragen */
   max-width: 100%;
   overflow-x: hidden;
 }
 
-section + section {
-  margin-top: 1.8rem;
+/* ── Reiter ────────────────────────────────────────────────────────────────── */
+.reiter {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 0.9rem;
+  padding: 0.4rem 0 0.5rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: linear-gradient(var(--bg) 78%, transparent);
 }
 
-h2 {
-  margin: 0 0 0.3rem;
-  font-size: 1.05rem;
+.reiter::-webkit-scrollbar {
+  display: none;
+}
+
+.reiter-knopf {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.reiter-knopf.aktiv {
+  border-color: color-mix(in srgb, var(--violet) 45%, transparent);
+  background: color-mix(in srgb, var(--violet) 12%, white);
+  color: var(--violet);
+}
+
+.zahl {
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 15%, transparent);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Offene Zuordnungen sind Arbeit, keine Statistik – die Zahl darf auffallen */
+.zahl.achtung {
+  background: color-mix(in srgb, var(--amber) 18%, transparent);
+  color: var(--amber);
+}
+
+/* ── Abschnitte ────────────────────────────────────────────────────────────── */
+h3 {
+  margin: 0 0 0.1rem;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.block + .block {
+  margin-top: 1.6rem;
 }
 
 .hinweis {
-  margin: 0 0 0.7rem;
+  margin: 0 0 0.8rem;
   color: var(--muted);
   font-size: 0.83rem;
   line-height: 1.45;
+}
+
+.hinweis.knapp {
+  margin: 0;
 }
 
 .leer {
@@ -623,11 +727,16 @@ h2 {
   font-size: 0.9rem;
 }
 
+.leer.gross {
+  margin: 2rem 0.4rem;
+  text-align: center;
+}
+
 .karten {
   list-style: none;
   display: grid;
   gap: 0.6rem;
-  margin: 0 0 0.6rem;
+  margin: 0.6rem 0;
   padding: 0;
 }
 
@@ -635,6 +744,11 @@ h2 {
   display: grid;
   gap: 0.5rem;
   padding: 0.75rem;
+}
+
+/* Anlegen steht überall unten und sieht überall gleich aus */
+.neu {
+  margin-top: 0.6rem;
 }
 
 .kopf {
@@ -711,6 +825,11 @@ input[type='radio'] {
   padding: 0;
 }
 
+.suchfeld {
+  width: 100%;
+  box-shadow: var(--shadow);
+}
+
 .schalter {
   justify-self: start;
   padding: 0;
@@ -722,16 +841,13 @@ input[type='radio'] {
   cursor: pointer;
 }
 
-.nachtraeglich {
-  margin-top: 0.6rem;
-}
-
-.ok {
+.erfolg {
   color: var(--green);
   font-size: 0.83rem;
 }
 
-.alias {
+/* Der aufgeklappte Bereich „das ist eigentlich …“ */
+.alias-feld {
   display: grid;
   gap: 0.5rem;
   padding-top: 0.1rem;
@@ -750,6 +866,29 @@ input[type='radio'] {
   background: color-mix(in srgb, var(--violet) 8%, white);
   color: var(--violet);
   font-size: 0.82rem;
+  cursor: pointer;
+}
+
+/* Eine gemerkte Schreibweise im Katalog – zum Ansehen, mit × zum Wegwerfen */
+.schreibweise {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.2rem 0.3rem 0.2rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: white;
+  font-size: 0.82rem;
+}
+
+.schreibweise button {
+  width: 1.3rem;
+  height: 1.3rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  line-height: 1;
   cursor: pointer;
 }
 
@@ -820,7 +959,6 @@ input[type='radio'] {
   gap: 0.25rem;
   margin: 0;
   padding: 0;
-  counter-reset: schritt;
 }
 
 .reihenfolge li {
@@ -858,59 +996,6 @@ input[type='radio'] {
 
 .sortable-chosen {
   background: color-mix(in srgb, var(--violet) 8%, transparent);
-}
-
-.nachtraeglich {
-  margin-top: 0.6rem;
-}
-
-.ok {
-  color: var(--green);
-  font-size: 0.83rem;
-}
-
-.alias {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.2rem;
-  padding: 0.2rem 0.3rem 0.2rem 0.6rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: white;
-  font-size: 0.82rem;
-}
-
-.alias button {
-  width: 1.3rem;
-  height: 1.3rem;
-  border: none;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--muted);
-  line-height: 1;
-  cursor: pointer;
-}
-
-textarea {
-  width: 100%;
-  padding: 0.6rem;
-  border: 1px solid var(--line);
-  border-radius: 0.6rem;
-  background: white;
-  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace;
-  font-size: 0.78rem;
-  line-height: 1.45;
-  resize: vertical;
-}
-
-.rechts {
-  justify-content: flex-end;
-}
-
-.fehler {
-  margin: 0;
-  color: var(--red);
-  font-size: 0.82rem;
 }
 
 .fuss {
