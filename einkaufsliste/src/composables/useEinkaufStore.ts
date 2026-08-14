@@ -349,6 +349,30 @@ function createStore() {
   }
 
   /**
+   * Menge aus dem Stepper in der Zeile. Jeder Tipp gilt sofort, aber erst der
+   * letzte geht raus: Wer von 250 g auf 1 kg tippt, soll nicht vier Requests
+   * auslösen. Verschluckte Zwischenstände fehlen niemandem, weil der Server
+   * einen absoluten Wert bekommt und keine Rechnung.
+   */
+  const mengeTimer = new Map<string, ReturnType<typeof setTimeout>>()
+
+  function setQuantity(list: List, itemId: string, quantity: string) {
+    const item = list.items.find((i) => i.id === itemId)
+    if (!item || item.quantity === quantity) return
+    item.quantity = quantity
+
+    const key = `${list.id}:${itemId}`
+    clearTimeout(mengeTimer.get(key))
+    mengeTimer.set(
+      key,
+      setTimeout(() => {
+        mengeTimer.delete(key)
+        sendChange(`/lists/${list.id}/items/${itemId}`, 'PUT', { quantity })
+      }, 450),
+    )
+  }
+
+  /**
    * Haken setzen: gilt sofort auf diesem Gerät und wandert in die Outbox, bis
    * der Server ihn bestätigt hat. Gesetzt wird ein absoluter Wert, kein
    * Umschalten – ein später nachgeholter Haken kann also nichts verdrehen.
@@ -672,6 +696,7 @@ function createStore() {
     removeList,
     addItem,
     updateItem,
+    setQuantity,
     setDone,
     removeItem,
     finishShopping,

@@ -51,6 +51,11 @@ function entfernen(itemId: string) {
   if (liste.value) store.removeItem(liste.value, itemId)
 }
 
+/** Stepper an der Zeile: „noch eine Portion“ beim Planen. */
+function mengeSetzen(itemId: string, neu: string) {
+  if (liste.value) store.setQuantity(liste.value, itemId, neu)
+}
+
 /**
  * Korrektur aus der Zeile heraus. Eine geänderte Kategorie wandert immer auch
  * in den Katalog, damit derselbe Artikel beim nächsten Mal gleich richtig
@@ -223,6 +228,7 @@ onBeforeUnmount(() => beobachter?.disconnect())
             @remove="entfernen(item.id)"
             @save="speichern(item.id, $event)"
             @alias="schreibweise(item.name, $event)"
+            @menge="mengeSetzen(item.id, $event)"
           />
         </ul>
       </section>
@@ -242,6 +248,7 @@ onBeforeUnmount(() => beobachter?.disconnect())
         @remove="entfernen(item.id)"
         @save="speichern(item.id, $event)"
         @alias="schreibweise(item.name, $event)"
+        @menge="mengeSetzen(item.id, $event)"
       />
     </ul>
 

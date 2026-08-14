@@ -142,3 +142,47 @@ export function mengenZusammenfassen(angaben: string[]): string {
 export function mengeZusammenfassen(vorhanden: string, dazu: string): string {
   return mengenZusammenfassen([vorhanden ?? '', dazu ?? ''])
 }
+
+// ── Eine Portion mehr ────────────────────────────────────────────────────────
+// Beim Planen fällt einem ein, dass man die Cherrytomaten noch für ein zweites
+// Gericht braucht. Dafür soll ein Tipp reichen – aber „ein Schritt“ heißt je
+// nach Einheit etwas anderes: bei Stück, Packungen und Löffeln ist es eins, bei
+// Gewicht und Volumen so viel, wie schon dasteht. 250 g werden zu 500 g, nicht
+// zu 251 g.
+const GEWICHT_VOLUMEN = new Set(['g', 'kg', 'ml', 'l'])
+
+/** Um wie viel ein Schritt die Zahl verändert; null = nicht rechenbar. */
+export function portionsSchritt(basis: string): number | null {
+  const menge = parseMenge(basis)
+  if (!menge) return null
+  if (!GEWICHT_VOLUMEN.has(menge.einheit)) return 1
+  return menge.zahl > 0 ? menge.zahl : null
+}
+
+/**
+ * Eine Portion dazu oder weg.
+ *
+ * `basis` ist die Menge, die vor dem ersten Tipp dastand – nur so bleibt der
+ * Schritt über mehrere Tipps derselbe und ein `−` landet wieder genau dort, wo
+ * das `+` losgelaufen ist.
+ *
+ * Rückgabe `null`, wenn sich an der Angabe nichts rechnen lässt
+ * („nach Geschmack“, „250 g + 1 Packung“) – dann gibt es auch keine Knöpfe.
+ */
+export function mengeStufen(aktuell: string, basis: string, richtung: 1 | -1): string | null {
+  const schritt = portionsSchritt(basis)
+  if (schritt === null) return null
+
+  // Ohne Angabe steht implizit eine Einheit da: das erste + macht daraus zwei
+  const jetzt = aktuell.trim()
+    ? parseMenge(aktuell)
+    : { zahl: 1, einheit: parseMenge(basis)?.einheit ?? '' }
+  if (!jetzt) return null
+
+  const zahl = Math.round((jetzt.zahl + richtung * schritt) * 1000) / 1000
+  // Unter eine Portion geht es nicht
+  if (zahl < schritt) return aktuell
+  // Eine blanke Eins ist keine Angabe, sondern der Normalfall
+  if (!jetzt.einheit && zahl <= 1) return ''
+  return formatMenge({ zahl, einheit: jetzt.einheit })
+}

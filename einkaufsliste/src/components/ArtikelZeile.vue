@@ -2,6 +2,7 @@
 import { computed, nextTick, ref, useTemplateRef } from 'vue'
 import type { Category, Item } from '@/composables/useEinkaufStore'
 import { findCatalogMatch, suggestCatalogEntries, type CatalogEntry } from '@/utils/matching'
+import { mengeStufen } from '@/utils/mengen'
 
 const props = defineProps<{
   item: Item
@@ -18,7 +19,41 @@ const emit = defineEmits<{
   remove: []
   save: [changes: { name: string; quantity: string; categoryId?: string; merken?: boolean }]
   alias: [artikel: string]
+  menge: [neu: string]
 }>()
+
+// ── Eine Portion mehr ────────────────────────────────────────────────────────
+// Beim Planen fällt auf, dass die Cherrytomaten für zwei Gerichte reichen
+// müssen. Ein Tipp auf + soll das erledigen, ohne die Zeile aufzuklappen.
+//
+// Die Basis ist die Menge, die vor dem ersten Tipp dastand: nur so bleibt der
+// Schritt über mehrere Tipps gleich groß (250 → 500 → 750) und ein − landet
+// wieder genau am Ausgangspunkt. Sie lebt nur in dieser Zeile – nach einem
+// Neuladen ist die Menge, die dann dasteht, die neue Portion.
+const basis = ref('')
+
+function portion() {
+  if (!basis.value) basis.value = props.item.quantity.trim() || '1'
+  return basis.value
+}
+
+/** Ohne rechenbare Angabe („nach Geschmack“) gibt es keine Knöpfe. */
+const stufbar = computed(
+  () => mengeStufen(props.item.quantity, props.item.quantity.trim() || '1', 1) !== null,
+)
+
+/** Bei einer einzelnen Portion führt − nirgendwohin und bleibt weg. */
+const kannRunter = computed(() => {
+  if (!props.item.quantity.trim()) return false
+  return (
+    mengeStufen(props.item.quantity, basis.value || props.item.quantity, -1) !== props.item.quantity
+  )
+})
+
+function stufen(richtung: 1 | -1) {
+  const neu = mengeStufen(props.item.quantity, portion(), richtung)
+  if (neu !== null && neu !== props.item.quantity) emit('menge', neu)
+}
 
 const offen = ref(false)
 const name = ref('')
@@ -114,7 +149,30 @@ function alsSchreibweise(artikel: string) {
         <span v-if="!item.matched" class="badge" title="Nicht zugeordnet">◌</span>
       </button>
 
-      <span v-if="item.quantity" class="menge">{{ item.quantity }}</span>
+      <!-- Menge und Stepper sind ein Feld: − │ 250 g │ +. Ohne Angabe bleibt
+           nur das +, das aus der stillen Eins eine Zwei macht. -->
+      <div v-if="stufbar && !item.done" class="stepper" :class="{ leer: !item.quantity }">
+        <button
+          v-if="kannRunter"
+          type="button"
+          class="stufe"
+          :aria-label="`Weniger ${item.name}`"
+          @click="stufen(-1)"
+        >
+          −
+        </button>
+        <span v-if="item.quantity" class="menge">{{ item.quantity }}</span>
+        <button
+          type="button"
+          class="stufe"
+          :aria-label="`Mehr ${item.name}`"
+          title="Eine Portion mehr"
+          @click="stufen(1)"
+        >
+          +
+        </button>
+      </div>
+      <span v-else-if="item.quantity" class="menge">{{ item.quantity }}</span>
 
       <button type="button" class="weg" title="Artikel entfernen" @click="emit('remove')">×</button>
     </div>
@@ -271,6 +329,52 @@ function alsSchreibweise(artikel: string) {
   margin-left: 0.25rem;
   color: var(--amber);
   font-size: 0.9rem;
+}
+
+/* Menge und Knöpfe sind ein Bedienfeld, kein Trio: ein Rahmen um alles. */
+.stepper {
+  display: flex;
+  align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+}
+
+/* Ohne Menge bleibt nur ein zurückhaltender Kreis – auf jeder Zeile ein
+   umrandetes Feld zu zeigen, das nichts enthält, wäre zu laut. */
+.stepper.leer {
+  border-color: transparent;
+  background: transparent;
+}
+
+.stufe {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  /* Genug Fläche zum Treffen, ohne die Zeile höher zu machen */
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--violet);
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.stepper.leer .stufe {
+  color: color-mix(in srgb, var(--muted) 50%, transparent);
+}
+
+.stepper .menge {
+  max-width: 8rem;
+  padding: 0.15rem 0.1rem;
+  border: none;
+  text-align: center;
 }
 
 .menge {
