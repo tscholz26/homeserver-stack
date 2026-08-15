@@ -3179,5 +3179,19 @@
     "name": "Chili con Carne Gewürzmischung Papa",
     "aliases": [],
     "category_id": "backen_gewuerze"
+  },
+  {
+    "name": "Klebeband",
+    "aliases": [
+      "Panzertape",
+      "Tesa",
+      "Panzer band",
+      "Gaffa",
+      "Paketband",
+      "Paketklebeband",
+      "Paket klebeband",
+      "Packband"
+    ],
+    "category_id": "drogerie"
   }
 ]
