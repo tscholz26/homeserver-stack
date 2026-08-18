@@ -1,0 +1,12 @@
+[
+  { "id": "kette", "name": "Kette", "emoji": "⛓️", "color": "#7c3aed", "defaultLimitKm": 4000 },
+  { "id": "kassette", "name": "Kassette", "emoji": "⚙️", "color": "#0891b2", "defaultLimitKm": 12000 },
+  { "id": "kettenblaetter", "name": "Kettenblätter", "emoji": "🌀", "color": "#4338ca", "defaultLimitKm": 20000 },
+  { "id": "bremse-vorne", "name": "Bremsbeläge vorne", "emoji": "🛑", "color": "#b91c1c", "defaultLimitKm": 3000 },
+  { "id": "bremse-hinten", "name": "Bremsbeläge hinten", "emoji": "🛑", "color": "#c2740a", "defaultLimitKm": 3000 },
+  { "id": "reifen-vorne", "name": "Reifen vorne", "emoji": "🛞", "color": "#15803d", "defaultLimitKm": 6000 },
+  { "id": "reifen-hinten", "name": "Reifen hinten", "emoji": "🛞", "color": "#be185d", "defaultLimitKm": 4000 },
+  { "id": "lenkerband", "name": "Lenkerband", "emoji": "🎀", "color": "#7c3aed", "defaultLimitKm": 8000 },
+  { "id": "innenlager", "name": "Innenlager", "emoji": "🔘", "color": "#0891b2", "defaultLimitKm": 15000 },
+  { "id": "schaltzuege", "name": "Schaltzüge", "emoji": "🔩", "color": "#c2740a", "defaultLimitKm": 10000 }
+]

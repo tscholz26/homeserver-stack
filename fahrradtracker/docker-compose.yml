@@ -1,0 +1,28 @@
+services:
+  fahrradtracker:
+    build: .
+    container_name: fahrradtracker
+    restart: unless-stopped
+
+    # Als tristans laufen, damit data/ und backups/ ihm gehören: sonst schreibt
+    # root in den Arbeitsbaum und weder Editor noch Backup-Sync kommen an die
+    # Dateien heran.
+    user: "1000:1000"
+
+    # STRAVA_CLIENT_ID und STRAVA_CLIENT_SECRET aus der Strava-API-Anwendung,
+    # dazu PUBLIC_URL – siehe .env.example
+    env_file:
+      - .env
+
+    volumes:
+      # Profile, Räder, Teile und die geholten Fahrten …
+      - ./data:/app/data
+      # … und der tägliche Schnappschuss davon
+      - ./backups:/app/backups
+
+    networks:
+      - caddy-network
+
+networks:
+  caddy-network:
+    external: true

@@ -40,3 +40,12 @@ __screenshots__/
 
 test-results/
 playwright-report/
+
+# Der Live-Stand liegt auf dem Host: PIN-Hashes, Strava-Tokens und die geholten
+# Fahrten haben im (öffentlichen) Repo nichts verloren. Die Kategorien kommen
+# beim ersten Start aus seed/teile.json.
+data/*.json
+backups/*.json
+
+# Strava-Zugangsdaten
+.env
