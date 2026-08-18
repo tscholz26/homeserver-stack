@@ -1,7 +1,7 @@
 # Backup-Sync in die Nextcloud
 
-Lädt die Backup-Dateien der Apps (Kofferpacken, Donnerskat) täglich per WebDAV
-in die Nextcloud. Der Desktop-Client holt sie von dort auf den Windows-Rechner,
+Lädt die Backup-Dateien der Apps (Kofferpacken, Donnerskat, Fahrradtracker)
+täglich per WebDAV in die Nextcloud. Der Desktop-Client holt sie von dort auf den Windows-Rechner,
 sodass die Daten nicht mehr nur auf der Serverplatte liegen.
 
 ## Warum nur die Backups und nicht der ganze Stack-Ordner
@@ -51,6 +51,11 @@ bessere Weg als sie dauerhaft zu synchronisieren.
 
 Der Erstlauf überträgt alles Vorhandene (aktuell rund 2,6 MB), danach kommt
 pro Tag und App eine Datei von wenigen Kilobyte dazu.
+
+Kommt eine App dazu, steht sie in der Vorgabe von `BACKUP_DIRS` im Skript –
+`sudo install -m 755 backup-sync.sh /usr/local/bin/backup-sync.sh` reicht dann.
+Steht `BACKUP_DIRS` allerdings in `/etc/backup-sync.env`, gilt die Zeile dort
+und muss von Hand ergänzt werden.
 
 ## Kontrolle
 
