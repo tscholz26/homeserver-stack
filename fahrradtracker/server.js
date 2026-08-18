@@ -243,7 +243,8 @@ function migriere() {
   // deshalb bekommen sie einen Startwert; alles andere bleibt ohne Intervall.
   for (const typ of db.types) {
     if (typeof typ.rotationKm !== 'number') {
-      typ.rotationKm = /kette/i.test(typ.name ?? '') && !/blatt/i.test(typ.name ?? '') ? 500 : 0
+      // „Kette“ und „Kette 2“ ja, „Kettenblätter“ nicht
+      typ.rotationKm = /^kette(\s|$)/i.test((typ.name ?? '').trim()) ? 500 : 0
       geaendert.add('types')
     }
   }
