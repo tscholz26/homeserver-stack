@@ -3198,5 +3198,15 @@
     "name": "Kumquat",
     "aliases": [],
     "category_id": "obst_gemuese"
+  },
+  {
+    "name": "Nelkenpulver",
+    "aliases": [],
+    "category_id": "backen_gewuerze"
+  },
+  {
+    "name": "Gemüse wildcard",
+    "aliases": [],
+    "category_id": "obst_gemuese"
   }
 ]
