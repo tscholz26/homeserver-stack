@@ -329,9 +329,9 @@ export function synchronisiereFenster(rides, neueFahrten, { ownerId, provider, v
 }
 
 // ── CSV-Import ───────────────────────────────────────────────────────────────
-// Für Fahrten aus der Zeit vor dem Gerät, die als Tabelle vorliegen. Erwartet
-// wird der Aufbau `name,date,sport,distance_km` mit US-Datum (M/D/YYYY) und
-// „Ride“ bzw. „Virtual Ride“ als Sportart.
+// Für Fahrten aus der Zeit vor dem Gerät. Erwartet werden die Spalten
+// `name,date,sport,distance_km`, dazu optional `id` – steht sie da, ist sie
+// der Schlüssel, an dem eine Zeile beim nächsten Einlesen wiedererkannt wird.
 
 /**
  * Exporte aus Tabellenprogrammen sind oft UTF-8, das einmal als Latin-1
@@ -341,10 +341,9 @@ export function synchronisiereFenster(rides, neueFahrten, { ownerId, provider, v
 export function repariereUmlaute(text) {
   if (!/[ÃÂð]/.test(text)) return text
   try {
-    const bytes = Uint8Array.from([...text].map((z) => z.codePointAt(0)))
     if ([...text].some((z) => z.codePointAt(0) > 255)) return text
-    const zurueck = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
-    return zurueck
+    const bytes = Uint8Array.from([...text].map((z) => z.codePointAt(0)))
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
   } catch {
     return text
   }
@@ -375,39 +374,66 @@ function spalten(zeile) {
   return felder.map((f) => f.trim())
 }
 
-/** M/D/YYYY → YYYY-MM-DD. */
-function usDatum(wert) {
-  const teile = String(wert).split('/')
+const pad = (n) => String(n).padStart(2, '0')
+
+/**
+ * Welche Reihenfolge die beiden Zahlen hinter dem Jahr haben, verrät die Datei
+ * selbst: Steht irgendwo eine Zahl über 12, kann das nur ein Tag sein. So
+ * bleibt `2026-16-08` (16. August) von `2026-08-16` unterscheidbar, ohne dass
+ * jemand ein Format angeben müsste.
+ */
+export function datumsFormat(werte) {
+  let zweiteUeber12 = false
+  let dritteUeber12 = false
+  for (const wert of werte) {
+    const teile = String(wert).split('-')
+    if (teile.length !== 3) continue
+    if (Number(teile[1]) > 12) zweiteUeber12 = true
+    if (Number(teile[2]) > 12) dritteUeber12 = true
+  }
+  if (zweiteUeber12 && dritteUeber12) return 'unklar'
+  if (zweiteUeber12) return 'jahr-tag-monat'
+  return 'jahr-monat-tag'
+}
+
+/** Ein Datum aus der Tabelle auf `YYYY-MM-DD` bringen. */
+export function csvDatum(wert, format) {
+  const roh = String(wert ?? '').trim()
+  // US-Schreibweise, wie sie manche Tabellen ausgeben
+  if (roh.includes('/')) {
+    const [m, t, j] = roh.split('/').map(Number)
+    if (!m || !t || !j) return ''
+    return `${j}-${pad(m)}-${pad(t)}`
+  }
+  const teile = roh.split('-')
   if (teile.length !== 3) return ''
-  const [m, t, j] = teile.map((x) => Number(x))
-  if (!m || !t || !j) return ''
-  const pad = (n) => String(n).padStart(2, '0')
-  return `${j}-${pad(m)}-${pad(t)}`
+  const [j, a, b] = teile.map(Number)
+  if (!j || !a || !b) return ''
+  const [monat, tag] = format === 'jahr-tag-monat' ? [b, a] : [a, b]
+  if (monat < 1 || monat > 12 || tag < 1 || tag > 31) return ''
+  return `${j}-${pad(monat)}-${pad(tag)}`
 }
 
 const CSV_SPORT = {
   ride: false,
   'virtual ride': true,
+  'e-bike ride': false,
+  'gravel ride': false,
+  'mountain bike ride': false,
 }
 
 /**
  * Liest die Tabelle und sagt, was daraus würde – ohne etwas zu speichern.
  *
- * Zwei Eigenheiten solcher Exporte werden dabei aufgefangen:
- *
- * 1. Die Spalte heißt `distance_km`, enthält aber Hundertstel-Kilometer
- *    (17057 = 170,57 km). Erkannt wird das daran, dass die Werte ganzzahlig
- *    sind und für Kilometer viel zu groß.
- * 2. Datum und Distanz sind mitunter über ganze Gruppen von Zeilen hinweg
- *    identisch – ein Artefakt des Exports, nicht zwölf Hunderter an einem Tag.
- *    Solche Zeilen kommen ohne Distanz herein, statt erfundene Kilometer in die
- *    Verschleißrechnung zu tragen.
+ * `bis` blendet alles ab diesem Tag aus. Gebraucht wird das für den Zeitraum,
+ * den eine angebundene Quelle schon vollständig hat: Dort ist deren Stand der
+ * genauere, und zweimal dieselbe Ausfahrt wären doppelte Kilometer.
  */
-export function ausCsv(text, { bis = '', ownerId = '', gruppenDistanzen = false } = {}) {
+export function ausCsv(text, { bis = '', ownerId = '' } = {}) {
   const zeilen = String(text)
     .split(/\r?\n/)
     .filter((z) => z.trim())
-  if (!zeilen.length) return { fahrten: [], fehler: 'Die Datei ist leer.', ignoriert: [] }
+  if (!zeilen.length) return { fahrten: [], ignoriert: [], fehler: 'Die Datei ist leer.' }
 
   const kopf = spalten(zeilen[0]).map((k) => k.toLowerCase())
   const noetig = ['name', 'date', 'sport', 'distance_km']
@@ -418,19 +444,27 @@ export function ausCsv(text, { bis = '', ownerId = '', gruppenDistanzen = false 
       fehler: `Kopfzeile passt nicht – erwartet werden die Spalten ${noetig.join(', ')}.`,
     }
   }
-  const index = Object.fromEntries(noetig.map((k) => [k, kopf.indexOf(k)]))
+  const index = Object.fromEntries([...noetig, 'id'].map((k) => [k, kopf.indexOf(k)]))
+  const datenZeilen = zeilen.slice(1).map(spalten)
+  const format = datumsFormat(datenZeilen.map((f) => f[index.date]))
+  if (format === 'unklar') {
+    return {
+      fahrten: [],
+      ignoriert: [],
+      fehler: 'Die Datumsspalte ist uneinheitlich – mal Tag zuerst, mal Monat.',
+    }
+  }
 
-  const roh = []
+  const fahrten = []
   const ignoriert = []
-  for (const zeile of zeilen.slice(1)) {
-    const f = spalten(zeile)
+  for (const f of datenZeilen) {
     const name = repariereUmlaute(f[index.name] ?? '').slice(0, 80)
-    const datum = usDatum(f[index.date])
+    const datum = csvDatum(f[index.date], format)
     const sport = String(f[index.sport] ?? '').toLowerCase()
-    const wert = Number(String(f[index.distance_km] ?? '').replace(',', '.'))
+    const km = Number(String(f[index.distance_km] ?? '').replace(',', '.'))
 
     if (!datum) {
-      ignoriert.push({ name, grund: 'kein lesbares Datum' })
+      ignoriert.push({ name, grund: `Datum „${f[index.date]}“ nicht lesbar` })
       continue
     }
     if (!(sport in CSV_SPORT)) {
@@ -438,61 +472,40 @@ export function ausCsv(text, { bis = '', ownerId = '', gruppenDistanzen = false 
       continue
     }
     if (bis && datum >= bis) {
-      ignoriert.push({ name, grund: `liegt nicht vor dem ${bis}` })
+      ignoriert.push({ name, grund: `ab ${bis} zählt die verbundene Quelle` })
       continue
     }
-    roh.push({
-      name,
-      date: datum,
-      indoor: CSV_SPORT[sport],
-      wert: Number.isFinite(wert) ? wert : 0,
-    })
-  }
 
-  // Hundertstel-Kilometer oder Kilometer?
-  const werte = roh.map((r) => r.wert).filter((w) => w > 0)
-  const hundertstel =
-    werte.length > 0 && werte.every((w) => Number.isInteger(w)) && Math.max(...werte) > 1000
-  const teiler = hundertstel ? 100 : 1
-
-  // Gruppen aus gleichem Datum und gleicher Distanz: Exportfehler, keine echten
-  // Mehrfachfahrten
-  const zaehler = new Map()
-  for (const r of roh) {
-    const schluessel = `${r.date}|${r.wert}`
-    zaehler.set(schluessel, (zaehler.get(schluessel) ?? 0) + 1)
-  }
-
-  const fahrten = roh.map((r) => {
-    const gruppe = zaehler.get(`${r.date}|${r.wert}`) ?? 1
-    const verdaechtig = gruppe > 1 && r.wert > 0
-    // Standardmäßig bleibt der Wert einer Dublettengruppe draußen. Wer ihn
-    // trotzdem will, bekommt ihn – dann steht an jeder Fahrt der Gruppe
-    // dieselbe Distanz, und der Hinweis dazu in der Notiz.
-    const km = verdaechtig && !gruppenDistanzen ? 0 : Math.round((r.wert / teiler) * 100) / 100
-    return {
+    const id = index.id >= 0 ? String(f[index.id] ?? '').trim() : ''
+    fahrten.push({
       ownerId,
-      date: r.date,
+      date: datum,
       time: null,
-      km,
+      km: Number.isFinite(km) && km > 0 ? Math.round(km * 100) / 100 : 0,
       minutes: 0,
-      name: r.name,
-      indoor: r.indoor,
-      ohneDistanz: km <= 0,
+      name,
+      indoor: CSV_SPORT[sport],
+      ohneDistanz: !(km > 0),
       // Aus der Tabelle übernommen, nicht von einer Schnittstelle geholt –
       // deshalb bleibt es eine Fahrt von Hand und ist hier änderbar.
       source: 'MANUAL',
       externalProvider: 'csv',
-      externalActivityId: `${r.date}|${r.name}|${r.wert}`,
+      // Die Aktivitäts-Id aus dem Export ist der beste Schlüssel; ohne sie tut
+      // es die Kombination aus Datum, Name und Distanz.
+      externalActivityId: id || `${datum}|${name}|${km}`,
       externalSource: null,
-      // Warum ohne Distanz: damit die Oberfläche es erklären kann
-      grund: verdaechtig
-        ? `Datum und Distanz stehen ${gruppe}× gleich im Export – ${
-            gruppenDistanzen ? 'Wert trotzdem übernommen' : 'Distanz deshalb offen'
-          }`
-        : '',
-    }
-  })
+    })
+  }
 
-  return { fahrten, ignoriert, hundertstel, fehler: '' }
+  // Mehrere Zeilen mit demselben Datum *und* derselben Distanz deuten auf einen
+  // kaputten Export hin. Gemeldet, nicht stillschweigend übernommen.
+  const zaehler = new Map()
+  for (const f of fahrten) {
+    const schluessel = `${f.date}|${f.km}`
+    zaehler.set(schluessel, (zaehler.get(schluessel) ?? 0) + 1)
+  }
+  const verdaechtig = [...zaehler.values()].filter((n) => n > 1).length
+  const datumsformat = format === 'jahr-tag-monat' ? 'Jahr-Tag-Monat' : 'Jahr-Monat-Tag'
+
+  return { fahrten, ignoriert, verdaechtig, datumsformat, fehler: '' }
 }

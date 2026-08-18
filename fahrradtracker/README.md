@@ -144,20 +144,31 @@ Containers (`TZ=Europe/Berlin` in [docker-compose.yml](docker-compose.yml)).
 
 ### Fahrten aus einer Tabelle
 
-Wer eine Liste alter Fahrten als CSV hat, kann sie unter **Fahrten → CSV**
-einlesen. Erkannt wird der Aufbau `name,date,sport,distance_km` mit US-Datum;
-`Ride` wird eine Fahrt draußen, `Virtual Ride` eine auf der Rolle. Erst zeigt
-die Vorschau, was hereinkäme, dann wird übernommen – zweimal dieselbe Datei
-einzulesen legt nichts doppelt an (jede Zeile bekommt aus Datum, Name und
-Distanz einen Schlüssel).
+Wer eine Liste alter Fahrten als CSV hat, liest sie unter **Fahrten → CSV**
+ein. Nötig sind die Spalten `name,date,sport,distance_km`, dazu möglichst `id`;
+`Ride` wird eine Fahrt draußen, `Virtual Ride` eine auf der Rolle, die Distanz
+ist in Kilometern. Erst zeigt die Vorschau, was hereinkäme, dann wird
+übernommen.
 
-Zwei Eigenheiten solcher Exporte fängt der Import ab: Steht in
-`distance_km` etwas viel zu Großes und durchweg Ganzzahliges, sind es
-Hundertstel-Kilometer (`17057` → 170,57 km). Und tragen mehrere Zeilen
-**dasselbe Datum bei derselben Distanz**, ist das ein Artefakt des Exports und
-keine zwölf Hunderter an einem Tag – solche Fahrten kommen ohne Distanz herein
-und lassen sich von Hand nachtragen, statt erfundene Kilometer in die
-Verschleißrechnung zu tragen.
+Zwei Eigenheiten solcher Exporte fängt der Import ab:
+
+- **Die Reihenfolge im Datum** liest er aus der Datei selbst: Steht irgendwo
+  eine Zahl über 12 an zweiter Stelle, kann das nur ein Tag sein – dann gilt
+  `Jahr-Tag-Monat` (`2026-16-08`), sonst `Jahr-Monat-Tag`. Widersprechen sich
+  die Zeilen, bricht er ab, statt zu raten. Auch `M/D/YYYY` wird gelesen.
+- **Falsch gelesene Umlaute** (`RÃ¼ckfahrt`) dreht er zurück, wenn dabei
+  gültiges UTF-8 herauskommt.
+
+Wiedererkannt wird eine Zeile an der `id` aus dem Export – dieselbe Datei
+zweimal einzulesen legt also nichts doppelt an, und was von Hand gelöscht
+wurde, bleibt gelöscht. Ohne `id`-Spalte tut es die Kombination aus Datum, Name
+und Distanz.
+
+**„Nur vor dem"** blendet den Zeitraum aus, den eine angebundene Quelle bereits
+vollständig hat: Dort ist deren Stand der genauere, und dieselbe Ausfahrt aus
+zwei Quellen wären doppelte Kilometer. Steht in einem Export mehrfach dieselbe
+Distanz am selben Tag, meldet die Vorschau das als Verdacht auf einen kaputten
+Export – übernommen wird trotzdem nichts ungefragt.
 
 ### Was beim Holen liegen bleibt – und was 0 km bedeutet
 

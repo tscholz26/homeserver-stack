@@ -127,10 +127,11 @@ export interface ImportBericht {
   schonDa: number
   ohneDistanz: number
   km: number
-  hundertstel: boolean
+  datumsformat: string
+  verdaechtig: number
   ignoriert: { name: string; grund: string }[]
   ignoriertGesamt: number
-  beispiele?: { date: string; km: number; indoor: boolean; name: string; grund: string }[]
+  beispiele?: { date: string; km: number; indoor: boolean; name: string }[]
 }
 
 export type RadDaten = {
@@ -394,11 +395,10 @@ function createStore() {
    * Fahrten aus einer Tabelle nachtragen. Ohne `speichern` ist es nur eine
    * Vorschau – ein Import lässt sich nicht in einem Rutsch zurücknehmen.
    */
-  async function csvImport(csv: string, bis: string, speichern = false, gruppenDistanzen = false) {
+  async function csvImport(csv: string, bis: string, speichern = false) {
     const daten = await api<ImportBericht & { me?: unknown }>('/rides/import', 'POST', {
       csv,
       bis,
-      gruppenDistanzen,
       dryRun: !speichern,
     })
     if (daten && speichern) await refresh()

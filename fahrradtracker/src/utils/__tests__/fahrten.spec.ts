@@ -558,68 +558,75 @@ describe('Distanz von Hand', () => {
 })
 
 describe('CSV-Import', () => {
-  const kopf = 'name,date,sport,distance_km'
+  const kopf = 'id,name,date,sport,distance_km'
   const csv = [
     kopf,
-    '"Sonntagsrunde","4/16/2026","Ride",2563',
-    '"MyWhoosh - Zone 2","3/12/2026","Virtual Ride",1342',
-    // Exportfehler: dieselbe Distanz am selben Tag für drei Einheiten
-    '"MyWhoosh - Endurance #1","3/18/2026","Virtual Ride",10061',
-    '"MyWhoosh - Endurance #2","3/18/2026","Virtual Ride",10061',
-    '"Erste 100 der Saison","3/18/2026","Virtual Ride",10061',
-    '"Lauf am Morgen","2/23/2026","Run",900',
-    '"Zu neu","8/16/2026","Ride",17057',
+    '18133085520,"Ohne Wind wÃ¤re es ein 40er Schnitt geworden...",2026-16-04,"Ride",25.6',
+    '17701857781,"MyWhoosh - Zone 2 Endurance 40min",2026-12-03,"Virtual Ride",13.4',
+    '15868651574,"Tour auf den Brocken",2025-18-08,"Ride",105.7',
+    '99999999999,"Lauf am Morgen",2025-18-08,"Run",9',
+    '19770516078,"Zu neu",2026-16-08,"Ride",170.5',
   ].join('\n')
 
-  it('liest Datum, Sportart und Hundertstel-Kilometer', () => {
-    const { fahrten, hundertstel } = ausCsv(csv, { bis: '2026-05-17', ownerId: 'u1' })
-    expect(hundertstel).toBe(true)
-    const sonntag = fahrten.find((f: { name: string }) => f.name === 'Sonntagsrunde')
-    expect(sonntag).toMatchObject({
-      date: '2026-04-16',
-      km: 25.63,
-      indoor: false,
-      source: 'MANUAL',
-    })
-    const rolle = fahrten.find((f: { name: string }) => f.name.startsWith('MyWhoosh - Zone'))
-    expect(rolle).toMatchObject({ date: '2026-03-12', km: 13.42, indoor: true })
+  it('liest Datum als Jahr-Tag-Monat, wenn die Datei es hergibt', () => {
+    const { fahrten, datumsformat } = ausCsv(csv, { ownerId: 'u1' })
+    expect(datumsformat).toBe('Jahr-Tag-Monat')
+    expect(fahrten.map((f: { date: string }) => f.date)).toEqual([
+      '2026-04-16',
+      '2026-03-12',
+      '2025-08-18',
+      '2026-08-16',
+    ])
   })
 
-  it('lässt Fahrten ohne Distanz herein, statt Kilometer zu erfinden', () => {
-    const { fahrten } = ausCsv(csv, { bis: '2026-05-17', ownerId: 'u1' })
-    const gruppe = fahrten.filter((f: { date: string }) => f.date === '2026-03-18')
-    expect(gruppe).toHaveLength(3)
-    expect(gruppe.every((f: { km: number }) => f.km === 0)).toBe(true)
-    expect(gruppe[0].grund).toContain('3×')
+  it('nimmt die Distanz als Kilometer und die Sportart als drinnen/draußen', () => {
+    const { fahrten } = ausCsv(csv, { ownerId: 'u1' })
+    expect(fahrten[0]).toMatchObject({ km: 25.6, indoor: false, source: 'MANUAL' })
+    expect(fahrten[1]).toMatchObject({ km: 13.4, indoor: true })
+  })
+
+  it('nimmt die Strava-Id als Schlüssel – dieselbe Datei legt nichts doppelt an', () => {
+    const a = ausCsv(csv, { ownerId: 'u1' }).fahrten
+    expect(a[0].externalActivityId).toBe('18133085520')
+    const b = ausCsv(csv, { ownerId: 'u1' }).fahrten
+    expect(a.map((f: { externalActivityId: string }) => f.externalActivityId)).toEqual(
+      b.map((f: { externalActivityId: string }) => f.externalActivityId),
+    )
   })
 
   it('überspringt fremde Sportarten und alles ab dem Stichtag', () => {
     const { fahrten, ignoriert } = ausCsv(csv, { bis: '2026-05-17', ownerId: 'u1' })
-    expect(fahrten.map((f: { name: string }) => f.name)).not.toContain('Lauf am Morgen')
-    expect(fahrten.map((f: { name: string }) => f.name)).not.toContain('Zu neu')
+    const namen = fahrten.map((f: { name: string }) => f.name)
+    expect(namen).not.toContain('Lauf am Morgen')
+    expect(namen).not.toContain('Zu neu')
     expect(ignoriert).toHaveLength(2)
   })
 
   it('dreht falsch gelesene Umlaute zurück', () => {
-    const { fahrten } = ausCsv([kopf, '"RÃ¼ckfahrt","4/16/2026","Ride",2563'].join('\n'), {
-      ownerId: 'u1',
-    })
-    expect(fahrten[0].name).toBe('Rückfahrt')
+    expect(ausCsv(csv, { ownerId: 'u1' }).fahrten[0].name).toContain('wäre')
+  })
+
+  it('erkennt Jahr-Monat-Tag, wenn keine Zahl über 12 dagegen spricht', () => {
+    const { fahrten, datumsformat } = ausCsv(
+      [kopf, '1,"Tour",2026-03-08,"Ride",42'].join('\n'),
+      { ownerId: 'u1' },
+    )
+    expect(datumsformat).toBe('Jahr-Monat-Tag')
+    expect(fahrten[0].date).toBe('2026-03-08')
+  })
+
+  it('meldet einen kaputten Export, statt ihn zu übernehmen', () => {
+    const kaputt = [
+      kopf,
+      '1,"A",2026-18-03,"Ride",100.6',
+      '2,"B",2026-18-03,"Ride",100.6',
+      '3,"C",2026-18-03,"Ride",100.6',
+    ].join('\n')
+    expect(ausCsv(kaputt, { ownerId: 'u1' }).verdaechtig).toBe(1)
   })
 
   it('meckert über eine fremde Kopfzeile', () => {
     expect(ausCsv('a,b,c\n1,2,3').fehler).toContain('Kopfzeile')
-  })
-
-  it('vergibt stabile Schlüssel, damit zweimal Einlesen nichts verdoppelt', () => {
-    const a = ausCsv(csv, { bis: '2026-05-17', ownerId: 'u1' }).fahrten
-    const b = ausCsv(csv, { bis: '2026-05-17', ownerId: 'u1' }).fahrten
-    expect(a.map((f: { externalActivityId: string }) => f.externalActivityId)).toEqual(
-      b.map((f: { externalActivityId: string }) => f.externalActivityId),
-    )
-    expect(new Set(a.map((f: { externalActivityId: string }) => f.externalActivityId)).size).toBe(
-      a.length,
-    )
   })
 })
 

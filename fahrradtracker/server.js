@@ -1519,11 +1519,13 @@ app.post('/api/rides', auth, (req, res) => {
  * aus Datum, Name und Distanz einen Schlüssel, an dem sie wiedererkannt wird.
  */
 app.post('/api/rides/import', auth, (req, res) => {
-  const { fahrten, ignoriert, hundertstel, fehler } = ausCsv(String(req.body?.csv ?? ''), {
-    bis: typeof req.body?.bis === 'string' ? req.body.bis : '',
-    ownerId: req.user.id,
-    gruppenDistanzen: req.body?.gruppenDistanzen === true,
-  })
+  const { fahrten, ignoriert, verdaechtig, datumsformat, fehler } = ausCsv(
+    String(req.body?.csv ?? ''),
+    {
+      bis: typeof req.body?.bis === 'string' ? req.body.bis : '',
+      ownerId: req.user.id,
+    },
+  )
   if (fehler) return res.status(400).json({ error: fehler })
 
   const bekannt = new Set(
@@ -1539,7 +1541,10 @@ app.post('/api/rides/import', auth, (req, res) => {
     schonDa: fahrten.length - neue.length,
     ohneDistanz: neue.filter((f) => f.km <= 0).length,
     km: Math.round(neue.reduce((s, f) => s + f.km, 0) * 10) / 10,
-    hundertstel: Boolean(hundertstel),
+    datumsformat,
+    // Mehrfach dasselbe Datum bei derselben Distanz: Zeichen für einen
+    // kaputten Export
+    verdaechtig,
     ignoriert: ignoriert.slice(0, 20),
     ignoriertGesamt: ignoriert.length,
   }
@@ -1554,20 +1559,16 @@ app.post('/api/rides/import', auth, (req, res) => {
         km: f.km,
         indoor: f.indoor,
         name: f.name,
-        grund: f.grund,
       })),
     })
   }
 
   antworte(req, res, () => {
-    for (const f of neue) {
-      const { grund, ...fahrt } = f
+    for (const fahrt of neue) {
       db.rides.push({
         ...fahrt,
         id: createId(),
-        // Die Erklärung landet in der Notiz, damit später nachvollziehbar
-        // bleibt, warum diese Fahrt ohne Kilometer dasteht
-        note: grund,
+        note: '',
         kmOverride: null,
         override: null,
         createdAt: new Date().toISOString(),

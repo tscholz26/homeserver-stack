@@ -59,9 +59,6 @@ const importText = ref('')
 const importBis = ref('')
 const importDatei = ref('')
 const bericht = ref<ImportBericht | null>(null)
-// Distanzen aus Dublettengruppen: standardmäßig aus, weil dann dieselbe
-// Distanz mehrfach zählt
-const gruppenDistanzen = ref(false)
 const laeuft = ref(false)
 
 async function dateiGewaehlt(ereignis: Event) {
@@ -76,24 +73,14 @@ async function dateiGewaehlt(ereignis: Event) {
 async function vorschau() {
   if (!importText.value) return
   laeuft.value = true
-  bericht.value = await store.csvImport(
-    importText.value,
-    importBis.value,
-    false,
-    gruppenDistanzen.value,
-  )
+  bericht.value = await store.csvImport(importText.value, importBis.value)
   laeuft.value = false
 }
 
 async function uebernehmen() {
   if (!importText.value || laeuft.value) return
   laeuft.value = true
-  const ergebnis = await store.csvImport(
-    importText.value,
-    importBis.value,
-    true,
-    gruppenDistanzen.value,
-  )
+  const ergebnis = await store.csvImport(importText.value, importBis.value, true)
   laeuft.value = false
   if (!ergebnis) return
   store.hinweis.value = `${ergebnis.angelegt} Fahrten übernommen, davon ${ergebnis.ohneDistanz} ohne Distanz.`
@@ -241,8 +228,9 @@ function distanzKorrigieren(fahrt: Fahrt, wert: string) {
     <!-- Tabelle einlesen -->
     <section v-if="importOffen" class="neuform card">
       <p class="fussnote">
-        Erwartet wird eine Tabelle mit den Spalten <code>name,date,sport,distance_km</code>,
-        US-Datum und „Ride“ bzw. „Virtual Ride“ als Sportart – daraus wird draußen bzw. Rolle.
+        Erwartet wird eine Tabelle mit den Spalten <code>name,date,sport,distance_km</code> und
+        möglichst <code>id</code>; „Ride“ wird eine Fahrt draußen, „Virtual Ride“ eine auf der
+        Rolle. „Nur vor dem“ blendet den Zeitraum aus, den deine verbundene Quelle schon hat.
         Zweimal einlesen legt nichts doppelt an.
       </p>
       <div class="reihe">
@@ -256,28 +244,19 @@ function distanzKorrigieren(fahrt: Fahrt, wert: string) {
         </label>
       </div>
 
-      <label class="haken">
-        <input v-model="gruppenDistanzen" type="checkbox" @change="vorschau" />
-        Distanzen aus Dublettengruppen übernehmen
-      </label>
-
       <template v-if="bericht">
         <p class="summe">
           {{ bericht.angelegt }} neue Fahrten · {{ kmText(bericht.km) }}
           <template v-if="bericht.schonDa"> · {{ bericht.schonDa }} schon vorhanden</template>
         </p>
-        <p v-if="bericht.hundertstel" class="fussnote">
-          Die Spalte <code>distance_km</code> enthält Hundertstel-Kilometer (17057 → 170,57 km) – so
-          wird sie gelesen.
-        </p>
+        <p class="fussnote">Datum gelesen als {{ bericht.datumsformat }}.</p>
         <p v-if="bericht.ohneDistanz" class="warnzeile">
-          {{ bericht.ohneDistanz }} davon ohne Distanz: Dort stehen Datum und Distanz im Export für
-          mehrere Fahrten gleich, das sind keine echten Werte. Die Kilometer trägst du bei Bedarf
-          von Hand nach – oder du setzt oben das Häkchen und übernimmst den Gruppenwert.
+          {{ bericht.ohneDistanz }} Zeilen ohne Distanz – die kommen mit 0 km herein und lassen sich
+          einzeln nachtragen.
         </p>
-        <p v-else-if="gruppenDistanzen" class="warnzeile">
-          Achtung: Fahrten aus einer Dublettengruppe bekommen alle dieselbe Distanz. Das sind keine
-          gemessenen Werte, sie zählen aber voll für den Verschleiß.
+        <p v-if="bericht.verdaechtig" class="warnzeile">
+          {{ bericht.verdaechtig }}× steht dieselbe Distanz am selben Tag. Das deutet auf einen
+          kaputten Export hin – prüf die Werte, bevor du übernimmst.
         </p>
         <ul v-if="bericht.beispiele?.length" class="beispiele">
           <li v-for="(b, i) in bericht.beispiele" :key="i">
