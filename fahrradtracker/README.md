@@ -142,6 +142,23 @@ beim nächsten Sync ohnehin wieder.
 Der Kalendertag einer Fahrt kommt aus ihrer Startzeit in der Zeitzone des
 Containers (`TZ=Europe/Berlin` in [docker-compose.yml](docker-compose.yml)).
 
+### Fahrten aus einer Tabelle
+
+Wer eine Liste alter Fahrten als CSV hat, kann sie unter **Fahrten → CSV**
+einlesen. Erkannt wird der Aufbau `name,date,sport,distance_km` mit US-Datum;
+`Ride` wird eine Fahrt draußen, `Virtual Ride` eine auf der Rolle. Erst zeigt
+die Vorschau, was hereinkäme, dann wird übernommen – zweimal dieselbe Datei
+einzulesen legt nichts doppelt an (jede Zeile bekommt aus Datum, Name und
+Distanz einen Schlüssel).
+
+Zwei Eigenheiten solcher Exporte fängt der Import ab: Steht in
+`distance_km` etwas viel zu Großes und durchweg Ganzzahliges, sind es
+Hundertstel-Kilometer (`17057` → 170,57 km). Und tragen mehrere Zeilen
+**dasselbe Datum bei derselben Distanz**, ist das ein Artefakt des Exports und
+keine zwölf Hunderter an einem Tag – solche Fahrten kommen ohne Distanz herein
+und lassen sich von Hand nachtragen, statt erfundene Kilometer in die
+Verschleißrechnung zu tragen.
+
 ### Was beim Holen liegen bleibt – und was 0 km bedeutet
 
 Nicht jedes Workout beim Anbieter ist eine Fahrt:

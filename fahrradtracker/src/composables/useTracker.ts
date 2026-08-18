@@ -118,6 +118,19 @@ export interface Teil {
   percent: number
 }
 
+/** Bericht eines CSV-Imports – erst als Vorschau, dann als Ergebnis. */
+export interface ImportBericht {
+  gelesen: number
+  angelegt: number
+  schonDa: number
+  ohneDistanz: number
+  km: number
+  hundertstel: boolean
+  ignoriert: { name: string; grund: string }[]
+  ignoriertGesamt: number
+  beispiele?: { date: string; km: number; indoor: boolean; name: string; grund: string }[]
+}
+
 export type RadDaten = {
   name?: string
   manufacturer?: string
@@ -370,6 +383,20 @@ function createStore() {
     return aendern(`/rides/${id}`, 'DELETE')
   }
 
+  /**
+   * Fahrten aus einer Tabelle nachtragen. Ohne `speichern` ist es nur eine
+   * Vorschau – ein Import lässt sich nicht in einem Rutsch zurücknehmen.
+   */
+  async function csvImport(csv: string, bis: string, speichern = false) {
+    const daten = await api<ImportBericht & { me?: unknown }>('/rides/import', 'POST', {
+      csv,
+      bis,
+      dryRun: !speichern,
+    })
+    if (daten && speichern) await refresh()
+    return daten
+  }
+
   function radLoeschen(id: string) {
     return aendern(`/bikes/${id}`, 'DELETE')
   }
@@ -601,6 +628,7 @@ function createStore() {
     fahrtAnlegen,
     fahrtSpeichern,
     fahrtLoeschen,
+    csvImport,
     quelleVerbinden,
     quelleTrennen,
     quelleAktivieren,

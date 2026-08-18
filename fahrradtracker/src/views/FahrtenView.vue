@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useTracker } from '@/composables/useTracker'
-import type { Fahrt } from '@/composables/useTracker'
+import type { Fahrt, ImportBericht } from '@/composables/useTracker'
 import { datumText, heute, kmText } from '@/utils/verschleiss'
 
 /**
@@ -47,6 +47,45 @@ const summe = computed(() => fahrten.value.reduce((s, f) => s + f.km, 0))
 const ohneDistanz = computed(
   () => fahrten.value.filter((f) => f.ohneDistanz && !f.kmKorrigiert).length,
 )
+
+// ── Tabelle einlesen ─────────────────────────────────────────────────────────
+// Für Fahrten aus der Zeit vor dem Gerät, die als CSV vorliegen
+// (name,date,sport,distance_km). Erst Vorschau, dann übernehmen.
+const importOffen = ref(false)
+const importText = ref('')
+const importBis = ref('')
+const importDatei = ref('')
+const bericht = ref<ImportBericht | null>(null)
+const laeuft = ref(false)
+
+async function dateiGewaehlt(ereignis: Event) {
+  const datei = (ereignis.target as HTMLInputElement).files?.[0]
+  if (!datei) return
+  importDatei.value = datei.name
+  importText.value = await datei.text()
+  bericht.value = null
+  await vorschau()
+}
+
+async function vorschau() {
+  if (!importText.value) return
+  laeuft.value = true
+  bericht.value = await store.csvImport(importText.value, importBis.value)
+  laeuft.value = false
+}
+
+async function uebernehmen() {
+  if (!importText.value || laeuft.value) return
+  laeuft.value = true
+  const ergebnis = await store.csvImport(importText.value, importBis.value, true)
+  laeuft.value = false
+  if (!ergebnis) return
+  store.hinweis.value = `${ergebnis.angelegt} Fahrten übernommen, davon ${ergebnis.ohneDistanz} ohne Distanz.`
+  importOffen.value = false
+  importText.value = ''
+  importDatei.value = ''
+  bericht.value = null
+}
 
 async function anlegen() {
   const km = Number(String(neu.value.km).replace(',', '.'))
@@ -114,9 +153,14 @@ function distanzKorrigieren(fahrt: Fahrt, wert: string) {
         <p class="cap">Fahrten</p>
         <h2>{{ store.state.fahrten }} insgesamt</h2>
       </div>
-      <button type="button" class="primaer" @click="neuOffen = !neuOffen">
-        {{ neuOffen ? 'Abbrechen' : '+ Fahrt' }}
-      </button>
+      <div class="kopfknoepfe">
+        <button type="button" class="still" @click="importOffen = !importOffen">
+          {{ importOffen ? 'Abbrechen' : 'CSV' }}
+        </button>
+        <button type="button" class="primaer" @click="neuOffen = !neuOffen">
+          {{ neuOffen ? 'Abbrechen' : '+ Fahrt' }}
+        </button>
+      </div>
     </header>
 
     <!-- Nachtragen, was vor dem Wahoo liegt -->
@@ -158,6 +202,60 @@ function distanzKorrigieren(fahrt: Fahrt, wert: string) {
       </label>
       <button type="submit" class="primaer">Eintragen →</button>
     </form>
+
+    <!-- Tabelle einlesen -->
+    <section v-if="importOffen" class="neuform card">
+      <p class="fussnote">
+        Erwartet wird eine Tabelle mit den Spalten <code>name,date,sport,distance_km</code>,
+        US-Datum und „Ride“ bzw. „Virtual Ride“ als Sportart – daraus wird draußen bzw. Rolle.
+        Zweimal einlesen legt nichts doppelt an.
+      </p>
+      <div class="reihe">
+        <label class="klein">
+          Datei
+          <input type="file" accept=".csv,text/csv" @change="dateiGewaehlt" />
+        </label>
+        <label class="klein">
+          Nur vor dem
+          <input v-model="importBis" type="date" @change="vorschau" />
+        </label>
+      </div>
+
+      <template v-if="bericht">
+        <p class="summe">
+          {{ bericht.angelegt }} neue Fahrten · {{ kmText(bericht.km) }}
+          <template v-if="bericht.schonDa"> · {{ bericht.schonDa }} schon vorhanden</template>
+        </p>
+        <p v-if="bericht.hundertstel" class="fussnote">
+          Die Spalte <code>distance_km</code> enthält Hundertstel-Kilometer (17057 → 170,57 km) – so
+          wird sie gelesen.
+        </p>
+        <p v-if="bericht.ohneDistanz" class="warnzeile">
+          {{ bericht.ohneDistanz }} davon ohne Distanz: Dort stehen Datum und Distanz im Export für
+          mehrere Fahrten gleich, das sind keine echten Werte. Die Kilometer trägst du bei Bedarf
+          von Hand nach.
+        </p>
+        <ul v-if="bericht.beispiele?.length" class="beispiele">
+          <li v-for="(b, i) in bericht.beispiele" :key="i">
+            {{ datumText(b.date) }} · {{ b.km ? kmText(b.km) : 'ohne Distanz' }} ·
+            {{ b.indoor ? 'Rolle' : 'draußen' }} · {{ b.name }}
+          </li>
+        </ul>
+        <p v-if="bericht.ignoriertGesamt" class="fussnote">
+          {{ bericht.ignoriertGesamt }} Zeilen übersprungen (fremde Sportart oder außerhalb des
+          Zeitraums).
+        </p>
+        <button
+          type="button"
+          class="primaer"
+          :disabled="!bericht.angelegt || laeuft"
+          @click="uebernehmen"
+        >
+          {{ bericht.angelegt }} Fahrten übernehmen →
+        </button>
+      </template>
+      <p v-else-if="importDatei" class="fussnote">{{ importDatei }} wird gelesen …</p>
+    </section>
 
     <nav class="filter">
       <button
@@ -414,6 +512,29 @@ select {
   border-color: color-mix(in srgb, var(--violet) 45%, transparent);
   background: color-mix(in srgb, var(--violet) 12%, white);
   color: var(--violet);
+}
+
+.kopfknoepfe {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.beispiele {
+  list-style: none;
+  margin: 0.4rem 0;
+  padding: 0;
+  display: grid;
+  gap: 0.2rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.warnzeile {
+  margin: 0.3rem 0;
+  color: var(--amber);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .summe {

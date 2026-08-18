@@ -13,6 +13,7 @@ import { join, dirname, basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   ANBIETER,
+  ausCsv,
   ausIntervals,
   ausWahoo,
   kmFuerRad,
@@ -1504,6 +1505,72 @@ app.post('/api/rides', auth, (req, res) => {
       override,
       createdAt: new Date().toISOString(),
     })
+    sichere('rides')
+  })
+})
+
+/**
+ * Fahrten aus einer Tabelle nachtragen – für die Zeit, aus der keine
+ * Schnittstelle mehr etwas hergibt. Erkannt wird der Aufbau
+ * `name,date,sport,distance_km`; „Ride“ wird eine Fahrt draußen, „Virtual
+ * Ride“ eine auf der Rolle.
+ *
+ * Zweimal dieselbe Datei einzulesen legt nichts doppelt an: Jede Zeile bekommt
+ * aus Datum, Name und Distanz einen Schlüssel, an dem sie wiedererkannt wird.
+ */
+app.post('/api/rides/import', auth, (req, res) => {
+  const { fahrten, ignoriert, hundertstel, fehler } = ausCsv(String(req.body?.csv ?? ''), {
+    bis: typeof req.body?.bis === 'string' ? req.body.bis : '',
+    ownerId: req.user.id,
+  })
+  if (fehler) return res.status(400).json({ error: fehler })
+
+  const bekannt = new Set(
+    db.rides
+      .filter((r) => r.ownerId === req.user.id && r.externalProvider === 'csv')
+      .map((r) => r.externalActivityId),
+  )
+  const neue = fahrten.filter((f) => !bekannt.has(f.externalActivityId))
+  const bericht = {
+    gelesen: fahrten.length,
+    angelegt: neue.length,
+    schonDa: fahrten.length - neue.length,
+    ohneDistanz: neue.filter((f) => f.km <= 0).length,
+    km: Math.round(neue.reduce((s, f) => s + f.km, 0) * 10) / 10,
+    hundertstel: Boolean(hundertstel),
+    ignoriert: ignoriert.slice(0, 20),
+    ignoriertGesamt: ignoriert.length,
+  }
+
+  // Erst zeigen, dann speichern: Ein Import lässt sich nicht in einem Rutsch
+  // rückgängig machen, also soll man vorher sehen, was hereinkäme.
+  if (req.body?.dryRun) {
+    return res.json({
+      ...bericht,
+      beispiele: neue.slice(0, 8).map((f) => ({
+        date: f.date,
+        km: f.km,
+        indoor: f.indoor,
+        name: f.name,
+        grund: f.grund,
+      })),
+    })
+  }
+
+  antworte(req, res, () => {
+    for (const f of neue) {
+      const { grund, ...fahrt } = f
+      db.rides.push({
+        ...fahrt,
+        id: createId(),
+        // Die Erklärung landet in der Notiz, damit später nachvollziehbar
+        // bleibt, warum diese Fahrt ohne Kilometer dasteht
+        note: grund,
+        kmOverride: null,
+        override: null,
+        createdAt: new Date().toISOString(),
+      })
+    }
     sichere('rides')
   })
 })

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 // @ts-expect-error – plain JS, dieselbe Datei benutzt auch server.js
 import {
+  ausCsv,
   ausIntervals,
   ausWahoo,
   istDublette,
@@ -553,5 +554,71 @@ describe('Distanz von Hand', () => {
     expect(e.rides).toHaveLength(1)
     expect(e.rides[0].kmOverride).toBe(95)
     expect(loese(e.rides[0]).km).toBe(95)
+  })
+})
+
+describe('CSV-Import', () => {
+  const kopf = 'name,date,sport,distance_km'
+  const csv = [
+    kopf,
+    '"Sonntagsrunde","4/16/2026","Ride",2563',
+    '"MyWhoosh - Zone 2","3/12/2026","Virtual Ride",1342',
+    // Exportfehler: dieselbe Distanz am selben Tag für drei Einheiten
+    '"MyWhoosh - Endurance #1","3/18/2026","Virtual Ride",10061',
+    '"MyWhoosh - Endurance #2","3/18/2026","Virtual Ride",10061',
+    '"Erste 100 der Saison","3/18/2026","Virtual Ride",10061',
+    '"Lauf am Morgen","2/23/2026","Run",900',
+    '"Zu neu","8/16/2026","Ride",17057',
+  ].join('\n')
+
+  it('liest Datum, Sportart und Hundertstel-Kilometer', () => {
+    const { fahrten, hundertstel } = ausCsv(csv, { bis: '2026-05-17', ownerId: 'u1' })
+    expect(hundertstel).toBe(true)
+    const sonntag = fahrten.find((f: { name: string }) => f.name === 'Sonntagsrunde')
+    expect(sonntag).toMatchObject({
+      date: '2026-04-16',
+      km: 25.63,
+      indoor: false,
+      source: 'MANUAL',
+    })
+    const rolle = fahrten.find((f: { name: string }) => f.name.startsWith('MyWhoosh - Zone'))
+    expect(rolle).toMatchObject({ date: '2026-03-12', km: 13.42, indoor: true })
+  })
+
+  it('lässt Fahrten ohne Distanz herein, statt Kilometer zu erfinden', () => {
+    const { fahrten } = ausCsv(csv, { bis: '2026-05-17', ownerId: 'u1' })
+    const gruppe = fahrten.filter((f: { date: string }) => f.date === '2026-03-18')
+    expect(gruppe).toHaveLength(3)
+    expect(gruppe.every((f: { km: number }) => f.km === 0)).toBe(true)
+    expect(gruppe[0].grund).toContain('3×')
+  })
+
+  it('überspringt fremde Sportarten und alles ab dem Stichtag', () => {
+    const { fahrten, ignoriert } = ausCsv(csv, { bis: '2026-05-17', ownerId: 'u1' })
+    expect(fahrten.map((f: { name: string }) => f.name)).not.toContain('Lauf am Morgen')
+    expect(fahrten.map((f: { name: string }) => f.name)).not.toContain('Zu neu')
+    expect(ignoriert).toHaveLength(2)
+  })
+
+  it('dreht falsch gelesene Umlaute zurück', () => {
+    const { fahrten } = ausCsv([kopf, '"RÃ¼ckfahrt","4/16/2026","Ride",2563'].join('\n'), {
+      ownerId: 'u1',
+    })
+    expect(fahrten[0].name).toBe('Rückfahrt')
+  })
+
+  it('meckert über eine fremde Kopfzeile', () => {
+    expect(ausCsv('a,b,c\n1,2,3').fehler).toContain('Kopfzeile')
+  })
+
+  it('vergibt stabile Schlüssel, damit zweimal Einlesen nichts verdoppelt', () => {
+    const a = ausCsv(csv, { bis: '2026-05-17', ownerId: 'u1' }).fahrten
+    const b = ausCsv(csv, { bis: '2026-05-17', ownerId: 'u1' }).fahrten
+    expect(a.map((f: { externalActivityId: string }) => f.externalActivityId)).toEqual(
+      b.map((f: { externalActivityId: string }) => f.externalActivityId),
+    )
+    expect(new Set(a.map((f: { externalActivityId: string }) => f.externalActivityId)).size).toBe(
+      a.length,
+    )
   })
 })

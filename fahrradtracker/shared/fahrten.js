@@ -318,3 +318,165 @@ export function synchronisiereFenster(rides, neueFahrten, { ownerId, provider, v
     geloescht: bestand.length - behalten.length,
   }
 }
+
+// ── CSV-Import ───────────────────────────────────────────────────────────────
+// Für Fahrten aus der Zeit vor dem Gerät, die als Tabelle vorliegen. Erwartet
+// wird der Aufbau `name,date,sport,distance_km` mit US-Datum (M/D/YYYY) und
+// „Ride“ bzw. „Virtual Ride“ als Sportart.
+
+/**
+ * Exporte aus Tabellenprogrammen sind oft UTF-8, das einmal als Latin-1
+ * gelesen wurde („RÃ¼ckfahrt“ statt „Rückfahrt“). Das lässt sich
+ * zurückdrehen – aber nur, wenn dabei etwas Sinnvolles herauskommt.
+ */
+export function repariereUmlaute(text) {
+  if (!/[ÃÂð]/.test(text)) return text
+  try {
+    const bytes = Uint8Array.from([...text].map((z) => z.codePointAt(0)))
+    if ([...text].some((z) => z.codePointAt(0) > 255)) return text
+    const zurueck = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+    return zurueck
+  } catch {
+    return text
+  }
+}
+
+/** Eine Zeile im CSV – Anführungszeichen und Kommas darin berücksichtigt. */
+function spalten(zeile) {
+  const felder = []
+  let feld = ''
+  let inAnfuehrung = false
+  for (let i = 0; i < zeile.length; i += 1) {
+    const z = zeile[i]
+    if (z === '"') {
+      if (inAnfuehrung && zeile[i + 1] === '"') {
+        feld += '"'
+        i += 1
+      } else {
+        inAnfuehrung = !inAnfuehrung
+      }
+    } else if (z === ',' && !inAnfuehrung) {
+      felder.push(feld)
+      feld = ''
+    } else {
+      feld += z
+    }
+  }
+  felder.push(feld)
+  return felder.map((f) => f.trim())
+}
+
+/** M/D/YYYY → YYYY-MM-DD. */
+function usDatum(wert) {
+  const teile = String(wert).split('/')
+  if (teile.length !== 3) return ''
+  const [m, t, j] = teile.map((x) => Number(x))
+  if (!m || !t || !j) return ''
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${j}-${pad(m)}-${pad(t)}`
+}
+
+const CSV_SPORT = {
+  ride: false,
+  'virtual ride': true,
+}
+
+/**
+ * Liest die Tabelle und sagt, was daraus würde – ohne etwas zu speichern.
+ *
+ * Zwei Eigenheiten solcher Exporte werden dabei aufgefangen:
+ *
+ * 1. Die Spalte heißt `distance_km`, enthält aber Hundertstel-Kilometer
+ *    (17057 = 170,57 km). Erkannt wird das daran, dass die Werte ganzzahlig
+ *    sind und für Kilometer viel zu groß.
+ * 2. Datum und Distanz sind mitunter über ganze Gruppen von Zeilen hinweg
+ *    identisch – ein Artefakt des Exports, nicht zwölf Hunderter an einem Tag.
+ *    Solche Zeilen kommen ohne Distanz herein, statt erfundene Kilometer in die
+ *    Verschleißrechnung zu tragen.
+ */
+export function ausCsv(text, { bis = '', ownerId = '' } = {}) {
+  const zeilen = String(text)
+    .split(/\r?\n/)
+    .filter((z) => z.trim())
+  if (!zeilen.length) return { fahrten: [], fehler: 'Die Datei ist leer.', ignoriert: [] }
+
+  const kopf = spalten(zeilen[0]).map((k) => k.toLowerCase())
+  const noetig = ['name', 'date', 'sport', 'distance_km']
+  if (!noetig.every((k) => kopf.includes(k))) {
+    return {
+      fahrten: [],
+      ignoriert: [],
+      fehler: `Kopfzeile passt nicht – erwartet werden die Spalten ${noetig.join(', ')}.`,
+    }
+  }
+  const index = Object.fromEntries(noetig.map((k) => [k, kopf.indexOf(k)]))
+
+  const roh = []
+  const ignoriert = []
+  for (const zeile of zeilen.slice(1)) {
+    const f = spalten(zeile)
+    const name = repariereUmlaute(f[index.name] ?? '').slice(0, 80)
+    const datum = usDatum(f[index.date])
+    const sport = String(f[index.sport] ?? '').toLowerCase()
+    const wert = Number(String(f[index.distance_km] ?? '').replace(',', '.'))
+
+    if (!datum) {
+      ignoriert.push({ name, grund: 'kein lesbares Datum' })
+      continue
+    }
+    if (!(sport in CSV_SPORT)) {
+      ignoriert.push({ name, grund: `Sportart „${f[index.sport]}“` })
+      continue
+    }
+    if (bis && datum >= bis) {
+      ignoriert.push({ name, grund: `liegt nicht vor dem ${bis}` })
+      continue
+    }
+    roh.push({
+      name,
+      date: datum,
+      indoor: CSV_SPORT[sport],
+      wert: Number.isFinite(wert) ? wert : 0,
+    })
+  }
+
+  // Hundertstel-Kilometer oder Kilometer?
+  const werte = roh.map((r) => r.wert).filter((w) => w > 0)
+  const hundertstel =
+    werte.length > 0 && werte.every((w) => Number.isInteger(w)) && Math.max(...werte) > 1000
+  const teiler = hundertstel ? 100 : 1
+
+  // Gruppen aus gleichem Datum und gleicher Distanz: Exportfehler, keine echten
+  // Mehrfachfahrten
+  const zaehler = new Map()
+  for (const r of roh) {
+    const schluessel = `${r.date}|${r.wert}`
+    zaehler.set(schluessel, (zaehler.get(schluessel) ?? 0) + 1)
+  }
+
+  const fahrten = roh.map((r) => {
+    const gruppe = zaehler.get(`${r.date}|${r.wert}`) ?? 1
+    const verdaechtig = gruppe > 1 && r.wert > 0
+    const km = verdaechtig ? 0 : Math.round((r.wert / teiler) * 100) / 100
+    return {
+      ownerId,
+      date: r.date,
+      time: null,
+      km,
+      minutes: 0,
+      name: r.name,
+      indoor: r.indoor,
+      ohneDistanz: km <= 0,
+      // Aus der Tabelle übernommen, nicht von einer Schnittstelle geholt –
+      // deshalb bleibt es eine Fahrt von Hand und ist hier änderbar.
+      source: 'MANUAL',
+      externalProvider: 'csv',
+      externalActivityId: `${r.date}|${r.name}|${r.wert}`,
+      externalSource: null,
+      // Warum ohne Distanz: damit die Oberfläche es erklären kann
+      grund: verdaechtig ? `Datum und Distanz stehen ${gruppe}× gleich im Export` : '',
+    }
+  })
+
+  return { fahrten, ignoriert, hundertstel, fehler: '' }
+}
