@@ -36,6 +36,10 @@ tshomeserv.duckdns.org {
         reverse_proxy einkaufsliste:2608
     }
 
+    handle_path /fahrrad/* {
+        reverse_proxy fahrradtracker:2609
+    }
+
     handle /home/* {
         reverse_proxy website-weather-api:80
     }
