@@ -16,6 +16,7 @@ export function useStatus() {
     donnerskat: 'checking',
     kofferpacken: 'checking',
     einkaufsliste: 'checking',
+    fahrradtracker: 'checking',
   })
 
   async function check() {

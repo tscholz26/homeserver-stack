@@ -60,6 +60,7 @@ describe('HomeView', () => {
       '/skat/',
       '/koffer/',
       '/einkauf/',
+      '/fahrrad/',
     ])
 
     wrapper.unmount()
@@ -95,16 +96,13 @@ describe('HomeView', () => {
     wrapper.unmount()
   })
 
-  it('zeigt geplante Dienste als eigene Kacheln zur Platzhalterseite', async () => {
+  it('zeigt keine Platzhalter-Kacheln, solange nichts geplant ist', async () => {
     stubFetch()
     const wrapper = await mountHome()
     await flushPromises()
 
-    const links = wrapper.findAll('a.plan')
-    expect(links.map((link) => link.attributes('href'))).toEqual(['/bald/verschleiss'])
-    expect(wrapper.text()).toContain('Verschleiß')
-    // Sie dürfen nicht als echte Dienste gezählt oder angepingt werden
-    expect(wrapper.findAll('a.tile')).toHaveLength(4)
+    expect(wrapper.findAll('a.plan')).toHaveLength(0)
+    expect(wrapper.findAll('a.tile')).toHaveLength(5)
     expect(wrapper.text()).toContain('Alles läuft')
 
     wrapper.unmount()
@@ -115,7 +113,7 @@ describe('HomeView', () => {
     const wrapper = await mountHome()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('3 von 4 online')
+    expect(wrapper.text()).toContain('4 von 5 online')
     expect(wrapper.text()).toContain('weg')
 
     wrapper.unmount()

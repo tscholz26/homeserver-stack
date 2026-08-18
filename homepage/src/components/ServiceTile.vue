@@ -96,6 +96,10 @@ function follow(event: MouseEvent) {
   --accent: #7c3aed;
 }
 
+.tile.fahrradtracker {
+  --accent: #be185d;
+}
+
 /* Farbiger Schein am Zeiger, sichtbar erst beim Überfahren */
 .glow {
   position: absolute;

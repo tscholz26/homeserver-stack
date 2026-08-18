@@ -36,8 +36,8 @@ defineProps<{ id: ServiceId | PlannedId; size?: number }>()
       <circle cx="17" cy="20" r="1.4" />
     </template>
 
-    <!-- Zahnkranz mit Kette -->
-    <template v-else-if="id === 'verschleiss'">
+    <!-- Zahnkranz -->
+    <template v-else-if="id === 'fahrradtracker'">
       <circle cx="12" cy="12" r="7" />
       <circle cx="12" cy="12" r="2.4" />
       <path

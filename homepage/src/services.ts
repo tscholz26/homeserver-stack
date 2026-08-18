@@ -1,4 +1,9 @@
-export type ServiceId = 'nextcloud' | 'donnerskat' | 'kofferpacken' | 'einkaufsliste'
+export type ServiceId =
+  | 'nextcloud'
+  | 'donnerskat'
+  | 'kofferpacken'
+  | 'einkaufsliste'
+  | 'fahrradtracker'
 
 export interface Service {
   id: ServiceId
@@ -45,10 +50,20 @@ export const services: Service[] = [
     href: '/einkauf/',
     ping: '/einkauf/',
   },
+  {
+    id: 'fahrradtracker',
+    name: 'Fahrradtracker',
+    tagline: 'Verschleiß',
+    description: 'Kilometer der Verschleißteile am Rad, gefüttert aus Strava.',
+    href: '/fahrrad/',
+    ping: '/fahrrad/',
+  },
 ]
 
-/** Noch nicht gebaut: eigene Kacheln, die auf eine Platzhalterseite führen. */
-export type PlannedId = 'verschleiss'
+/** Noch nicht gebaut: eigene Kacheln, die auf eine Platzhalterseite führen.
+ *  Gerade ist nichts geplant – der Verschleißtracker ist gebaut und steht oben
+ *  als Fahrradtracker. */
+export type PlannedId = never
 
 export interface PlannedService {
   id: PlannedId
@@ -57,11 +72,4 @@ export interface PlannedService {
   description: string
 }
 
-export const planned: PlannedService[] = [
-  {
-    id: 'verschleiss',
-    name: 'Verschleißtracker',
-    tagline: 'Rennrad',
-    description: 'Kilometer und Verschleißteile am Rennrad im Blick behalten.',
-  },
-]
+export const planned: PlannedService[] = []
