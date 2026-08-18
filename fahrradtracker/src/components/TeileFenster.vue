@@ -54,11 +54,31 @@ function stufe(teil: Teil) {
   return ampel(teil.percent, store.state.settings.thresholds)
 }
 
+// ── Aufbauten ────────────────────────────────────────────────────────────────
+// An welchen Aufbauten ein Teil mitfährt, entscheidet, welche Fahrten es
+// verschleißen: die Kette meist an beiden, jede Kassette nur an ihrem.
+const aufbauten = computed(() => store.aufbautenVon(props.bike.id))
+
+function aufbauUmschalten(teil: Teil, setupId: string) {
+  const drin = teil.setupIds?.includes(setupId)
+  const neu = drin
+    ? teil.setupIds.filter((id) => id !== setupId)
+    : [...(teil.setupIds ?? []), setupId]
+  store.teilSpeichern(teil.id, { setupIds: neu })
+}
+
 // ── Neues Teil ───────────────────────────────────────────────────────────────
 const neuOffen = ref(false)
 const neuName = ref('')
 const neuDatum = ref(heute())
 const neuEinbauen = ref(true)
+const neuAufbauten = ref<string[]>([])
+
+function neuAufbauUmschalten(setupId: string) {
+  neuAufbauten.value = neuAufbauten.value.includes(setupId)
+    ? neuAufbauten.value.filter((id) => id !== setupId)
+    : [...neuAufbauten.value, setupId]
+}
 
 const namensVorschlag = computed(() => {
   const anzahl = store.teileAn(props.bike.id, props.typ.id).length
@@ -71,11 +91,14 @@ async function anlegen() {
     typeId: props.typ.id,
     label: neuName.value.trim() || namensVorschlag.value,
     installedAt: neuEinbauen.value ? neuDatum.value : null,
+    // Ohne Auswahl gilt: an allen Aufbauten des Rades
+    setupIds: neuAufbauten.value.length ? neuAufbauten.value : undefined,
   })
   if (!ok) return
   neuOffen.value = false
   neuName.value = ''
   neuDatum.value = heute()
+  neuAufbauten.value = []
 }
 
 // ── Zeiträume ────────────────────────────────────────────────────────────────
@@ -153,6 +176,9 @@ function eigeneGrenzeSpeichern(teil: Teil, wert: string) {
               <p class="km">
                 {{ kmText(teil.totalKm) }} von {{ kmText(teil.limitKm) }}
                 <span v-if="teil.limitQuelle === 'instanz'" class="quelle">eigener Wert</span>
+                <span v-if="aufbauten.length > 1" class="quelle aufbau">
+                  {{ store.aufbauNamen(teil) || 'kein Aufbau' }}
+                </span>
               </p>
               <div class="balken" aria-hidden="true">
                 <span
@@ -206,6 +232,25 @@ function eigeneGrenzeSpeichern(teil: Teil, wert: string) {
             </ul>
 
             <template v-if="darfAendern">
+              <!-- Woran das Teil mitfährt – hier entscheidet sich, welche
+                   Fahrten es verschleißen -->
+              <p class="klein">Fährt mit an</p>
+              <div class="aufbauwahl">
+                <button
+                  v-for="auf in aufbauten"
+                  :key="auf.id"
+                  type="button"
+                  class="aufbaupille"
+                  :class="{ an: teil.setupIds?.includes(auf.id) }"
+                  @click="aufbauUmschalten(teil, auf.id)"
+                >
+                  {{ auf.kind === 'indoor' ? '🏠' : '🌤' }} {{ auf.name }}
+                </button>
+              </div>
+              <p v-if="!teil.setupIds?.length" class="warnzeile">
+                An keinem Aufbau – dieses Teil sammelt keine Kilometer.
+              </p>
+
               <label class="klein" :for="`notiz-${teil.id}`">Notiz</label>
               <textarea
                 :id="`notiz-${teil.id}`"
@@ -292,6 +337,21 @@ function eigeneGrenzeSpeichern(teil: Teil, wert: string) {
 
         <form v-else class="neuform" @submit.prevent="anlegen">
           <input v-model="neuName" :placeholder="namensVorschlag" aria-label="Bezeichnung" />
+          <template v-if="aufbauten.length > 1">
+            <p class="klein">Fährt mit an</p>
+            <div class="aufbauwahl">
+              <button
+                v-for="auf in aufbauten"
+                :key="auf.id"
+                type="button"
+                class="aufbaupille"
+                :class="{ an: !neuAufbauten.length || neuAufbauten.includes(auf.id) }"
+                @click="neuAufbauUmschalten(auf.id)"
+              >
+                {{ auf.kind === 'indoor' ? '🏠' : '🌤' }} {{ auf.name }}
+              </button>
+            </div>
+          </template>
           <label class="klein datum">
             Einbau
             <input v-model="neuDatum" type="date" :disabled="!neuEinbauen" />
@@ -471,6 +531,37 @@ select {
   font-size: 0.8rem;
 }
 
+.aufbauwahl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 0.2rem;
+}
+
+.aufbaupille {
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: white;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.aufbaupille.an {
+  border-color: color-mix(in srgb, var(--violet) 45%, transparent);
+  background: color-mix(in srgb, var(--violet) 12%, white);
+  color: var(--violet);
+}
+
+.warnzeile {
+  margin: 0.3rem 0 0;
+  color: var(--amber);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
 .quelle {
   margin-left: 0.3rem;
   padding: 0.05rem 0.4rem;
@@ -479,6 +570,11 @@ select {
   color: var(--violet);
   font-size: 0.68rem;
   font-weight: 700;
+}
+
+.quelle.aufbau {
+  background: color-mix(in srgb, var(--cyan) 10%, white);
+  color: var(--cyan);
 }
 
 .balken {

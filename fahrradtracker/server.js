@@ -11,7 +11,16 @@ import {
 import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto'
 import { join, dirname, basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { kmImZeitraum, zugeteilteTypen } from './shared/aktivitaeten.js'
+import {
+  ANBIETER,
+  ausIntervals,
+  ausWahoo,
+  kmFuerRad,
+  kmImZeitraum,
+  synchronisiereFenster,
+  ueberschneidetSich,
+  zuordner,
+} from './shared/fahrten.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const DATA_DIR = join(__dirname, 'data')
@@ -20,7 +29,7 @@ const BACKUPS_DIR = join(__dirname, 'backups')
 const KEEP_BACKUPS = 30
 const PORT = Number(process.env.PORT) || 2609
 
-// Öffentliche Adresse der App – daraus baut sich die Wahoo-Rücksprungadresse.
+// Öffentliche Adresse der App – daraus baut sich die Intervals-Rücksprungadresse.
 const PUBLIC_URL = (process.env.PUBLIC_URL || 'https://tshomeserv.duckdns.org/fahrrad').replace(
   /\/+$/,
   '',
@@ -28,9 +37,15 @@ const PUBLIC_URL = (process.env.PUBLIC_URL || 'https://tshomeserv.duckdns.org/fa
 const WAHOO_CLIENT_ID = process.env.WAHOO_CLIENT_ID || ''
 const WAHOO_CLIENT_SECRET = process.env.WAHOO_CLIENT_SECRET || ''
 const WAHOO_CONFIGURED = Boolean(WAHOO_CLIENT_ID && WAHOO_CLIENT_SECRET)
-// Muss mit dem Token in den Webhook-Einstellungen der Wahoo-App übereinstimmen;
-// ohne ihn wird jeder eingehende Webhook verworfen.
+// Muss mit dem Token in den Webhook-Einstellungen der Wahoo-App übereinstimmen
 const WAHOO_WEBHOOK_TOKEN = process.env.WAHOO_WEBHOOK_TOKEN || ''
+
+const ICU_CLIENT_ID = process.env.INTERVALS_CLIENT_ID || ''
+const ICU_CLIENT_SECRET = process.env.INTERVALS_CLIENT_SECRET || ''
+const ICU_CONFIGURED = Boolean(ICU_CLIENT_ID && ICU_CLIENT_SECRET)
+// Muss mit dem Secret in den Webhook-Einstellungen der Intervals-App
+// übereinstimmen; ohne ihn wird jeder eingehende Webhook verworfen.
+const ICU_WEBHOOK_SECRET = process.env.INTERVALS_WEBHOOK_SECRET || ''
 
 mkdirSync(DATA_DIR, { recursive: true })
 mkdirSync(BACKUPS_DIR, { recursive: true })
@@ -42,10 +57,12 @@ mkdirSync(BACKUPS_DIR, { recursive: true })
 // Request, in dem die Änderung ankommt.
 const USERS_FILE = join(DATA_DIR, 'users.json')
 const WAHOO_FILE = join(DATA_DIR, 'wahoo.json')
+const ICU_FILE = join(DATA_DIR, 'intervals.json')
 const BIKES_FILE = join(DATA_DIR, 'bikes.json')
+const SETUPS_FILE = join(DATA_DIR, 'setups.json')
 const TYPES_FILE = join(DATA_DIR, 'component-types.json')
 const COMPONENTS_FILE = join(DATA_DIR, 'components.json')
-const ACTIVITIES_FILE = join(DATA_DIR, 'activities.json')
+const RIDES_FILE = join(DATA_DIR, 'rides.json')
 const SESSIONS_FILE = join(DATA_DIR, 'sessions.json')
 const SETTINGS_FILE = join(DATA_DIR, 'settings.json')
 
@@ -79,18 +96,20 @@ function lies(datei, fallback) {
 const DEFAULT_SETTINGS = {
   // Ampel: unter „gelb“ ist grün, ab „rot“ ist rot. Prozent vom Grenzwert.
   thresholds: { yellow: 70, red: 100 },
-  // Wie oft im Hintergrund bei Wahoo nachgefragt wird (der Webhook ist der
-  // schnelle Weg, dieser Takt der sichere)
+  // Wie oft im Hintergrund bei Intervals.icu nachgefragt wird (der Webhook ist
+  // der schnelle Weg, dieser Takt der sichere)
   syncIntervalHours: 3,
 }
 
 const db = {
   users: [],
   wahoo: [],
+  intervals: [],
   bikes: [],
+  setups: [],
   types: [],
   components: [],
-  activities: [],
+  rides: [],
   sessions: [],
   settings: { ...DEFAULT_SETTINGS },
 }
@@ -98,13 +117,13 @@ const db = {
 function ladeAlles() {
   db.users = lies(USERS_FILE, [])
   db.wahoo = lies(WAHOO_FILE, [])
+  db.intervals = lies(ICU_FILE, [])
   db.bikes = lies(BIKES_FILE, [])
+  db.setups = lies(SETUPS_FILE, [])
   db.types =
     lies(TYPES_FILE, null) ?? JSON.parse(readFileSync(join(SEED_DIR, 'teile.json'), 'utf8'))
   db.components = lies(COMPONENTS_FILE, [])
-  // Ohne Workout-Typ lässt sich eine Fahrt keinem Rad zurechnen; solche
-  // Einträge fallen beim Lesen weg, statt später die Rechnung zu verwirren.
-  db.activities = lies(ACTIVITIES_FILE, []).filter((a) => typeof a?.workoutTypeId === 'number')
+  db.rides = lies(RIDES_FILE, [])
   db.sessions = lies(SESSIONS_FILE, [])
   const s = lies(SETTINGS_FILE, null)
   db.settings = {
@@ -116,10 +135,12 @@ function ladeAlles() {
 const DATEIEN = {
   users: USERS_FILE,
   wahoo: WAHOO_FILE,
+  intervals: ICU_FILE,
   bikes: BIKES_FILE,
+  setups: SETUPS_FILE,
   types: TYPES_FILE,
   components: COMPONENTS_FILE,
-  activities: ACTIVITIES_FILE,
+  rides: RIDES_FILE,
   sessions: SESSIONS_FILE,
   settings: SETTINGS_FILE,
 }
@@ -136,19 +157,142 @@ function sichere(...modelle) {
 }
 
 ladeAlles()
+
+/**
+ * Zieht ältere Stände auf das aktuelle Modell nach. Läuft bei jedem Start und
+ * tut nichts, wenn alles schon passt – billiger als eine Wanderung durch die
+ * Versionsgeschichte und robust gegen von Hand editierte Dateien.
+ */
+function migriere() {
+  let geaendert = new Set()
+
+  for (const bike of db.bikes) {
+    // Räder haben jetzt einen Nutzungszeitraum statt einer Anbieter-Zuordnung
+    if (!bike.from) {
+      bike.from = (bike.createdAt ?? new Date().toISOString()).slice(0, 10)
+      geaendert.add('bikes')
+    }
+    if (bike.to === undefined) {
+      bike.to = null
+      geaendert.add('bikes')
+    }
+    for (const feld of ['manufacturer', 'model']) {
+      if (typeof bike[feld] !== 'string') {
+        bike[feld] = ''
+        geaendert.add('bikes')
+      }
+    }
+    if ('workoutTypeIds' in bike || 'stravaGearId' in bike) {
+      delete bike.workoutTypeIds
+      delete bike.stravaGearId
+      geaendert.add('bikes')
+    }
+    // Jedes Rad braucht mindestens den Aufbau „Draußen“, sonst hätte eine
+    // Fahrt nichts, woran ihre Teile hängen könnten.
+    if (!db.setups.some((auf) => auf.bikeId === bike.id && auf.kind === 'outdoor')) {
+      db.setups.push({ id: createId(), bikeId: bike.id, name: 'Draußen', kind: 'outdoor' })
+      geaendert.add('setups')
+    }
+  }
+
+  // Verbindungen ohne Profil sind tote Tokens – die haben hier nichts zu
+  // suchen, und benutzen ließen sie sich ohnehin nie mehr.
+  const bekannt = new Set(db.users.map((u) => u.id))
+  for (const modell of ['wahoo', 'intervals']) {
+    const uebrig = db[modell].filter((c) => bekannt.has(c.userId))
+    if (uebrig.length !== db[modell].length) {
+      console.log(
+        `[fahrradtracker] ${db[modell].length - uebrig.length} verwaiste ${modell}-Verbindung(en) entfernt`,
+      )
+      db[modell] = uebrig
+      geaendert.add(modell)
+    }
+  }
+
+  // Verbindungen aus der Zeit, als es nur eine Quelle gab
+  for (const [modell, eintraege] of [
+    ['wahoo', db.wahoo],
+    ['intervals', db.intervals],
+  ]) {
+    for (const conn of eintraege) {
+      if (!conn.externalUserId && conn.athleteId) {
+        conn.externalUserId = String(conn.athleteId)
+        geaendert.add(modell)
+      }
+      if (conn.active === undefined) {
+        // Vor den zwei Quellen war die einzige Verbindung immer die aktive
+        conn.active = eintraege.length === 1
+        geaendert.add(modell)
+      }
+    }
+  }
+
+  for (const teil of db.components) {
+    // Teile hängen jetzt an Aufbauten, nicht mehr am Rad als Ganzem
+    if (!Array.isArray(teil.setupIds)) {
+      teil.setupIds = db.setups.filter((auf) => auf.bikeId === teil.bikeId).map((auf) => auf.id)
+      geaendert.add('components')
+    }
+  }
+
+  // Fahrten aus der Zeit der direkten Geräte-Anbindung: Sie stehen in keinem
+  // Intervals-Konto und kämen bei keinem Sync wieder, bleiben aber als
+  // Kilometer erhalten – als von Hand eingetragene Fahrten.
+  const alteDatei = join(DATA_DIR, 'activities.json')
+  if (existsSync(alteDatei) && !db.rides.length) {
+    try {
+      const alt = JSON.parse(readFileSync(alteDatei, 'utf8'))
+      const uebernommen = (Array.isArray(alt) ? alt : [])
+        // Ohne Profil ließe sich die Fahrt niemandem zurechnen; sie kommt beim
+        // nächsten vollen Sync ohnehin wieder aus der Quelle.
+        .filter((a) => a?.date && Number(a.km) > 0 && bekannt.has(a.userId))
+        .map((a) => ({
+          id: createId(),
+          ownerId: a.userId,
+          date: a.date,
+          time: null,
+          km: Number(a.km),
+          minutes: Number(a.minutes) || 0,
+          name: a.name || 'Übernommene Fahrt',
+          indoor: false,
+          source: 'MANUAL',
+          externalProvider: a.externalProvider ?? 'wahoo',
+          externalActivityId: a.id ?? null,
+          externalSource: null,
+          override: null,
+          createdAt: new Date().toISOString(),
+        }))
+      if (uebernommen.length) {
+        db.rides.push(...uebernommen)
+        geaendert.add('rides')
+        console.log(`[fahrradtracker] ${uebernommen.length} Fahrten aus activities.json übernommen`)
+      }
+      renameSync(alteDatei, `${alteDatei}.alt`)
+    } catch (err) {
+      console.error('[fahrradtracker] activities.json nicht übernommen:', err.message)
+    }
+  }
+
+  if (geaendert.size) {
+    sichere(...geaendert)
+    console.log(`[fahrradtracker] Datenstand nachgezogen: ${[...geaendert].join(', ')}`)
+  }
+}
+
+migriere()
 if (!existsSync(TYPES_FILE)) sichere('types')
 console.log(
-  `[fahrradtracker] ${db.users.length} Profile, ${db.bikes.length} Räder, ${db.components.length} Teile, ${db.activities.length} Fahrten`,
+  `[fahrradtracker] ${db.users.length} Profile, ${db.bikes.length} Räder, ${db.components.length} Teile, ${db.rides.length} Fahrten`,
 )
 
 // ── Tägliches Backup ─────────────────────────────────────────────────────────
 // Ein Schnappschuss pro Tag in eine einzige Datei, damit backup-sync ihn wie
-// bei den anderen Apps in die Nextcloud schieben kann. Die Wahoo-Tokens
+// bei den anderen Apps in die Nextcloud schieben kann. Die Intervals-Tokens
 // bleiben bewusst draußen: das sind echte Zugangsdaten, und nach einer
 // Wiederherstellung ist „neu verbinden“ ein Klick.
 function runBackup() {
   try {
-    if (!db.users.length && !db.components.length) return
+    if (!db.users.length && !db.components.length && !db.rides.length) return
     const now = new Date()
     const pad = (n) => String(n).padStart(2, '0')
     const ts = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`
@@ -156,9 +300,10 @@ function runBackup() {
       erstelltAm: now.toISOString(),
       users: db.users,
       bikes: db.bikes,
+      setups: db.setups,
       componentTypes: db.types,
       components: db.components,
-      activities: db.activities,
+      rides: db.rides,
       settings: db.settings,
     }
     writeFileSync(
@@ -313,49 +458,63 @@ function eigenesRad(req, res, bikeId) {
   return bike
 }
 
+// ── Die Anbieter ─────────────────────────────────────────────────────────────
+// Zwei Wege, an dieselben Fahrten zu kommen: direkt von Wahoo oder über
+// Intervals.icu, das sie von dort bezieht. Beide schreiben in denselben
+// Fahrten-Bestand; die Verschleißrechnung merkt davon nichts.
+//
+// Geholt wird immer nur von *einer* Quelle je Profil – der aktiven. Sonst käme
+// dieselbe Ausfahrt zweimal herein, und doppelte Kilometer wären schlimmer als
+// gar keine. Beim Verbinden wird die neue Quelle die aktive; umstellen lässt
+// sich das in der Verwaltung, und ein Dublettenschutz sitzt zusätzlich im
+// Sync.
+class AuthWeg extends Error {}
+
+function wahooVerbindung(userId) {
+  return db.wahoo.find((c) => c.userId === userId) ?? null
+}
+
+function icuVerbindung(userId) {
+  return db.intervals.find((c) => c.userId === userId) ?? null
+}
+
+/** Alle Verbindungen eines Profils, mit ihrem Anbieter. */
+function verbindungen(userId) {
+  return [
+    { provider: 'wahoo', conn: wahooVerbindung(userId) },
+    { provider: 'intervals', conn: icuVerbindung(userId) },
+  ].filter((v) => v.conn)
+}
+
+/** Die Quelle, aus der gerade geholt wird. */
+function aktiveQuelle(userId) {
+  const alle = verbindungen(userId)
+  return alle.find((v) => v.conn.active) ?? alle[0] ?? null
+}
+
+/** Setzt eine Quelle aktiv und die andere still. */
+function setzeAktiv(userId, provider) {
+  for (const { provider: p, conn } of verbindungen(userId)) {
+    conn.active = p === provider
+  }
+  sichere('wahoo', 'intervals')
+}
+
+/** Holt die Fahrten aus der aktiven Quelle des Profils. */
+function syncUser(userId, optionen = {}) {
+  const aktiv = aktiveQuelle(userId)
+  if (!aktiv) throw new Error('Dieses Profil ist mit keiner Quelle verbunden.')
+  return aktiv.provider === 'wahoo' ? syncWahoo(userId, optionen) : syncIntervals(userId, optionen)
+}
+
 // ── Wahoo ────────────────────────────────────────────────────────────────────
-// Jedes Profil verbindet sein eigenes Wahoo-Konto über OAuth. Die Tokens liegen
-// ausschließlich hier auf dem Server (data/wahoo.json) und gehen nie an den
-// Browser – der bekommt nur die Adresse, zu der er springen soll.
+// Die primäre Quelle: Das Gerät lädt dorthin hoch, wir holen es von dort. Die
+// Tokens liegen ausschließlich hier auf dem Server (data/wahoo.json) und gehen
+// nie an den Browser.
 const WAHOO_BASE = 'https://api.wahooligan.com'
 // user_read für den Namen, workouts_read für die Fahrten, offline_data, damit
 // der Webhook auch feuert, wenn niemand die App offen hat.
 const WAHOO_SCOPE = 'user_read workouts_read offline_data'
-
-/**
- * Die Workout-Typen, die überhaupt ein Fahrrad verschleißen. Die Wahoo-API
- * kennt keine Ausrüstung an der Fahrt – welche Fahrt zu welchem Rad gehört,
- * entscheidet deshalb die Sportart, die in der Verwaltung je Rad zugeteilt
- * wird. Motorradfahren (17) steht bewusst nicht in der Liste.
- */
-const WAHOO_WORKOUT_TYPES = [
-  { id: 0, name: 'Radfahren' },
-  { id: 11, name: 'Cyclocross' },
-  { id: 12, name: 'Indoor' },
-  { id: 13, name: 'Mountainbike' },
-  { id: 14, name: 'Liegerad' },
-  { id: 15, name: 'Rennrad' },
-  { id: 16, name: 'Bahn' },
-  { id: 21, name: 'Ergometer' },
-  { id: 49, name: 'Indoor-Cycling-Kurs' },
-  { id: 61, name: 'Indoor-Trainer' },
-  { id: 64, name: 'E-Bike' },
-  { id: 68, name: 'Indoor virtuell' },
-  { id: 70, name: 'Handbike' },
-]
-
-const WAHOO_TYPE_IDS = new Set(WAHOO_WORKOUT_TYPES.map((t) => t.id))
-
-function typName(id) {
-  return WAHOO_WORKOUT_TYPES.find((t) => t.id === id)?.name ?? `Typ ${id}`
-}
-
-function verbindung(userId) {
-  return db.wahoo.find((c) => c.userId === userId) ?? null
-}
-
-/** Ein Fehler, der bedeutet: Der Nutzer muss die App neu autorisieren. */
-class AuthWeg extends Error {}
 
 /**
  * Holt bei Bedarf ein frisches Access-Token. Wahoo-Tokens laufen nach zwei
@@ -363,7 +522,7 @@ class AuthWeg extends Error {}
  * alte Paar – das neue muss deshalb sofort auf der Platte stehen, sonst ist
  * die Verbindung nach einem Absturz nicht mehr zu retten.
  */
-async function frischesToken(conn) {
+async function wahooToken(conn) {
   if (conn.expiresAt && Date.parse(conn.expiresAt) > Date.now() + 120_000) return conn.accessToken
 
   const r = await fetch(`${WAHOO_BASE}/oauth/token`, {
@@ -377,8 +536,6 @@ async function frischesToken(conn) {
     }),
   })
   if (r.status === 400 || r.status === 401) {
-    // Zugriff zurückgezogen oder Refresh-Token verbraucht – hier hilft nur
-    // neu verbinden, und das muss die Oberfläche sagen können.
     conn.needsReconnect = true
     sichere('wahoo')
     throw new AuthWeg('Die Verbindung zu Wahoo wurde zurückgezogen – bitte neu verbinden.')
@@ -395,7 +552,7 @@ async function frischesToken(conn) {
 }
 
 async function wahooGet(conn, pfad) {
-  const token = await frischesToken(conn)
+  const token = await wahooToken(conn)
   const r = await fetch(`${WAHOO_BASE}${pfad}`, {
     headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
   })
@@ -409,27 +566,6 @@ async function wahooGet(conn, pfad) {
   return r.json()
 }
 
-/**
- * Ein Wahoo-Workout auf das, was die Verschleißrechnung braucht. Ohne
- * `workout_summary` gibt es noch keine Kilometer – Wahoo trägt sie nach, sobald
- * die Fahrt hochgeladen ist, und der nächste Sync holt sie.
- */
-function alsFahrt(workout, userId) {
-  const summary = workout.workout_summary
-  const meter = Number(summary?.distance_accum ?? 0) || 0
-  return {
-    id: String(workout.id),
-    userId,
-    // Das Datum in der Zeitzone des Servers (TZ in docker-compose.yml): die
-    // Zeiträume der Teile stehen als Kalendertage in der Datei.
-    date: lokalerTag(workout.starts),
-    km: Math.round(meter / 10) / 100,
-    minutes: Math.round(Number(workout.minutes) || 0),
-    name: text(workout.name, 80),
-    workoutTypeId: Number(workout.workout_type_id),
-  }
-}
-
 /** ISO-Zeitstempel → Kalendertag, so wie ihn der Server (Europe/Berlin) sieht. */
 function lokalerTag(zeitpunkt) {
   const d = new Date(zeitpunkt)
@@ -438,39 +574,32 @@ function lokalerTag(zeitpunkt) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
-/** Legt eine Fahrt an oder schreibt sie fort; sagt, ob sich etwas geändert hat. */
-function uebernehmeFahrt(fahrt) {
-  if (!WAHOO_TYPE_IDS.has(fahrt.workoutTypeId)) return 'ignoriert'
-  const alt = db.activities.find((a) => a.id === fahrt.id && a.userId === fahrt.userId)
-  if (!alt) {
-    db.activities.push(fahrt)
-    return 'neu'
-  }
-  if (alt.date === fahrt.date && alt.km === fahrt.km && alt.workoutTypeId === fahrt.workoutTypeId) {
-    return 'unveraendert'
-  }
-  Object.assign(alt, fahrt)
-  return 'geaendert'
-}
-
 const WAHOO_SEITE = 50
-const NACHLAUF_TAGE = 14
 
 /**
- * Holt die Fahrten eines Profils. Wahoo liefert sie nach Startzeit absteigend,
- * seitenweise. Beim ersten Lauf wird alles geholt, danach nur bis zwei Wochen
- * vor den letzten Sync zurück: So lange kann eine Fahrt noch nachträglich
- * hochgeladen, korrigiert oder um ihre Zusammenfassung ergänzt werden.
+ * Holt die Workouts eines Profils. Wahoo liefert sie nach Startzeit absteigend
+ * und seitenweise; gelesen wird bis zurück zum Fensteranfang.
  */
-async function syncUser(userId) {
-  const conn = verbindung(userId)
+async function syncWahoo(userId, { voll = false } = {}) {
+  const conn = wahooVerbindung(userId)
   if (!conn) throw new Error('Dieses Profil ist nicht mit Wahoo verbunden.')
 
-  const grenze = conn.lastSyncAt
-    ? new Date(Date.parse(conn.lastSyncAt) - NACHLAUF_TAGE * 24 * 3600_000)
-    : null
-  let neu = 0
-  let geaendert = 0
+  // Ohne die Wahoo-User-Id lassen sich eingehende Webhooks nicht zuordnen.
+  // Beim Verbinden klappt der Aufruf nicht immer (Wahoo antwortet dann mit
+  // 422), deshalb hier bei jedem Lauf noch einmal versuchen – erfolglos ist er
+  // kein Grund, den Sync abzubrechen.
+  if (!conn.externalUserId) {
+    try {
+      Object.assign(conn, await wahooProfil(conn))
+      sichere('wahoo')
+    } catch (err) {
+      console.warn('[fahrradtracker] Wahoo-Profil weiterhin nicht lesbar:', err.message)
+    }
+  }
+
+  const oldest = fensterStart(userId, conn, voll)
+  const newest = new Date(Date.now() + 24 * 3600_000).toISOString().slice(0, 10)
+  const fahrten = []
 
   for (let seite = 1; seite <= 100; seite += 1) {
     const antwort = await wahooGet(conn, `/v1/workouts?page=${seite}&per_page=${WAHOO_SEITE}`)
@@ -479,37 +608,135 @@ async function syncUser(userId) {
 
     let zuAlt = false
     for (const workout of workouts) {
-      if (grenze && new Date(workout.starts) < grenze) {
+      if (lokalerTag(workout.starts) < oldest) {
         zuAlt = true
         continue
       }
-      const ergebnis = uebernehmeFahrt(alsFahrt(workout, userId))
-      if (ergebnis === 'neu') neu += 1
-      if (ergebnis === 'geaendert') geaendert += 1
+      const fahrt = ausWahoo(workout, userId, lokalerTag)
+      if (fahrt) fahrten.push(fahrt)
     }
-
-    // Absteigend sortiert: hinter der ersten zu alten Fahrt kommt nichts mehr,
-    // was uns interessiert.
+    // Absteigend sortiert: hinter der ersten zu alten Fahrt kommt nichts mehr
     if (zuAlt || workouts.length < WAHOO_SEITE) break
     const gesamt = Number(antwort.total) || 0
     if (gesamt && seite * WAHOO_SEITE >= gesamt) break
   }
 
-  conn.lastSyncAt = new Date().toISOString()
-  conn.lastSyncError = ''
-  conn.needsReconnect = false
-  sichere('wahoo', 'activities')
-  console.log(`[fahrradtracker] Sync ${userId}: ${neu} neu, ${geaendert} aktualisiert`)
-  return { neu, geaendert }
+  return schreibeSync(conn, userId, ANBIETER.wahoo, fahrten, oldest, newest)
 }
 
 /** Namen und Wahoo-Id des verbundenen Kontos – einmal beim Verbinden. */
 async function wahooProfil(conn) {
   const nutzer = await wahooGet(conn, '/v1/user')
   return {
-    wahooUserId: String(nutzer.id ?? ''),
+    externalUserId: String(nutzer.id ?? ''),
     athleteName: text([nutzer.first, nutzer.last].filter(Boolean).join(' '), 60),
   }
+}
+
+// ── Intervals.icu ────────────────────────────────────────────────────────────
+// Die zweite Quelle. Wahoo lädt die Fahrten auch dorthin hoch; wer lieber von
+// dort holt (oder Wahoo einmal nicht kann), stellt hier um.
+const ICU_BASE = 'https://intervals.icu'
+const ICU_SCOPE = 'ACTIVITY:READ'
+
+/**
+ * Intervals.icu gibt Tokens ohne Ablaufdatum aus und kennt deshalb auch keine
+ * Refresh-Tokens: Ein neues Token entsteht nur, wenn der Nutzer die App erneut
+ * autorisiert – dabei verfällt das alte. Es gibt hier also nichts aufzufrischen,
+ * wohl aber ein zurückgezogenes Token zu erkennen.
+ */
+async function icuGet(conn, pfad) {
+  const r = await fetch(`${ICU_BASE}${pfad}`, {
+    headers: { Authorization: `Bearer ${conn.accessToken}`, Accept: 'application/json' },
+  })
+  if (r.status === 401 || r.status === 403) {
+    conn.needsReconnect = true
+    sichere('intervals')
+    throw new AuthWeg('Intervals.icu hat den Zugriff abgelehnt – bitte neu verbinden.')
+  }
+  if (r.status === 429) {
+    throw new Error('Intervals.icu-Limit erreicht – später noch einmal versuchen.')
+  }
+  if (!r.ok) throw new Error(`Intervals.icu antwortet mit HTTP ${r.status}`)
+  return r.json()
+}
+
+/**
+ * Ab wann geholt wird. Für den ersten Lauf gilt „seit dem ältesten Datum, das
+ * die App überhaupt kennt“ – ein Teil, das seit 2024 am Rad hängt, braucht die
+ * Fahrten seit 2024, und ein fest verdrahtetes Jahr wäre schlicht falsch.
+ * Danach genügt der letzte Lauf minus zwei Wochen: So lange kann eine Fahrt
+ * noch nachgetragen oder korrigiert werden.
+ */
+function aeltesterTag(userId) {
+  const tage = []
+  for (const bike of db.bikes.filter((b) => b.ownerId === userId)) {
+    if (bike.from) tage.push(bike.from)
+    for (const teil of db.components.filter((c) => c.bikeId === bike.id)) {
+      for (const p of teil.periods ?? []) if (p.from) tage.push(p.from)
+    }
+  }
+  const start = new Date()
+  start.setFullYear(start.getFullYear() - 1)
+  tage.push(start.toISOString().slice(0, 10))
+  return tage.sort()[0]
+}
+
+const NACHLAUF_TAGE = 14
+
+/**
+ * Holt die Fahrten eines Profils von Intervals.icu.
+ *
+ * Gelesen wird ein Zeitfenster, und innerhalb dieses Fensters wird abgeglichen:
+ * Was der Anbieter dort nicht mehr führt, wird auch hier gelöscht. So kommen
+ * gelöschte oder umdatierte Aktivitäten mit, ohne dass es dafür eine eigene
+ * Meldung bräuchte. Von Hand eingetragene Fahrten fasst das nie an.
+ */
+function fensterStart(userId, conn, voll) {
+  if (voll || !conn.lastSyncAt) return aeltesterTag(userId)
+  return new Date(Date.parse(conn.lastSyncAt) - NACHLAUF_TAGE * 24 * 3600_000)
+    .toISOString()
+    .slice(0, 10)
+}
+
+/** Das Ergebnis eines Laufs in den Bestand einarbeiten und festschreiben. */
+function schreibeSync(conn, userId, provider, fahrten, oldest, newest) {
+  const { rides, neu, geaendert, geloescht, uebersprungen } = synchronisiereFenster(
+    db.rides,
+    fahrten,
+    { ownerId: userId, provider, von: oldest, bis: newest, neueId: createId },
+  )
+  db.rides = rides
+
+  conn.lastSyncAt = new Date().toISOString()
+  conn.lastSyncError = ''
+  conn.needsReconnect = false
+  sichere('wahoo', 'intervals', 'rides')
+  console.log(
+    `[fahrradtracker] Sync ${provider} ${userId} ab ${oldest}: ${neu} neu, ${geaendert} aktualisiert, ${geloescht} entfallen, ${uebersprungen} Dubletten`,
+  )
+  return { neu, geaendert, geloescht, uebersprungen, oldest }
+}
+
+async function syncIntervals(userId, { voll = false } = {}) {
+  const conn = icuVerbindung(userId)
+  if (!conn) throw new Error('Dieses Profil ist nicht mit Intervals.icu verbunden.')
+
+  const oldest = fensterStart(userId, conn, voll)
+  const newest = new Date(Date.now() + 24 * 3600_000).toISOString().slice(0, 10)
+
+  const antwort = await icuGet(
+    conn,
+    `/api/v1/athlete/${encodeURIComponent(conn.athleteId)}/activities?oldest=${oldest}&newest=${newest}`,
+  )
+  const liste = Array.isArray(antwort) ? antwort : []
+
+  // Keine Radfahrt, nicht von Wahoo hochgeladen, kaputtes Datum: nichts für
+  // uns. Auch die Platzhalter, die Intervals.icu für fremd eingespielte
+  // Aktivitäten führt, fallen hier heraus – sie tragen keine Distanz.
+  const fahrten = liste.map((roh) => ausIntervals(roh, userId)).filter(Boolean)
+
+  return schreibeSync(conn, userId, ANBIETER.intervals, fahrten, oldest, newest)
 }
 
 // Der Webhook ist der schnelle Weg; dieser Takt hier ist der sichere. Er fängt
@@ -517,19 +744,19 @@ async function wahooProfil(conn) {
 // Zustellung fehlgeschlagen). Geprüft wird stündlich, geholt nur, was fällig
 // ist.
 async function syncFaellige() {
-  if (!WAHOO_CONFIGURED) return
-  for (const conn of db.wahoo) {
-    if (conn.needsReconnect) continue
+  for (const user of db.users) {
+    const aktiv = aktiveQuelle(user.id)
+    if (!aktiv || aktiv.conn.needsReconnect) continue
     const faellig =
-      !conn.lastSyncAt ||
-      Date.now() - Date.parse(conn.lastSyncAt) > db.settings.syncIntervalHours * 3600_000
+      !aktiv.conn.lastSyncAt ||
+      Date.now() - Date.parse(aktiv.conn.lastSyncAt) > db.settings.syncIntervalHours * 3600_000
     if (!faellig) continue
     try {
-      await syncUser(conn.userId)
+      await syncUser(user.id)
     } catch (err) {
-      conn.lastSyncError = err.message
-      sichere('wahoo')
-      console.error(`[fahrradtracker] Sync für ${conn.userId} fehlgeschlagen:`, err.message)
+      aktiv.conn.lastSyncError = err.message
+      sichere('wahoo', 'intervals')
+      console.error(`[fahrradtracker] Sync für ${user.id} fehlgeschlagen:`, err.message)
     }
   }
 }
@@ -538,11 +765,16 @@ setTimeout(syncFaellige, 20_000)
 setInterval(syncFaellige, 60 * 60 * 1000)
 
 // ── Verschleißrechnung ───────────────────────────────────────────────────────
-// Die Kilometer einer Instanz sind die Summe der Fahrten des Rades über alle
-// ihre Nutzungszeiträume – gerechnet in shared/aktivitaeten.js, damit die
-// Rechnung nichts davon weiß, woher die Fahrten kommen.
-function kmVon(bike, von, bis) {
-  return kmImZeitraum(bike, db.activities, von, bis ?? heute())
+// Gerechnet wird bei jeder Anfrage neu, aus den Fahrten. Gespeichert ist kein
+// einziger Kilometerstand: Wer ein Einbaudatum korrigiert, einen
+// Nutzungszeitraum verschiebt oder eine Fahrt nachträgt, sieht das Ergebnis
+// sofort – ohne Nachrechnen-Knopf und ohne Stand, der schief stehen könnte.
+//
+// Die Kette steht in shared/fahrten.js: Fahrt → Rad (über das Datum) → Aufbau
+// (drinnen/draußen) → die Teile dieses Aufbaus.
+function geloesteFahrten() {
+  const { loese } = zuordner(db.bikes, db.setups)
+  return db.rides.map(loese)
 }
 
 /** Grenzwert einer Instanz: eigener Wert → Wert für Rad+Kategorie → Standard
@@ -556,12 +788,13 @@ function grenzeFuer(component, bike, typ) {
   return { limitKm: Number(typ?.defaultLimitKm) || 0, limitQuelle: 'standard' }
 }
 
-function komponenteMitKm(component) {
+function komponenteMitKm(component, fahrten) {
   const bike = db.bikes.find((b) => b.id === component.bikeId)
   const typ = db.types.find((t) => t.id === component.typeId)
+  const setupIds = component.setupIds ?? []
   const perioden = (component.periods ?? []).map((p) => ({
     ...p,
-    km: bike ? kmVon(bike, p.from, p.to) : 0,
+    km: kmImZeitraum(setupIds, fahrten, p.from, p.to ?? heute()),
   }))
   const totalKm = Math.round(perioden.reduce((s, p) => s + p.km, 0) * 10) / 10
   const { limitKm, limitQuelle } = grenzeFuer(component, bike, typ)
@@ -579,53 +812,65 @@ function komponenteMitKm(component) {
 }
 
 // ── Der Stand für den Browser ────────────────────────────────────────────────
+function verbindungInfo(provider, conn) {
+  if (!conn) return null
+  return {
+    provider,
+    athleteName: conn.athleteName ?? '',
+    externalUserId: conn.externalUserId ?? '',
+    connectedAt: conn.connectedAt ?? '',
+    lastSyncAt: conn.lastSyncAt ?? '',
+    lastSyncError: conn.lastSyncError ?? '',
+    // Zugriff zurückgezogen oder Token verfallen: neu verbinden hilft
+    needsReconnect: Boolean(conn.needsReconnect),
+    // Nur aus der aktiven Quelle wird geholt
+    active: Boolean(conn.active),
+  }
+}
+
 function profil(u) {
-  const conn = verbindung(u.id)
+  const wahoo = verbindungInfo('wahoo', wahooVerbindung(u.id))
+  const intervals = verbindungInfo('intervals', icuVerbindung(u.id))
+  const aktiv = aktiveQuelle(u.id)
   return {
     id: u.id,
     name: u.name,
     color: u.color,
-    hasWahoo: Boolean(conn),
-    athleteName: conn?.athleteName ?? '',
-    lastSyncAt: conn?.lastSyncAt ?? '',
-    lastSyncError: conn?.lastSyncError ?? '',
-    // Zugriff zurückgezogen oder Token verfallen: neu verbinden hilft
-    needsReconnect: Boolean(conn?.needsReconnect),
+    connections: { wahoo, intervals },
+    activeProvider: aktiv?.provider ?? '',
+    hasQuelle: Boolean(wahoo || intervals),
+    lastSyncAt: aktiv?.conn.lastSyncAt ?? '',
+    lastSyncError: aktiv?.conn.lastSyncError ?? '',
+    needsReconnect: Boolean(aktiv?.conn.needsReconnect),
   }
 }
 
+// So viele Fahrten gehen an den Browser – der Rest wäre auf dem Handy ohnehin
+// niemand, der scrollt. Unzugeordnete kommen immer mit, die will man sehen.
+const FAHRTEN_FENSTER = 300
+
 function publicState(user) {
-  // Fahrten, deren Workout-Typ an keinem Rad hängt, kann die App niemandem
-  // zurechnen – die Verwaltung zeigt sie an, statt sie stillschweigend zu
-  // schlucken.
-  const eigene = db.activities.filter((a) => a.userId === user.id)
-  const zugeteilt = zugeteilteTypen(db.bikes, user.id)
-  const luecken = new Map()
-  for (const a of eigene) {
-    if (zugeteilt.has(a.workoutTypeId)) continue
-    const eintrag = luecken.get(a.workoutTypeId) ?? {
-      workoutTypeId: a.workoutTypeId,
-      name: typName(a.workoutTypeId),
-      anzahl: 0,
-      km: 0,
-    }
-    eintrag.anzahl += 1
-    eintrag.km = Math.round((eintrag.km + a.km) * 10) / 10
-    luecken.set(a.workoutTypeId, eintrag)
-  }
+  const fahrten = geloesteFahrten()
+  const sortiert = [...fahrten].sort(
+    (a, b) => b.date.localeCompare(a.date) || (b.time ?? '').localeCompare(a.time ?? ''),
+  )
+  const offen = sortiert.filter((f) => f.unassigned)
+  const sichtbar = [...new Set([...sortiert.slice(0, FAHRTEN_FENSTER), ...offen])]
 
   return {
     me: profil(user),
     users: db.users.map(profil),
-    bikes: db.bikes,
+    bikes: db.bikes.map((b) => ({ ...b, totalKm: kmFuerRad(b.id, fahrten) })),
+    setups: db.setups,
     componentTypes: db.types,
-    components: db.components.map(komponenteMitKm),
+    components: db.components.map((c) => komponenteMitKm(c, fahrten)),
+    rides: sichtbar,
     settings: db.settings,
     wahooConfigured: WAHOO_CONFIGURED,
-    // Welche Sportarten sich einem Rad zuteilen lassen
-    workoutTypes: WAHOO_WORKOUT_TYPES,
-    fahrten: eigene.length,
-    ohneZuordnung: [...luecken.values()].sort((a, b) => b.anzahl - a.anzahl),
+    intervalsConfigured: ICU_CONFIGURED,
+    fahrten: fahrten.length,
+    fahrtenFenster: FAHRTEN_FENSTER,
+    ohneZuordnung: offen.length,
   }
 }
 
@@ -655,9 +900,10 @@ app.get('/api/profiles', (_req, res) => {
       id: u.id,
       name: u.name,
       color: u.color,
-      hasWahoo: Boolean(verbindung(u.id)),
+      hasQuelle: verbindungen(u.id).length > 0,
     })),
     wahooConfigured: WAHOO_CONFIGURED,
+    intervalsConfigured: ICU_CONFIGURED,
   })
 })
 
@@ -745,44 +991,55 @@ app.get('/api/state', auth, (req, res) => {
 
 // ── Räder ────────────────────────────────────────────────────────────────────
 // Sichtbar sind alle Räder für alle; ändern darf sie nur, wem sie gehören.
-
-/** Nur bekannte Workout-Typen, jeder höchstens einmal. */
-function typenFuerRad(wert) {
-  if (!Array.isArray(wert)) return []
-  return [...new Set(wert.map(Number).filter((id) => WAHOO_TYPE_IDS.has(id)))]
+//
+// Ein Rad hat einen Nutzungszeitraum. Er entscheidet, welche Fahrt auf welches
+// Rad geht – deshalb dürfen sich die Zeiträume eines Profils nicht
+// überschneiden, sonst wäre die Zuordnung mehrdeutig. `to: null` heißt „das
+// fahre ich gerade“.
+function radDaten(body, bisher = {}) {
+  const daten = {
+    name: body?.name !== undefined ? text(body.name, 60) : bisher.name,
+    manufacturer:
+      body?.manufacturer !== undefined ? text(body.manufacturer, 60) : (bisher.manufacturer ?? ''),
+    model: body?.model !== undefined ? text(body.model, 60) : (bisher.model ?? ''),
+    from: body?.from !== undefined ? String(body.from ?? '').slice(0, 10) : bisher.from,
+    to: body?.to !== undefined ? (body.to ? String(body.to).slice(0, 10) : null) : bisher.to,
+  }
+  return daten
 }
 
-/**
- * Ein Workout-Typ gehört immer nur zu einem Rad eines Profils – sonst zählte
- * dieselbe Fahrt an zwei Rädern. Wer einen Typ neu zuteilt, nimmt ihn damit
- * den anderen Rädern weg.
- */
-function loeseDoppelteTypen(bike) {
-  for (const anderes of db.bikes) {
-    if (anderes.id === bike.id || anderes.ownerId !== bike.ownerId) continue
-    anderes.workoutTypeIds = (anderes.workoutTypeIds ?? []).filter(
-      (id) => !bike.workoutTypeIds.includes(id),
-    )
+function pruefeRad(daten, bikeId, ownerId) {
+  if (!daten.name) return 'Bitte einen Namen eintragen.'
+  if (!istDatum(daten.from)) return 'Bitte ein gültiges „genutzt ab“ eintragen.'
+  if (daten.to !== null && !istDatum(daten.to)) return 'Das „genutzt bis“ ist kein gültiges Datum.'
+  if (daten.to !== null && daten.to < daten.from) return 'Das Ende liegt vor dem Anfang.'
+
+  const kollision = db.bikes.find(
+    (b) => b.id !== bikeId && b.ownerId === ownerId && ueberschneidetSich(b, daten),
+  )
+  if (kollision) {
+    return `Der Zeitraum überschneidet sich mit „${kollision.name}“ – ein Tag, ein Rad.`
   }
+  return null
 }
 
 app.post('/api/bikes', auth, (req, res) => {
-  const name = text(req.body?.name, 60)
   antworte(req, res, () => {
-    if (!name) return { reject: { status: 400, error: 'Bitte einen Namen eintragen.' } }
+    const daten = radDaten(req.body, { from: heute(), to: null })
+    const fehler = pruefeRad(daten, null, req.user.id)
+    if (fehler) return { reject: { status: 400, error: fehler } }
+
     const bike = {
       id: createId(),
       ownerId: req.user.id,
-      name,
-      // Über die Workout-Typen kommen die Fahrten ans Rad; ohne sie bleibt es
-      // bei 0 km
-      workoutTypeIds: typenFuerRad(req.body?.workoutTypeIds),
+      ...daten,
       limits: {},
       createdAt: new Date().toISOString(),
     }
     db.bikes.push(bike)
-    loeseDoppelteTypen(bike)
-    sichere('bikes')
+    // Ohne Aufbau hätte eine Fahrt nichts, woran ihre Teile hängen könnten
+    db.setups.push({ id: createId(), bikeId: bike.id, name: 'Draußen', kind: 'outdoor' })
+    sichere('bikes', 'setups')
   })
 })
 
@@ -790,15 +1047,10 @@ app.put('/api/bikes/:id', auth, (req, res) => {
   const bike = eigenesRad(req, res, req.params.id)
   if (!bike) return
   antworte(req, res, () => {
-    if (req.body?.name !== undefined) {
-      const name = text(req.body.name, 60)
-      if (!name) return { reject: { status: 400, error: 'Bitte einen Namen eintragen.' } }
-      bike.name = name
-    }
-    if (req.body?.workoutTypeIds !== undefined) {
-      bike.workoutTypeIds = typenFuerRad(req.body.workoutTypeIds)
-      loeseDoppelteTypen(bike)
-    }
+    const daten = radDaten(req.body, bike)
+    const fehler = pruefeRad(daten, bike.id, bike.ownerId)
+    if (fehler) return { reject: { status: 400, error: fehler } }
+    Object.assign(bike, daten)
     sichere('bikes')
   })
 })
@@ -807,9 +1059,20 @@ app.delete('/api/bikes/:id', auth, (req, res) => {
   const bike = eigenesRad(req, res, req.params.id)
   if (!bike) return
   antworte(req, res, () => {
+    const aufbauten = db.setups.filter((auf) => auf.bikeId === bike.id).map((auf) => auf.id)
     db.bikes = db.bikes.filter((b) => b.id !== bike.id)
+    db.setups = db.setups.filter((auf) => auf.bikeId !== bike.id)
     db.components = db.components.filter((c) => c.bikeId !== bike.id)
-    sichere('bikes', 'components')
+    // Teile anderer Räder verlieren nur diesen Aufbau, nicht sich selbst
+    for (const teil of db.components) {
+      teil.setupIds = (teil.setupIds ?? []).filter((id) => !aufbauten.includes(id))
+    }
+    // Fahrten bleiben: sie fallen auf „unzugeordnet“ zurück und lassen sich
+    // einem anderen Rad zuweisen, statt still verloren zu gehen.
+    for (const fahrt of db.rides) {
+      if (fahrt.override?.bikeId === bike.id) fahrt.override = null
+    }
+    sichere('bikes', 'setups', 'components', 'rides')
   })
 })
 
@@ -827,6 +1090,70 @@ app.put('/api/bikes/:id/limits/:typeId', auth, (req, res) => {
     if (wert === null) delete bike.limits[req.params.typeId]
     else bike.limits[req.params.typeId] = Math.round(Number(wert))
     sichere('bikes')
+  })
+})
+
+// ── Aufbauten ────────────────────────────────────────────────────────────────
+// Ein Aufbau ist das Rad, wie es an einem Tag zusammengesetzt ist: „Draußen“
+// und, wer eine Rolle hat, „Rolle“. Dieselbe Kette hängt an beiden, die
+// Kassette meist nicht – genau dafür gibt es sie.
+const AUFBAU_ARTEN = new Set(['outdoor', 'indoor'])
+
+app.post('/api/bikes/:id/setups', auth, (req, res) => {
+  const bike = eigenesRad(req, res, req.params.id)
+  if (!bike) return
+  antworte(req, res, () => {
+    const kind = String(req.body?.kind ?? '')
+    if (!AUFBAU_ARTEN.has(kind)) return { reject: { status: 400, error: 'Unbekannte Art.' } }
+    // Zwei Aufbauten derselben Art wären nicht auseinanderzuhalten: eine Fahrt
+    // ist entweder drinnen oder draußen.
+    if (db.setups.some((auf) => auf.bikeId === bike.id && auf.kind === kind)) {
+      return { reject: { status: 409, error: 'Diesen Aufbau gibt es an dem Rad schon.' } }
+    }
+    db.setups.push({
+      id: createId(),
+      bikeId: bike.id,
+      name: text(req.body?.name, 40) || (kind === 'indoor' ? 'Rolle' : 'Draußen'),
+      kind,
+    })
+    sichere('setups')
+  })
+})
+
+function eigenerAufbau(req, res) {
+  const aufbau = db.setups.find((auf) => auf.id === req.params.setupId)
+  if (!aufbau) {
+    res.status(404).json({ error: 'Aufbau nicht gefunden.' })
+    return null
+  }
+  return eigenesRad(req, res, aufbau.bikeId) ? aufbau : null
+}
+
+app.put('/api/setups/:setupId', auth, (req, res) => {
+  const aufbau = eigenerAufbau(req, res)
+  if (!aufbau) return
+  antworte(req, res, () => {
+    const name = text(req.body?.name, 40)
+    if (!name) return { reject: { status: 400, error: 'Bitte einen Namen eintragen.' } }
+    aufbau.name = name
+    sichere('setups')
+  })
+})
+
+app.delete('/api/setups/:setupId', auth, (req, res) => {
+  const aufbau = eigenerAufbau(req, res)
+  if (!aufbau) return
+  antworte(req, res, () => {
+    if (aufbau.kind === 'outdoor') {
+      return {
+        reject: { status: 409, error: 'Der Aufbau „draußen“ bleibt – ohne ihn zählt nichts.' },
+      }
+    }
+    db.setups = db.setups.filter((a) => a.id !== aufbau.id)
+    for (const teil of db.components) {
+      teil.setupIds = (teil.setupIds ?? []).filter((id) => id !== aufbau.id)
+    }
+    sichere('setups', 'components')
   })
 })
 
@@ -898,21 +1225,30 @@ function offenePeriode(component) {
   return (component.periods ?? []).find((p) => !p.to) ?? null
 }
 
-/** Baut ein Teil ein und legt das bisher aktive derselben Kategorie am selben
- *  Rad still – eingelagert, nicht entsorgt: es lässt sich jederzeit wieder
- *  aufziehen. */
+function teiltAufbau(a, b) {
+  return (a.setupIds ?? []).some((id) => (b.setupIds ?? []).includes(id))
+}
+
+/**
+ * Baut ein Teil ein und legt still, was es verdrängt – eingelagert, nicht
+ * entsorgt: es lässt sich jederzeit wieder aufziehen.
+ *
+ * Verdrängt wird nur, was sich einen Aufbau teilt. Zwei Kassetten am selben
+ * Rad sind kein Widerspruch, solange die eine draußen und die andere auf der
+ * Rolle sitzt – zwei Ketten an *demselben* Aufbau schon.
+ */
 function einbauen(component, datum) {
   if (offenePeriode(component)) {
     return { reject: { status: 409, error: 'Das Teil ist bereits eingebaut.' } }
   }
-  const vorher = db.components.find(
+  const verdraengt = db.components.filter(
     (c) =>
       c.id !== component.id &&
-      c.bikeId === component.bikeId &&
       c.typeId === component.typeId &&
-      c.status === 'aktiv',
+      c.status === 'aktiv' &&
+      teiltAufbau(c, component),
   )
-  if (vorher) {
+  for (const vorher of verdraengt) {
     const offen = offenePeriode(vorher)
     // Ein Ausbau vor dem eigenen Einbau ergäbe einen negativen Zeitraum
     if (offen) offen.to = datum < offen.from ? offen.from : datum
@@ -921,6 +1257,22 @@ function einbauen(component, datum) {
   component.status = 'aktiv'
   component.periods.push({ id: createId(), from: datum, to: null })
   return null
+}
+
+/** Nur Aufbauten, die dem Angemeldeten gehören – geteilt werden darf auch über
+ *  Räder hinweg, aber nicht über Profile. */
+function aufbautenFuerTeil(wert, ownerId, bike) {
+  const eigene = new Set(
+    db.setups
+      .filter((auf) => db.bikes.some((b) => b.id === auf.bikeId && b.ownerId === ownerId))
+      .map((auf) => auf.id),
+  )
+  if (!Array.isArray(wert)) {
+    // Ohne Angabe zählt das Teil an allen Aufbauten seines Rades: die Kette
+    // fährt drinnen wie draußen, und das ist der häufigere Fall.
+    return db.setups.filter((auf) => auf.bikeId === bike?.id).map((auf) => auf.id)
+  }
+  return [...new Set(wert.map(String).filter((id) => eigene.has(id)))]
 }
 
 app.post('/api/components', auth, (req, res) => {
@@ -940,6 +1292,8 @@ app.post('/api/components', auth, (req, res) => {
       bikeId: bike.id,
       typeId: typ.id,
       label: text(req.body?.label, 60) || naechsterName(bike.id, typ),
+      // An welchen Aufbauten dieses Teil mitfährt
+      setupIds: aufbautenFuerTeil(req.body?.setupIds, req.user.id, bike),
       limitKm: grenze > 0 ? Math.round(grenze) : null,
       note: text(req.body?.note, 500),
       status: 'eingelagert',
@@ -973,6 +1327,10 @@ app.put('/api/components/:id', auth, (req, res) => {
       component.label = label
     }
     if (req.body?.note !== undefined) component.note = text(req.body.note, 500)
+    if (req.body?.setupIds !== undefined) {
+      const bike = db.bikes.find((b) => b.id === component.bikeId)
+      component.setupIds = aufbautenFuerTeil(req.body.setupIds, req.user.id, bike)
+    }
     if (req.body?.limitKm !== undefined) {
       const wert = req.body.limitKm
       if (wert !== null && !(Number(wert) > 0)) {
@@ -1082,6 +1440,145 @@ app.delete('/api/components/:id/periods/:periodId', auth, (req, res) => {
   })
 })
 
+// ── Fahrten ──────────────────────────────────────────────────────────────────
+// Importiert oder von Hand – für die Verschleißrechnung sind beide dasselbe.
+// Von Hand eingetragen werden vor allem die Fahrten aus der Zeit vor dem
+// Wahoo: die stehen in keinem Konto, das wir lesen dürfen.
+function eigeneFahrt(req, res) {
+  const fahrt = db.rides.find((r) => r.id === req.params.id)
+  if (!fahrt) {
+    res.status(404).json({ error: 'Fahrt nicht gefunden.' })
+    return null
+  }
+  if (fahrt.ownerId !== req.user.id) {
+    res.status(403).json({ error: 'Die Fahrt gehört jemand anderem.' })
+    return null
+  }
+  return fahrt
+}
+
+/** Rad und Aufbau von Hand festlegen – schlägt die Zuordnung über das Datum. */
+function ueberschreibung(body, ownerId) {
+  const bikeId = body?.bikeId ? String(body.bikeId) : null
+  const setupId = body?.setupId ? String(body.setupId) : null
+  if (!bikeId && !setupId) return { override: null }
+
+  const bike = db.bikes.find((b) => b.id === bikeId && b.ownerId === ownerId)
+  if (bikeId && !bike) return { fehler: 'Rad nicht gefunden.' }
+  if (setupId) {
+    const aufbau = db.setups.find((a) => a.id === setupId)
+    if (!aufbau) return { fehler: 'Aufbau nicht gefunden.' }
+    if (bike && aufbau.bikeId !== bike.id) {
+      return { fehler: 'Der Aufbau gehört nicht zu diesem Rad.' }
+    }
+    return { override: { bikeId: aufbau.bikeId, setupId } }
+  }
+  // Nur ein Rad genannt: den passenden Aufbau sucht die Zuordnung selbst
+  return { override: { bikeId, setupId: null } }
+}
+
+app.post('/api/rides', auth, (req, res) => {
+  antworte(req, res, () => {
+    const datum = String(req.body?.date ?? '').slice(0, 10)
+    const km = Number(req.body?.km)
+    if (!istDatum(datum)) return { reject: { status: 400, error: 'Kein gültiges Datum.' } }
+    if (!(km > 0)) return { reject: { status: 400, error: 'Bitte eine Distanz über 0 eintragen.' } }
+
+    const { override, fehler } = ueberschreibung(req.body, req.user.id)
+    if (fehler) return { reject: { status: 404, error: fehler } }
+
+    const zeit = String(req.body?.time ?? '').slice(0, 5)
+    db.rides.push({
+      id: createId(),
+      ownerId: req.user.id,
+      date: datum,
+      time: /^\d{2}:\d{2}$/.test(zeit) ? zeit : null,
+      km: Math.round(km * 100) / 100,
+      minutes: Math.max(0, Math.round(Number(req.body?.minutes) || 0)),
+      name: text(req.body?.name, 80) || 'Nachgetragene Fahrt',
+      indoor: req.body?.indoor === true,
+      source: 'MANUAL',
+      externalProvider: null,
+      externalActivityId: null,
+      externalSource: null,
+      override,
+      createdAt: new Date().toISOString(),
+    })
+    sichere('rides')
+  })
+})
+
+app.put('/api/rides/:id', auth, (req, res) => {
+  const fahrt = eigeneFahrt(req, res)
+  if (!fahrt) return
+  antworte(req, res, () => {
+    // Rad und Aufbau lassen sich bei jeder Fahrt geraderücken; die Messwerte
+    // nur bei den von Hand eingetragenen – alles andere käme beim nächsten
+    // Sync ohnehin wieder zurück.
+    if (req.body?.bikeId !== undefined || req.body?.setupId !== undefined) {
+      const { override, fehler } = ueberschreibung(req.body, req.user.id)
+      if (fehler) return { reject: { status: 404, error: fehler } }
+      fahrt.override = override
+    }
+
+    if (fahrt.source !== 'MANUAL') {
+      const verboten = ['date', 'km', 'time', 'minutes', 'name', 'indoor'].some(
+        (feld) => req.body?.[feld] !== undefined,
+      )
+      if (verboten) {
+        return {
+          reject: {
+            status: 409,
+            error:
+              'Importierte Fahrten kommen von Intervals.icu – hier lässt sich nur das Rad ändern.',
+          },
+        }
+      }
+      sichere('rides')
+      return
+    }
+
+    if (req.body?.date !== undefined) {
+      const datum = String(req.body.date).slice(0, 10)
+      if (!istDatum(datum)) return { reject: { status: 400, error: 'Kein gültiges Datum.' } }
+      fahrt.date = datum
+    }
+    if (req.body?.km !== undefined) {
+      const km = Number(req.body.km)
+      if (!(km > 0)) return { reject: { status: 400, error: 'Bitte eine Distanz über 0.' } }
+      fahrt.km = Math.round(km * 100) / 100
+    }
+    if (req.body?.time !== undefined) {
+      const zeit = String(req.body.time ?? '').slice(0, 5)
+      fahrt.time = /^\d{2}:\d{2}$/.test(zeit) ? zeit : null
+    }
+    if (req.body?.minutes !== undefined) {
+      fahrt.minutes = Math.max(0, Math.round(Number(req.body.minutes) || 0))
+    }
+    if (req.body?.name !== undefined) fahrt.name = text(req.body.name, 80)
+    if (req.body?.indoor !== undefined) fahrt.indoor = req.body.indoor === true
+    sichere('rides')
+  })
+})
+
+app.delete('/api/rides/:id', auth, (req, res) => {
+  const fahrt = eigeneFahrt(req, res)
+  if (!fahrt) return
+  antworte(req, res, () => {
+    if (fahrt.source !== 'MANUAL') {
+      return {
+        reject: {
+          status: 409,
+          error:
+            'Importierte Fahrten stehen bei Intervals.icu – dort löschen, dann verschwinden sie hier.',
+        },
+      }
+    }
+    db.rides = db.rides.filter((r) => r.id !== fahrt.id)
+    sichere('rides')
+  })
+})
+
 // ── Einstellungen ────────────────────────────────────────────────────────────
 app.put('/api/settings/thresholds', auth, (req, res) => {
   antworte(req, res, () => {
@@ -1095,9 +1592,9 @@ app.put('/api/settings/thresholds', auth, (req, res) => {
   })
 })
 
-// ── Wahoo-Verbindung ─────────────────────────────────────────────────────────
-// Der Browser bekommt nur die Adresse zum Hinspringen; Code und Tokens laufen
-// zwischen Server und Wahoo.
+// ── Intervals.icu-Verbindung ─────────────────────────────────────────────────
+// Der Browser bekommt nur die Adresse zum Hinspringen; Code und Token laufen
+// zwischen Server und Intervals.icu.
 const oauthStates = new Map()
 
 function raeumeStates() {
@@ -1108,9 +1605,188 @@ function raeumeStates() {
 }
 
 function redirectUri() {
-  return `${PUBLIC_URL}/api/wahoo/callback`
+  return `${PUBLIC_URL}/api/intervals/callback`
 }
 
+app.get('/api/intervals/authorize', auth, (req, res) => {
+  if (!ICU_CONFIGURED) {
+    return res.status(503).json({ error: 'Auf dem Server fehlen INTERVALS_CLIENT_ID und -SECRET.' })
+  }
+  raeumeStates()
+  // Der state schützt den Rücksprung: Ohne ihn könnte jemand einen fremden
+  // Code auf dieses Profil buchen.
+  const state = randomBytes(16).toString('hex')
+  oauthStates.set(state, { userId: req.user.id, bis: Date.now() + 10 * 60 * 1000 })
+  const url = new URL(`${ICU_BASE}/oauth/authorize`)
+  url.searchParams.set('client_id', ICU_CLIENT_ID)
+  url.searchParams.set('redirect_uri', redirectUri())
+  url.searchParams.set('response_type', 'code')
+  url.searchParams.set('scope', ICU_SCOPE)
+  url.searchParams.set('state', state)
+  res.json({ url: url.toString() })
+})
+
+app.get('/api/intervals/callback', async (req, res) => {
+  const ziel = (ergebnis) => res.redirect(`${PUBLIC_URL}/?intervals=${ergebnis}`)
+  raeumeStates()
+  const eintrag = oauthStates.get(String(req.query.state ?? ''))
+  oauthStates.delete(String(req.query.state ?? ''))
+  if (!eintrag) return ziel('abgelaufen')
+  if (req.query.error || !req.query.code) return ziel('abgelehnt')
+
+  try {
+    const r = await fetch(`${ICU_BASE}/api/oauth/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: ICU_CLIENT_ID,
+        client_secret: ICU_CLIENT_SECRET,
+        code: String(req.query.code),
+        redirect_uri: redirectUri(),
+        grant_type: 'authorization_code',
+      }),
+    })
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    const daten = await r.json()
+    if (!daten.access_token || !daten.athlete?.id) throw new Error('Antwort ohne Token oder Athlet')
+
+    // Intervals.icu gibt Tokens ohne Ablauf aus und ersetzt bei jeder neuen
+    // Autorisierung das alte – es gibt also nichts aufzufrischen, nur zu
+    // überschreiben.
+    const conn = icuVerbindung(eintrag.userId) ?? { userId: eintrag.userId }
+    Object.assign(conn, {
+      athleteId: String(daten.athlete.id),
+      externalUserId: String(daten.athlete.id),
+      athleteName: text(daten.athlete.name, 60),
+      accessToken: daten.access_token,
+      scope: String(daten.scope ?? ICU_SCOPE),
+      connectedAt: new Date().toISOString(),
+      lastSyncError: '',
+      needsReconnect: false,
+    })
+    if (!db.intervals.includes(conn)) db.intervals.push(conn)
+    // Die frisch verbundene Quelle ist ab jetzt die, aus der geholt wird
+    sichere('intervals')
+    setzeAktiv(eintrag.userId, 'intervals')
+
+    // Erster Lauf holt die Geschichte, so weit die App sie braucht
+    syncUser(eintrag.userId, { voll: true }).catch((err) => {
+      conn.lastSyncError = err.message
+      sichere('intervals')
+      console.error('[fahrradtracker] Erster Sync fehlgeschlagen:', err.message)
+    })
+    ziel('ok')
+  } catch (err) {
+    console.error('[fahrradtracker] Intervals-Anmeldung fehlgeschlagen:', err.message)
+    ziel('fehler')
+  }
+})
+
+app.delete('/api/intervals', auth, async (req, res) => {
+  const conn = icuVerbindung(req.user.id)
+  // Erst drüben abmelden, dann hier vergessen – andersherum bliebe die
+  // Freigabe stehen.
+  if (conn) {
+    try {
+      await fetch(`${ICU_BASE}/api/v1/disconnect-app`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${conn.accessToken}` },
+      })
+    } catch (err) {
+      console.error('[fahrradtracker] Abmelden bei Intervals fehlgeschlagen:', err.message)
+    }
+  }
+  antworte(req, res, () => {
+    db.intervals = db.intervals.filter((c) => c.userId !== req.user.id)
+    // Nur die Fahrten dieser Quelle gehen mit – ohne Verbindung ließen sie sich
+    // nicht mehr auffrischen. Von Hand eingetragene und die der anderen Quelle
+    // bleiben.
+    db.rides = db.rides.filter(
+      (r) => r.ownerId !== req.user.id || r.externalProvider !== ANBIETER.intervals,
+    )
+    // Bleibt noch eine Quelle übrig, holt ab jetzt die
+    const rest = verbindungen(req.user.id)[0]
+    if (rest) rest.conn.active = true
+    sichere('intervals', 'wahoo', 'rides')
+  })
+})
+
+app.post('/api/sync', auth, async (req, res) => {
+  try {
+    const ergebnis = await syncUser(req.user.id, { voll: req.body?.voll === true })
+    res.json({ ...ergebnis, state: publicState(req.user) })
+  } catch (err) {
+    const conn = aktiveQuelle(req.user.id)?.conn
+    if (conn) {
+      conn.lastSyncError = err.message
+      sichere('wahoo', 'intervals')
+    }
+    res.status(502).json({ error: err.message })
+  }
+})
+
+/** Aus welcher Quelle geholt wird, wenn beide verbunden sind. */
+app.put('/api/provider', auth, (req, res) => {
+  const provider = String(req.body?.provider ?? '')
+  if (!['wahoo', 'intervals'].includes(provider)) {
+    return res.status(400).json({ error: 'Unbekannte Quelle.' })
+  }
+  antworte(req, res, () => {
+    if (!verbindungen(req.user.id).some((v) => v.provider === provider)) {
+      return { reject: { status: 409, error: 'Diese Quelle ist nicht verbunden.' } }
+    }
+    setzeAktiv(req.user.id, provider)
+  })
+})
+
+/**
+ * Intervals.icu meldet neue und fertig ausgewertete Aktivitäten hierher –
+ * eingerichtet wird das einmal in der App-Verwaltung bei Intervals (eine
+ * Adresse für alle Nutzer, deshalb die Athleten-Id im Rumpf).
+ *
+ * Der Rumpf trägt das Secret, das die App dort hinterlegt hat; ohne
+ * Übereinstimmung wird nichts angefasst. Statt den mitgeschickten Datensatz zu
+ * glauben, löst die Meldung einen kleinen Sync aus: derselbe Weg wie sonst,
+ * damit es keine zweite Wahrheit gibt.
+ */
+const webhookLaeuft = new Set()
+
+app.post('/api/intervals/webhook', (req, res) => {
+  if (!ICU_WEBHOOK_SECRET || req.body?.secret !== ICU_WEBHOOK_SECRET) {
+    return res.status(401).json({ error: 'Unbekanntes Webhook-Secret.' })
+  }
+  // Immer 200, sonst stellt Intervals.icu wieder und wieder zu
+  res.json({ ok: true })
+
+  try {
+    const events = Array.isArray(req.body.events) ? req.body.events : []
+    const athleten = new Set(
+      events
+        .filter((e) =>
+          ['ACTIVITY_UPLOADED', 'ACTIVITY_ANALYZED', 'ACTIVITY_DELETED'].includes(e?.type),
+        )
+        .map((e) => String(e.athlete_id ?? '')),
+    )
+    for (const athleteId of athleten) {
+      const conn = db.intervals.find((c) => c.athleteId === athleteId)
+      if (!conn || !conn.active || webhookLaeuft.has(conn.userId)) continue
+      webhookLaeuft.add(conn.userId)
+      syncIntervals(conn.userId)
+        .catch((err) => {
+          conn.lastSyncError = err.message
+          sichere('intervals')
+          console.error('[fahrradtracker] Sync nach Webhook fehlgeschlagen:', err.message)
+        })
+        .finally(() => webhookLaeuft.delete(conn.userId))
+    }
+  } catch (err) {
+    console.error('[fahrradtracker] Webhook nicht verarbeitet:', err.message)
+  }
+})
+
+// ── Wahoo-Verbindung ─────────────────────────────────────────────────────────
+// Dieselbe Mechanik wie bei Intervals.icu: Der Browser bekommt nur die Adresse
+// zum Hinspringen, Code und Tokens laufen zwischen Server und Wahoo.
 app.get('/api/wahoo/authorize', auth, (req, res) => {
   if (!WAHOO_CONFIGURED) {
     return res.status(503).json({ error: 'Auf dem Server fehlen WAHOO_CLIENT_ID und -SECRET.' })
@@ -1120,8 +1796,9 @@ app.get('/api/wahoo/authorize', auth, (req, res) => {
   oauthStates.set(state, { userId: req.user.id, bis: Date.now() + 10 * 60 * 1000 })
   const url = new URL(`${WAHOO_BASE}/oauth/authorize`)
   url.searchParams.set('client_id', WAHOO_CLIENT_ID)
-  url.searchParams.set('redirect_uri', redirectUri())
+  url.searchParams.set('redirect_uri', `${PUBLIC_URL}/api/wahoo/callback`)
   url.searchParams.set('response_type', 'code')
+  url.searchParams.set('approval_prompt', 'auto')
   url.searchParams.set('scope', WAHOO_SCOPE)
   url.searchParams.set('state', state)
   res.json({ url: url.toString() })
@@ -1144,23 +1821,28 @@ app.get('/api/wahoo/callback', async (req, res) => {
         client_secret: WAHOO_CLIENT_SECRET,
         grant_type: 'authorization_code',
         code: String(req.query.code),
-        redirect_uri: redirectUri(),
+        redirect_uri: `${PUBLIC_URL}/api/wahoo/callback`,
       }),
     })
     if (!r.ok) throw new Error(`HTTP ${r.status}`)
     const daten = await r.json()
 
-    const conn = verbindung(eintrag.userId) ?? { userId: eintrag.userId }
+    const conn = wahooVerbindung(eintrag.userId) ?? { userId: eintrag.userId }
     Object.assign(conn, {
+      externalUserId: String(daten.athlete?.id ?? ''),
+      athleteName: text([daten.athlete?.first, daten.athlete?.last].filter(Boolean).join(' '), 60),
       accessToken: daten.access_token,
       refreshToken: daten.refresh_token,
       expiresAt: new Date(Date.now() + (Number(daten.expires_in) || 7200) * 1000).toISOString(),
+      connectedAt: new Date().toISOString(),
       lastSyncAt: conn.lastSyncAt ?? '',
       lastSyncError: '',
       needsReconnect: false,
     })
     if (!db.wahoo.includes(conn)) db.wahoo.push(conn)
     sichere('wahoo')
+    // Die frisch verbundene Quelle ist ab jetzt die, aus der geholt wird
+    setzeAktiv(eintrag.userId, 'wahoo')
 
     // Wer der Verbundene ist, steht erst nach dem ersten Aufruf fest – und die
     // Wahoo-Id brauchen wir, um die Webhooks zuzuordnen.
@@ -1171,8 +1853,7 @@ app.get('/api/wahoo/callback', async (req, res) => {
       console.error('[fahrradtracker] Wahoo-Profil nicht lesbar:', err.message)
     }
 
-    // Direkt einmal holen, damit das Dashboard nicht leer bleibt
-    syncUser(eintrag.userId).catch((err) => {
+    syncWahoo(eintrag.userId, { voll: true }).catch((err) => {
       conn.lastSyncError = err.message
       sichere('wahoo')
       console.error('[fahrradtracker] Erster Sync fehlgeschlagen:', err.message)
@@ -1185,12 +1866,12 @@ app.get('/api/wahoo/callback', async (req, res) => {
 })
 
 app.delete('/api/wahoo', auth, async (req, res) => {
-  const conn = verbindung(req.user.id)
-  // Erst bei Wahoo abmelden, dann hier vergessen – andersherum bliebe die
-  // Freigabe dort stehen.
+  const conn = wahooVerbindung(req.user.id)
+  // Erst drüben abmelden, dann hier vergessen – andersherum bliebe die
+  // Freigabe stehen.
   if (conn) {
     try {
-      const token = await frischesToken(conn)
+      const token = await wahooToken(conn)
       await fetch(`${WAHOO_BASE}/v1/permissions`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
@@ -1201,32 +1882,20 @@ app.delete('/api/wahoo', auth, async (req, res) => {
   }
   antworte(req, res, () => {
     db.wahoo = db.wahoo.filter((c) => c.userId !== req.user.id)
-    // Die Fahrten gehen mit: ohne Verbindung lassen sie sich nicht mehr
-    // auffrischen, und ein alter Stand wäre schlimmer als keiner.
-    db.activities = db.activities.filter((a) => a.userId !== req.user.id)
-    sichere('wahoo', 'activities')
+    db.rides = db.rides.filter(
+      (r) => r.ownerId !== req.user.id || r.externalProvider !== ANBIETER.wahoo,
+    )
+    const rest = verbindungen(req.user.id)[0]
+    if (rest) rest.conn.active = true
+    sichere('wahoo', 'intervals', 'rides')
   })
-})
-
-app.post('/api/wahoo/sync', auth, async (req, res) => {
-  try {
-    const ergebnis = await syncUser(req.user.id)
-    res.json({ ...ergebnis, state: publicState(req.user) })
-  } catch (err) {
-    const conn = verbindung(req.user.id)
-    if (conn) {
-      conn.lastSyncError = err.message
-      sichere('wahoo')
-    }
-    res.status(502).json({ error: err.message })
-  }
 })
 
 /**
  * Wahoo meldet jede fertige Fahrt hierher – eingerichtet wird das einmal in
  * den Webhook-Einstellungen der Wahoo-App (eine Adresse für alle Nutzer,
  * deshalb die Wahoo-User-Id im Rumpf). Ohne den passenden Token wird nichts
- * angefasst; wer nicht verbunden ist, wird still ignoriert.
+ * angefasst.
  */
 app.post('/api/wahoo/webhook', (req, res) => {
   if (!WAHOO_WEBHOOK_TOKEN || req.body?.webhook_token !== WAHOO_WEBHOOK_TOKEN) {
@@ -1237,16 +1906,34 @@ app.post('/api/wahoo/webhook', (req, res) => {
 
   try {
     if (req.body.event_type !== 'workout_summary') return
-    const wahooUserId = String(req.body.user?.id ?? '')
-    const conn = db.wahoo.find((c) => c.wahooUserId === wahooUserId)
+    const externalUserId = String(req.body.user?.id ?? '')
+    const aktive = db.wahoo.filter((c) => c.active)
+    // Normalfall: über die Wahoo-User-Id. Ist die (noch) nicht bekannt – der
+    // Aufruf dafür schlägt bei Wahoo gelegentlich fehl – und es gibt genau
+    // eine aktive Verbindung, dann kann es nur die sein. Authentifiziert ist
+    // die Meldung durch den Webhook-Token ohnehin.
+    const conn =
+      db.wahoo.find((c) => c.active && c.externalUserId === externalUserId) ??
+      (aktive.length === 1 && !aktive[0].externalUserId ? aktive[0] : null)
     if (!conn) return
 
     const workout = { ...req.body.workout, workout_summary: req.body.workout_summary }
-    if (!workout.id) return
-    const ergebnis = uebernehmeFahrt(alsFahrt(workout, conn.userId))
-    if (ergebnis === 'neu' || ergebnis === 'geaendert') {
-      sichere('activities')
-      console.log(`[fahrradtracker] Webhook: Fahrt ${workout.id} ${ergebnis}`)
+    const fahrt = ausWahoo(workout, conn.userId, lokalerTag)
+    if (!fahrt) return
+
+    const { rides, neu, geaendert } = synchronisiereFenster(db.rides, [fahrt], {
+      ownerId: conn.userId,
+      provider: ANBIETER.wahoo,
+      // Fenster auf genau diesen Tag: Der Webhook meldet eine einzelne Fahrt,
+      // er darf nichts anderes aufräumen.
+      von: fahrt.date,
+      bis: fahrt.date,
+      neueId: createId,
+    })
+    db.rides = rides
+    if (neu || geaendert) {
+      sichere('rides')
+      console.log(`[fahrradtracker] Webhook: Fahrt ${fahrt.externalActivityId} übernommen`)
     }
   } catch (err) {
     console.error('[fahrradtracker] Webhook nicht verarbeitet:', err.message)
@@ -1260,10 +1947,15 @@ app.use((_req, res) => {
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Fahrradtracker läuft auf http://0.0.0.0:${PORT}`)
-  if (!WAHOO_CONFIGURED) {
-    console.warn('[fahrradtracker] Ohne WAHOO_CLIENT_ID/-SECRET bleibt die Wahoo-Anbindung aus.')
+  if (!WAHOO_CONFIGURED && !ICU_CONFIGURED) {
+    console.warn('[fahrradtracker] Ohne Zugangsdaten bleibt jede Quelle aus – siehe .env.example.')
   }
   if (WAHOO_CONFIGURED && !WAHOO_WEBHOOK_TOKEN) {
-    console.warn('[fahrradtracker] Ohne WAHOO_WEBHOOK_TOKEN werden Webhooks verworfen.')
+    console.warn('[fahrradtracker] Ohne WAHOO_WEBHOOK_TOKEN werden Wahoo-Webhooks verworfen.')
+  }
+  if (ICU_CONFIGURED && !ICU_WEBHOOK_SECRET) {
+    console.warn(
+      '[fahrradtracker] Ohne INTERVALS_WEBHOOK_SECRET werden Intervals-Webhooks verworfen.',
+    )
   }
 })

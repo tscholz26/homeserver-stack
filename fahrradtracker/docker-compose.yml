@@ -9,15 +9,15 @@ services:
     # Dateien heran.
     user: "1000:1000"
 
-    # WAHOO_CLIENT_ID, WAHOO_CLIENT_SECRET und WAHOO_WEBHOOK_TOKEN aus der
-    # Wahoo-Developer-App, dazu PUBLIC_URL – siehe .env.example
+    # Zugangsdaten der Quellen (Wahoo, optional Intervals.icu) und
+    # PUBLIC_URL – siehe .env.example
     env_file:
       - .env
 
     environment:
-      # Wahoo liefert Startzeiten in UTC; die Nutzungszeiträume der Teile sind
-      # Kalendertage. Ohne die Zeitzone landete eine Fahrt am späten Abend auf
-      # dem falschen Tag.
+      # Die Nutzungszeiträume von Rädern und Teilen sind Kalendertage. Ohne
+      # gesetzte Zeitzone landete eine Fahrt am späten Abend auf dem falschen
+      # Tag – und damit womöglich am falschen Rad.
       TZ: Europe/Berlin
 
     volumes:

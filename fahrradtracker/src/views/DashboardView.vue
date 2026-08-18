@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useTracker } from '@/composables/useTracker'
-import { ampel, ampelFarbe, ampelWort, kmText } from '@/utils/verschleiss'
+import { ampel, ampelFarbe, ampelWort, datumText, kmText } from '@/utils/verschleiss'
 import type { Bike, Kategorie } from '@/composables/useTracker'
 import RingFortschritt from '@/components/RingFortschritt.vue'
 import TeileFenster from '@/components/TeileFenster.vue'
@@ -20,10 +20,14 @@ const raeder = computed(() => store.sichtbareRaeder.value)
 
 function kacheln(bike: Bike) {
   return store.kategorienAm(bike.id).map((typ) => {
+    // Mehrere gleichzeitig aktive Teile gibt es, wenn drinnen und draußen
+    // verschiedene verbaut sind – die Kachel zeigt dann das am weitesten
+    // verschlissene.
+    const aktive = store.aktiveTeile(bike.id, typ.id)
     const aktiv = store.aktivesTeil(bike.id, typ.id)
     const prozent = aktiv?.percent ?? 0
     const stufe = ampel(prozent, store.state.settings.thresholds)
-    return { typ, aktiv, prozent, stufe }
+    return { typ, aktiv, aktive, prozent, stufe }
   })
 }
 
@@ -66,7 +70,7 @@ function oeffne(bike: Bike, typ: Kategorie) {
     </nav>
 
     <p v-if="!store.state.bikes.length" class="leer">
-      Noch kein Rad angelegt. In der Verwaltung anlegen und die Wahoo-Sportarten zuteilen.
+      Noch kein Rad angelegt – unter „Räder“ anlegen, mit dem Zeitraum, in dem du es fährst.
     </p>
 
     <p v-else-if="!raeder.length" class="leer">Für dieses Profil ist noch kein Rad angelegt.</p>
@@ -79,7 +83,9 @@ function oeffne(bike: Bike, typ: Kategorie) {
           </p>
           <h2>{{ bike.name }}</h2>
         </div>
-        <span v-if="!bike.workoutTypeIds.length" class="warnung">keine Sportart</span>
+        <span class="zeitraum">
+          {{ datumText(bike.from) }} → {{ bike.to ? datumText(bike.to) : 'heute' }}
+        </span>
       </header>
 
       <div class="kacheln">
@@ -115,7 +121,10 @@ function oeffne(bike: Bike, typ: Kategorie) {
             <template v-else>kein Teil eingebaut</template>
           </p>
           <p class="aktuell">
-            <template v-if="k.aktiv">aktuell: {{ k.aktiv.label }}</template>
+            <template v-if="k.aktiv">
+              aktuell: {{ k.aktiv.label }}
+              <span v-if="k.aktive.length > 1">+{{ k.aktive.length - 1 }} weitere</span>
+            </template>
             <template v-else>{{ store.teileAn(bike.id, k.typ.id).length }} im Lager</template>
           </p>
         </button>
@@ -222,13 +231,11 @@ h2 {
   font-size: 1.2rem;
 }
 
-.warnung {
-  padding: 0.2rem 0.55rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--amber) 12%, white);
-  color: var(--amber);
-  font-size: 0.72rem;
-  font-weight: 700;
+.zeitraum {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
 .kacheln {

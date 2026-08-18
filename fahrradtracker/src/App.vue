@@ -8,38 +8,40 @@ const store = useTracker()
 const route = useRoute()
 const router = useRouter()
 
-// Rückmeldung des Wahoo-Flows: der Server schickt den Browser mit ?wahoo=…
-// zurück. Ausgewertet, gemeldet, und dann aus der Adresse geräumt.
+// Rückmeldung des Intervals-Flows: der Server schickt den Browser mit
+// ?intervals=… zurück. Ausgewertet, gemeldet, und dann aus der Adresse geräumt.
 const RUECKMELDUNG: Record<string, string> = {
-  ok: 'Wahoo ist verbunden – die Fahrten werden geholt.',
-  abgelehnt: 'Die Verbindung zu Wahoo wurde abgebrochen.',
+  ok: 'Verbunden – die Fahrten werden geholt.',
+  abgelehnt: 'Die Verbindung wurde abgebrochen.',
   abgelaufen: 'Der Verbindungsversuch ist abgelaufen – bitte noch einmal.',
-  fehler: 'Wahoo hat die Anmeldung abgelehnt.',
+  fehler: 'Die Quelle hat die Anmeldung abgelehnt.',
 }
 
-async function werteWahooAus() {
-  const wert = String(route.query.wahoo ?? '')
+// Beide Quellen springen mit ?wahoo=… bzw. ?intervals=… zurück
+async function werteRuecksprungAus() {
+  const wert = String(route.query.wahoo ?? route.query.intervals ?? '')
   if (!wert) return
   if (wert === 'ok') {
     store.hinweis.value = RUECKMELDUNG.ok!
     await store.refresh()
   } else {
-    store.error.value = RUECKMELDUNG[wert] ?? 'Die Verbindung zu Wahoo hat nicht geklappt.'
+    store.error.value = RUECKMELDUNG[wert] ?? 'Die Verbindung hat nicht geklappt.'
   }
   router.replace({ query: {} })
 }
 
-onMounted(werteWahooAus)
-watch(() => route.query.wahoo, werteWahooAus)
+onMounted(werteRuecksprungAus)
+watch(() => [route.query.wahoo, route.query.intervals], werteRuecksprungAus)
 
-const ohneWahoo = computed(
-  () => store.angemeldet.value && store.wahooConfigured.value && !store.state.me?.hasWahoo,
+const ohneQuelle = computed(
+  () =>
+    store.angemeldet.value &&
+    (store.wahooConfigured.value || store.intervalsConfigured.value) &&
+    !store.state.me?.hasQuelle,
 )
 
 // Zugriff zurückgezogen: die Fahrten stehen still, bis neu verbunden wird
-const wahooWegBanner = computed(
-  () => store.angemeldet.value && Boolean(store.state.me?.needsReconnect),
-)
+const wegBanner = computed(() => store.angemeldet.value && Boolean(store.state.me?.needsReconnect))
 
 function initiale(text: string) {
   return text.trim().slice(0, 1).toUpperCase() || '?'
@@ -70,7 +72,9 @@ function initiale(text: string) {
       <div class="row">
         <h1>Fahrradtracker</h1>
         <nav class="menu">
-          <RouterLink to="/" class="tab-link">Räder</RouterLink>
+          <RouterLink to="/" class="tab-link">Teile</RouterLink>
+          <RouterLink to="/raeder" class="tab-link">Räder</RouterLink>
+          <RouterLink to="/fahrten" class="tab-link">Fahrten</RouterLink>
           <RouterLink to="/verwaltung" class="tab-link" title="Verwaltung">
             <svg
               viewBox="0 0 24 24"
@@ -115,11 +119,16 @@ function initiale(text: string) {
     </p>
 
     <!-- Bleibt stehen, bis die Verbindung nachgeholt ist -->
-    <RouterLink v-if="ohneWahoo" to="/verwaltung" class="meldung banner">
-      Wahoo noch nicht verbunden – ohne die Fahrten bleiben alle Teile bei 0 km. Verbinden →
+    <RouterLink v-if="ohneQuelle" to="/verwaltung" class="meldung banner">
+      Noch keine Quelle verbunden – ohne Fahrten bleiben alle Teile bei 0 km. Verbinden →
     </RouterLink>
-    <RouterLink v-else-if="wahooWegBanner" to="/verwaltung" class="meldung banner">
-      Wahoo hat den Zugriff beendet – seitdem kommen keine neuen Fahrten an. Neu verbinden →
+    <RouterLink v-else-if="wegBanner" to="/verwaltung" class="meldung banner">
+      Die Quelle hat den Zugriff beendet – seitdem kommen keine neuen Fahrten an. Neu verbinden →
+    </RouterLink>
+    <RouterLink v-if="store.state.ohneZuordnung" to="/fahrten" class="meldung banner">
+      {{ store.state.ohneZuordnung }}
+      {{ store.state.ohneZuordnung === 1 ? 'Fahrt zählt' : 'Fahrten zählen' }} nirgends mit – kein
+      Rad für dieses Datum. Ansehen →
     </RouterLink>
 
     <main>
@@ -168,8 +177,10 @@ h1 {
 
 .menu {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.3rem;
 }
 
 .tab-link,
@@ -177,7 +188,7 @@ h1 {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.35rem 0.7rem;
+  padding: 0.35rem 0.65rem;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--card);

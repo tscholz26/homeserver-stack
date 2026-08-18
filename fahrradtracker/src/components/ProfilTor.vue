@@ -9,7 +9,7 @@ import { useTracker } from '@/composables/useTracker'
  */
 const store = useTracker()
 
-type Schritt = 'auswahl' | 'pin' | 'name' | 'neu-pin' | 'wahoo'
+type Schritt = 'auswahl' | 'pin' | 'name' | 'neu-pin' | 'quelle'
 
 const schritt = ref<Schritt>('auswahl')
 const gewaehlt = ref<string>('')
@@ -49,10 +49,11 @@ function neuerNutzer() {
   nextTick(() => nameFeld.value?.focus())
 }
 
-/** Nach dem Anmelden: entweder fertig oder erst noch Wahoo verbinden. */
+/** Nach dem Anmelden: entweder fertig oder erst noch eine Quelle verbinden. */
 function weiterNachAnmeldung() {
-  if (!store.state.me?.hasWahoo && store.wahooConfigured.value) {
-    schritt.value = 'wahoo'
+  const moeglich = store.wahooConfigured.value || store.intervalsConfigured.value
+  if (!store.state.me?.hasQuelle && moeglich) {
+    schritt.value = 'quelle'
     return
   }
   zurueck()
@@ -102,7 +103,7 @@ async function anlegen() {
           >
             <span class="avatar" :style="{ background: p.color }">{{ initiale(p.name) }}</span>
             <span class="pname">{{ p.name }}</span>
-            <span v-if="!p.hasWahoo" class="ohne">ohne Wahoo</span>
+            <span v-if="!p.hasQuelle" class="ohne">ohne Quelle</span>
           </button>
 
           <button type="button" class="profil neu" @click="neuerNutzer">
@@ -185,18 +186,35 @@ async function anlegen() {
         </form>
       </template>
 
-      <!-- Wahoo verbinden – geführt, nicht als Häkchen nebenbei -->
+      <!-- Quelle verbinden – geführt, nicht als Häkchen nebenbei -->
       <template v-else>
         <p class="cap">Schritt 3 von 3</p>
-        <h1>Mit Wahoo verbinden</h1>
+        <h1>Fahrten verbinden</h1>
         <p class="hinweis">
-          Die Kilometer deiner Teile kommen aus deinen Wahoo-Fahrten. Ohne Verbindung bleibt der
-          Tracker leer – nachholen kannst du es jederzeit in der Verwaltung.
+          Die Kilometer deiner Teile kommen aus deinen Fahrten. Der kurze Weg ist Wahoo – dein Gerät
+          lädt direkt dorthin hoch. Ohne Verbindung bleibt der Tracker leer; nachholen kannst du es
+          jederzeit in der Verwaltung, und Fahrten aus der Zeit vor dem Wahoo trägst du unter
+          „Fahrten“ von Hand nach.
         </p>
         <div class="knoepfe">
           <button type="button" class="still" @click="zurueck">Später</button>
-          <button type="button" class="primaer" @click="store.wahooVerbinden()">Zu Wahoo →</button>
+          <button
+            v-if="store.wahooConfigured.value"
+            type="button"
+            class="primaer"
+            @click="store.quelleVerbinden('wahoo')"
+          >
+            Zu Wahoo →
+          </button>
         </div>
+        <button
+          v-if="store.intervalsConfigured.value"
+          type="button"
+          class="zweitquelle"
+          @click="store.quelleVerbinden('intervals')"
+        >
+          Stattdessen Intervals.icu verbinden →
+        </button>
       </template>
 
       <p v-if="store.error.value" class="fehler">{{ store.error.value }}</p>
@@ -341,6 +359,19 @@ h1 {
 .still {
   background: white;
   color: var(--muted);
+}
+
+.zweitquelle {
+  display: block;
+  width: 100%;
+  margin-top: 0.6rem;
+  padding: 0.4rem;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .fehler {

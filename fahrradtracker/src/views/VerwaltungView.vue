@@ -1,53 +1,39 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useTracker } from '@/composables/useTracker'
-import type { Bike } from '@/composables/useTracker'
-import { datumText, kmText } from '@/utils/verschleiss'
+import { datumText } from '@/utils/verschleiss'
 
 /**
  * Verwaltung in Reitern statt einer langen Rolle – auf dem Handy sonst kaum zu
- * überblicken. Geändert wird immer nur das eigene Profil und die eigenen
- * Räder; Kategorien und Ampel gelten für alle.
+ * überblicken. Räder und Fahrten haben eigene Seiten; hier steht, was für alle
+ * gilt, und die Verbindung zum Anbieter.
  */
 const store = useTracker()
 
-type Reiter = 'raeder' | 'kategorien' | 'wahoo' | 'einstellungen'
-const reiter = ref<Reiter>('raeder')
+type Reiter = 'kategorien' | 'quellen' | 'einstellungen'
+const reiter = ref<Reiter>('kategorien')
 
-const meineRaeder = computed(() =>
-  store.state.bikes.filter((b) => b.ownerId === store.state.me?.id),
-)
-const fremdeRaeder = computed(() =>
-  store.state.bikes.filter((b) => b.ownerId !== store.state.me?.id),
-)
-
-// ── Räder ────────────────────────────────────────────────────────────────────
-const neuesRad = ref('')
-
-async function radAnlegen() {
-  if (!neuesRad.value.trim()) return
-  const ok = await store.radAnlegen(neuesRad.value.trim(), [])
-  if (ok) neuesRad.value = ''
-}
-
-/**
- * Wahoo liefert keine Ausrüstung zur Fahrt, deshalb entscheidet die Sportart,
- * auf welches Rad eine Fahrt geht. Ein Tipp auf die Pille teilt sie zu oder
- * nimmt sie wieder weg – der Server sorgt dafür, dass sie danach nur an einem
- * Rad hängt.
- */
-function typUmschalten(bike: Bike, typeId: number) {
-  const da = bike.workoutTypeIds.includes(typeId)
-  const neu = da
-    ? bike.workoutTypeIds.filter((id) => id !== typeId)
-    : [...bike.workoutTypeIds, typeId]
-  return store.radSpeichern(bike.id, { workoutTypeIds: neu })
-}
-
-/** An welchem anderen Rad diese Sportart gerade hängt – für den Hinweis. */
-function haengtAn(bike: Bike, typeId: number) {
-  return meineRaeder.value.find((b) => b.id !== bike.id && b.workoutTypeIds.includes(typeId))
-}
+/** Die beiden Quellen nebeneinander – verbunden oder nicht. */
+const quellen = computed(() => [
+  {
+    provider: 'wahoo' as const,
+    label: 'Wahoo',
+    farbe: 'var(--cyan)',
+    konfiguriert: store.wahooConfigured.value,
+    envHinweis: 'WAHOO_CLIENT_ID und WAHOO_CLIENT_SECRET',
+    verbindung: store.verbindung('wahoo'),
+    text: 'Dein Gerät lädt direkt zu Wahoo hoch – der kürzeste Weg zu den Kilometern. Gelesen werden nur Workouts, geschrieben wird nichts.',
+  },
+  {
+    provider: 'intervals' as const,
+    label: 'Intervals.icu',
+    farbe: 'var(--violet)',
+    konfiguriert: store.intervalsConfigured.value,
+    envHinweis: 'INTERVALS_CLIENT_ID und INTERVALS_CLIENT_SECRET',
+    verbindung: store.verbindung('intervals'),
+    text: 'Sammelt die Fahrten aus mehreren Quellen. Übernommen wird nur, was dort von Wahoo hochgeladen wurde – Aktivitäten aus Strava sind über die Schnittstelle nur Platzhalter ohne Distanz.',
+  },
+])
 
 // ── Kategorien ───────────────────────────────────────────────────────────────
 const neueKategorie = ref({ name: '', emoji: '🔧', defaultLimitKm: '3000' })
@@ -94,9 +80,8 @@ const FARBEN = ['#7c3aed', '#0891b2', '#c2740a', '#15803d', '#be185d', '#4338ca'
     <nav class="reiter">
       <button
         v-for="r in [
-          { id: 'raeder', label: 'Räder' },
           { id: 'kategorien', label: 'Kategorien' },
-          { id: 'wahoo', label: 'Wahoo' },
+          { id: 'quellen', label: 'Quellen' },
           { id: 'einstellungen', label: 'Einstellungen' },
         ]"
         :key="r.id"
@@ -108,70 +93,6 @@ const FARBEN = ['#7c3aed', '#0891b2', '#c2740a', '#15803d', '#be185d', '#4338ca'
         {{ r.label }}
       </button>
     </nav>
-
-    <!-- ── Räder ─────────────────────────────────────────────────────────── -->
-    <section v-if="reiter === 'raeder'" class="block card">
-      <p class="cap">Deine Räder</p>
-      <h2>Rad und Sportarten</h2>
-      <p class="hinweis">
-        Wahoo hängt an eine Fahrt kein Rad – deshalb entscheidet die Sportart, wohin die Kilometer
-        gehen. Jede Sportart gehört zu genau einem Rad; teilst du sie neu zu, verliert das andere
-        Rad sie.
-      </p>
-
-      <ul class="liste raeder">
-        <li v-for="bike in meineRaeder" :key="bike.id">
-          <div class="radzeile">
-            <input
-              :value="bike.name"
-              aria-label="Name des Rades"
-              @change="
-                store.radSpeichern(bike.id, { name: ($event.target as HTMLInputElement).value })
-              "
-            />
-            <button type="button" class="gefahr" @click="store.radLoeschen(bike.id)">
-              Löschen
-            </button>
-          </div>
-          <div class="typen">
-            <button
-              v-for="typ in store.state.workoutTypes"
-              :key="typ.id"
-              type="button"
-              class="typ"
-              :class="{ an: bike.workoutTypeIds.includes(typ.id) }"
-              :title="
-                haengtAn(bike, typ.id) ? `hängt gerade an ${haengtAn(bike, typ.id)?.name}` : ''
-              "
-              @click="typUmschalten(bike, typ.id)"
-            >
-              {{ typ.name }}
-            </button>
-          </div>
-          <p v-if="!bike.workoutTypeIds.length" class="warnzeile">
-            Ohne Sportart bekommt dieses Rad keine Kilometer.
-          </p>
-        </li>
-        <li v-if="!meineRaeder.length" class="leer">Noch kein eigenes Rad.</li>
-      </ul>
-
-      <form class="neu" @submit.prevent="radAnlegen">
-        <input v-model="neuesRad" placeholder="Neues Rad, z. B. Scott Speedster" />
-        <button type="submit" class="primaer">Anlegen →</button>
-      </form>
-
-      <template v-if="fremdeRaeder.length">
-        <p class="cap zwischen">Räder der anderen</p>
-        <ul class="liste fremd">
-          <li v-for="bike in fremdeRaeder" :key="bike.id">
-            <span>{{ bike.name }}</span>
-            <span class="besitzer" :style="{ color: store.nutzer(bike.ownerId)?.color }">
-              {{ store.nutzer(bike.ownerId)?.name }}
-            </span>
-          </li>
-        </ul>
-      </template>
-    </section>
 
     <!-- ── Kategorien ────────────────────────────────────────────────────── -->
     <section v-if="reiter === 'kategorien'" class="block card">
@@ -240,74 +161,114 @@ const FARBEN = ['#7c3aed', '#0891b2', '#c2740a', '#15803d', '#be185d', '#4338ca'
       </form>
     </section>
 
-    <!-- ── Wahoo ─────────────────────────────────────────────────────────── -->
-    <section v-if="reiter === 'wahoo'" class="block card">
-      <p class="cap">Dein Konto</p>
-      <h2>Wahoo-Verbindung</h2>
-
-      <p v-if="!store.wahooConfigured.value" class="warnbox">
-        Auf dem Server fehlen WAHOO_CLIENT_ID und WAHOO_CLIENT_SECRET – bis die eingetragen sind,
-        lässt sich kein Konto verbinden.
+    <!-- ── Quellen ───────────────────────────────────────────────────────── -->
+    <section v-if="reiter === 'quellen'" class="block card">
+      <p class="cap">Woher die Fahrten kommen</p>
+      <h2>Verbindungen</h2>
+      <p class="hinweis">
+        Wahoo ist der kurze Weg: Dein Gerät lädt direkt dorthin hoch. Intervals.icu liegt als zweite
+        Möglichkeit daneben – geholt wird immer nur aus einer Quelle, sonst stünde dieselbe Ausfahrt
+        zweimal in der Rechnung.
       </p>
 
-      <template v-else-if="store.state.me?.hasWahoo">
-        <p v-if="store.state.me.needsReconnect" class="warnbox">
-          Wahoo hat den Zugriff beendet – bis zum Neuverbinden kommen keine Fahrten mehr an.
-        </p>
-        <p class="hinweis">
-          Verbunden als <strong>{{ store.state.me.athleteName || 'Wahoo-Konto' }}</strong
-          >. Zuletzt geholt:
-          {{ store.state.me.lastSyncAt ? datumText(store.state.me.lastSyncAt) : 'noch nie' }}. Neue
-          Fahrten meldet Wahoo per Webhook; zusätzlich fragt der Server alle
-          {{ store.state.settings.syncIntervalHours }} Stunden selbst nach.
-        </p>
-        <p class="zahlen">{{ store.state.fahrten }} Fahrten geholt</p>
+      <article
+        v-for="q in quellen"
+        :key="q.provider"
+        class="quelle"
+        :class="{ aktiv: q.verbindung?.active }"
+      >
+        <header class="quellkopf">
+          <div>
+            <p class="cap" :style="{ color: q.farbe }">
+              {{ q.verbindung ? 'verbunden' : 'offen' }}
+            </p>
+            <h3>{{ q.label }}</h3>
+          </div>
+          <span v-if="q.verbindung?.active" class="marke">aktive Quelle</span>
+        </header>
 
-        <!-- Sportarten, die an keinem Rad hängen: die zählen nirgends mit -->
-        <template v-if="store.state.ohneZuordnung.length">
-          <p class="cap zwischen">Ohne Rad</p>
-          <ul class="liste luecken">
-            <li v-for="l in store.state.ohneZuordnung" :key="l.workoutTypeId">
-              <span>{{ l.name }}</span>
-              <span class="besitzer">{{ l.anzahl }} Fahrten · {{ kmText(l.km) }}</span>
-            </li>
-          </ul>
-          <p class="hinweis">
-            Diese Sportarten sind keinem Rad zugeteilt – im Reiter „Räder“ nachholen, dann zählen
-            ihre Kilometer rückwirkend mit.
+        <p v-if="!q.konfiguriert" class="warnbox">
+          Auf dem Server fehlen {{ q.envHinweis }} – bis die eingetragen sind, lässt sich diese
+          Quelle nicht verbinden.
+        </p>
+
+        <template v-else-if="q.verbindung">
+          <p v-if="q.verbindung.needsReconnect" class="warnbox">
+            Der Zugriff wurde beendet – bis zum Neuverbinden kommen von hier keine Fahrten mehr an.
           </p>
+          <p class="hinweis">
+            Verbunden als
+            <strong>{{ q.verbindung.athleteName || q.verbindung.externalUserId || 'Konto' }}</strong
+            >. Zuletzt geholt:
+            {{ q.verbindung.lastSyncAt ? datumText(q.verbindung.lastSyncAt) : 'noch nie' }}.
+          </p>
+          <p v-if="q.verbindung.lastSyncError" class="warnbox">
+            Letzter Fehler: {{ q.verbindung.lastSyncError }}
+          </p>
+          <div class="knoepfe">
+            <button
+              v-if="!q.verbindung.active"
+              type="button"
+              class="still"
+              @click="store.quelleAktivieren(q.provider)"
+            >
+              Von hier holen
+            </button>
+            <button
+              v-if="q.verbindung.needsReconnect"
+              type="button"
+              class="still"
+              @click="store.quelleVerbinden(q.provider)"
+            >
+              Neu verbinden
+            </button>
+            <button type="button" class="gefahr" @click="store.quelleTrennen(q.provider)">
+              Trennen
+            </button>
+          </div>
         </template>
 
-        <p v-if="store.state.me.lastSyncError" class="warnbox">
-          Letzter Sync-Fehler: {{ store.state.me.lastSyncError }}
-        </p>
-        <div class="knoepfe">
-          <button type="button" class="primaer" @click="store.wahooSync()">Jetzt holen</button>
-          <button
-            v-if="store.state.me.needsReconnect"
-            type="button"
-            class="still"
-            @click="store.wahooVerbinden()"
-          >
-            Neu verbinden
+        <template v-else>
+          <p class="hinweis">{{ q.text }}</p>
+          <button type="button" class="primaer" @click="store.quelleVerbinden(q.provider)">
+            {{ q.label }} verbinden →
           </button>
-          <button type="button" class="gefahr" @click="store.wahooTrennen()">Trennen</button>
-        </div>
-        <p class="hinweis">
-          Beim Trennen wird die Freigabe auch bei Wahoo zurückgezogen und die geholten Fahrten gehen
-          mit – ein alter, nicht mehr auffrischbarer Stand wäre irreführender als gar keiner.
-        </p>
-      </template>
+        </template>
+      </article>
 
-      <template v-else>
-        <p class="hinweis">
-          Ohne Verbindung bleibt jedes Teil bei 0 km. Der Tracker liest nur Workouts, er schreibt
-          nichts nach Wahoo.
-        </p>
-        <button type="button" class="primaer" @click="store.wahooVerbinden()">
-          Mit Wahoo verbinden →
+      <p class="cap zwischen">Holen</p>
+      <p class="zahlen">
+        {{ store.state.fahrten }} Fahrten · {{ store.state.ohneZuordnung }} ohne Rad
+      </p>
+      <p class="hinweis">
+        Neue Fahrten meldet die Quelle per Webhook; zusätzlich fragt der Server alle
+        {{ store.state.settings.syncIntervalHours }} Stunden selbst nach. „Alles neu holen“ liest ab
+        dem ältesten Datum, das die App kennt – dem frühesten Nutzungszeitraum deiner Räder,
+        mindestens aber ein Jahr zurück. Doppelt zählt dabei nichts: Jede Fahrt wird an ihrer Id
+        beim Anbieter wiedererkannt.
+      </p>
+      <div class="knoepfe">
+        <button
+          type="button"
+          class="primaer"
+          :disabled="!store.state.me?.hasQuelle"
+          @click="store.sync()"
+        >
+          Jetzt holen
         </button>
-      </template>
+        <button
+          type="button"
+          class="still"
+          :disabled="!store.state.me?.hasQuelle"
+          @click="store.sync(true)"
+        >
+          Alles neu holen
+        </button>
+      </div>
+      <p class="hinweis">
+        Fahrten aus der Zeit vor dem Gerät kommen über keine Quelle herein – die trägst du unter
+        „Fahrten“ von Hand nach, mit Datum, Distanz und drinnen/draußen.
+      </p>
     </section>
 
     <!-- ── Einstellungen ─────────────────────────────────────────────────── -->
@@ -575,6 +536,42 @@ textarea {
 .still:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+.quelle {
+  padding: 0.8rem;
+  margin-bottom: 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  background: var(--bg);
+}
+
+.quelle.aktiv {
+  border-color: color-mix(in srgb, var(--violet) 40%, transparent);
+  background: color-mix(in srgb, var(--violet) 5%, white);
+}
+
+.quellkopf {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.quellkopf h3 {
+  margin: 0.1rem 0 0;
+  font-size: 1.02rem;
+}
+
+.marke {
+  flex-shrink: 0;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--violet) 12%, white);
+  color: var(--violet);
+  font-size: 0.7rem;
+  font-weight: 700;
 }
 
 .warnbox {

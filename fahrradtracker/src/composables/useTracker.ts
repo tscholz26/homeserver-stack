@@ -3,15 +3,31 @@ import type { Thresholds } from '@/utils/verschleiss'
 
 export type Status = 'aktiv' | 'eingelagert' | 'entsorgt'
 
+export type Anbieter = 'wahoo' | 'intervals'
+
+/** Eine Verbindung zu einer Fahrten-Quelle. Tokens sieht der Browser nie. */
+export interface Verbindung {
+  provider: Anbieter
+  athleteName: string
+  externalUserId: string
+  connectedAt: string
+  lastSyncAt: string
+  lastSyncError: string
+  /** Zugriff zurückgezogen – hilft nur neu verbinden */
+  needsReconnect: boolean
+  /** Nur aus der aktiven Quelle wird geholt */
+  active: boolean
+}
+
 export interface Profil {
   id: string
   name: string
   color: string
-  hasWahoo: boolean
-  athleteName?: string
+  connections: { wahoo: Verbindung | null; intervals: Verbindung | null }
+  activeProvider: Anbieter | ''
+  hasQuelle: boolean
   lastSyncAt?: string
   lastSyncError?: string
-  /** Zugriff zurückgezogen oder Token verfallen – hilft nur neu verbinden */
   needsReconnect?: boolean
 }
 
@@ -19,10 +35,45 @@ export interface Bike {
   id: string
   ownerId: string
   name: string
-  /** Die Wahoo-Sportarten, deren Fahrten auf dieses Rad gehen */
-  workoutTypeIds: number[]
+  manufacturer: string
+  model: string
+  /** Nutzungszeitraum – er entscheidet, welche Fahrt auf welches Rad geht */
+  from: string
+  to: string | null
   /** Grenzwerte für dieses Rad je Kategorie – schlägt den Standard der Kategorie */
   limits: Record<string, number>
+  /** Kilometer über alle Aufbauten, kommt gerechnet vom Server */
+  totalKm: number
+}
+
+/** Ein Rad, wie es an einem Tag zusammengesetzt ist: draußen oder auf der Rolle. */
+export interface Aufbau {
+  id: string
+  bikeId: string
+  name: string
+  kind: 'outdoor' | 'indoor'
+}
+
+export interface Fahrt {
+  id: string
+  ownerId: string
+  date: string
+  time: string | null
+  km: number
+  minutes: number
+  name: string
+  indoor: boolean
+  source: 'WAHOO' | 'INTERVALS_WAHOO' | 'MANUAL'
+  externalProvider: string | null
+  externalActivityId: string | null
+  externalSource: string | null
+  override: { bikeId: string | null; setupId: string | null } | null
+  /** Vom Server aufgelöst – nichts davon steht in der Datei */
+  bikeId: string | null
+  bikeName: string
+  setupId: string | null
+  setupName: string
+  unassigned: boolean
 }
 
 export interface Kategorie {
@@ -44,6 +95,9 @@ export interface Teil {
   id: string
   bikeId: string
   typeId: string
+  /** An welchen Aufbauten dieses Teil mitfährt – so verschleißt eine Kette
+   *  drinnen wie draußen, während jede Kassette nur an ihrem Aufbau zählt */
+  setupIds: string[]
   label: string
   note: string
   status: Status
@@ -57,31 +111,29 @@ export interface Teil {
   percent: number
 }
 
-/** Eine Wahoo-Sportart, die sich einem Rad zuteilen lässt. */
-export interface WorkoutType {
-  id: number
-  name: string
-}
-
-/** Fahrten, deren Sportart an keinem Rad hängt – die zählen nirgends mit. */
-export interface Luecke {
-  workoutTypeId: number
-  name: string
-  anzahl: number
-  km: number
+export type RadDaten = {
+  name?: string
+  manufacturer?: string
+  model?: string
+  from?: string
+  to?: string | null
 }
 
 export interface AppState {
   me: Profil | null
   users: Profil[]
   bikes: Bike[]
+  setups: Aufbau[]
   componentTypes: Kategorie[]
   components: Teil[]
+  rides: Fahrt[]
   settings: { thresholds: Thresholds; syncIntervalHours: number }
   wahooConfigured: boolean
-  workoutTypes: WorkoutType[]
+  intervalsConfigured: boolean
+  /** Fahrten gesamt; `rides` enthält nur die letzten `fahrtenFenster` */
   fahrten: number
-  ohneZuordnung: Luecke[]
+  fahrtenFenster: number
+  ohneZuordnung: number
 }
 
 const TOKEN_KEY = 'fahrrad:token'
@@ -97,6 +149,7 @@ function createStore() {
   /** Profile für den Auswahlschirm – das Einzige, was es ohne Sitzung gibt. */
   const profiles = ref<Profil[]>([])
   const wahooConfigured = ref(true)
+  const intervalsConfigured = ref(true)
   const token = ref(localStorage.getItem(TOKEN_KEY) ?? '')
 
   const state = reactive<AppState>({
@@ -105,11 +158,14 @@ function createStore() {
     bikes: [],
     componentTypes: [],
     components: [],
+    setups: [],
+    rides: [],
     settings: { thresholds: { yellow: 70, red: 100 }, syncIntervalHours: 3 },
     wahooConfigured: true,
-    workoutTypes: [],
+    intervalsConfigured: true,
     fahrten: 0,
-    ohneZuordnung: [],
+    fahrtenFenster: 300,
+    ohneZuordnung: 0,
   })
 
   const angemeldet = computed(() => state.me !== null)
@@ -118,6 +174,7 @@ function createStore() {
     if (!daten?.me) return
     Object.assign(state, daten)
     wahooConfigured.value = daten.wahooConfigured
+    intervalsConfigured.value = daten.intervalsConfigured
   }
 
   function abmeldenLokal() {
@@ -170,10 +227,15 @@ function createStore() {
   }
 
   async function ladeProfile() {
-    const daten = await api<{ profiles: Profil[]; wahooConfigured: boolean }>('/profiles')
+    const daten = await api<{
+      profiles: Profil[]
+      wahooConfigured: boolean
+      intervalsConfigured: boolean
+    }>('/profiles')
     if (daten) {
       profiles.value = daten.profiles
       wahooConfigured.value = daten.wahooConfigured
+      intervalsConfigured.value = daten.intervalsConfigured
     }
   }
 
@@ -193,7 +255,7 @@ function createStore() {
   // Es gibt keinen Live-Sync wie bei der Einkaufsliste: hier ändert selten
   // jemand etwas, während ein anderer zuschaut. Ein frischer Stand beim
   // Zurückkommen auf die Seite reicht – und die Kilometer wachsen ohnehin nur
-  // im Takt der Fahrten, die Wahoo meldet.
+  // im Takt der Fahrten, die Intervals.icu meldet.
   if (typeof window !== 'undefined') {
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible' && angemeldet.value) refresh()
@@ -241,12 +303,64 @@ function createStore() {
   }
 
   // ── Räder ──────────────────────────────────────────────────────────────────
-  function radAnlegen(name: string, workoutTypeIds: number[]) {
-    return aendern('/bikes', 'POST', { name, workoutTypeIds })
+  function radAnlegen(daten: RadDaten) {
+    return aendern('/bikes', 'POST', daten)
   }
 
-  function radSpeichern(id: string, changes: { name?: string; workoutTypeIds?: number[] }) {
+  function radSpeichern(id: string, changes: RadDaten) {
     return aendern(`/bikes/${id}`, 'PUT', changes)
+  }
+
+  // ── Aufbauten ──────────────────────────────────────────────────────────────
+  function aufbauAnlegen(bikeId: string, kind: 'outdoor' | 'indoor', name?: string) {
+    return aendern(`/bikes/${bikeId}/setups`, 'POST', { kind, name })
+  }
+
+  function aufbauSpeichern(setupId: string, name: string) {
+    return aendern(`/setups/${setupId}`, 'PUT', { name })
+  }
+
+  function aufbauLoeschen(setupId: string) {
+    return aendern(`/setups/${setupId}`, 'DELETE')
+  }
+
+  function aufbautenVon(bikeId: string) {
+    return state.setups.filter((a) => a.bikeId === bikeId)
+  }
+
+  // ── Fahrten ────────────────────────────────────────────────────────────────
+  /** Von Hand nachtragen – vor allem die Zeit, aus der keine Daten kommen. */
+  function fahrtAnlegen(daten: {
+    date: string
+    km: number
+    time?: string
+    minutes?: number
+    name?: string
+    indoor?: boolean
+    bikeId?: string
+    setupId?: string
+  }) {
+    return aendern('/rides', 'POST', daten)
+  }
+
+  function fahrtSpeichern(
+    id: string,
+    changes: {
+      date?: string
+      km?: number
+      time?: string
+      minutes?: number
+      name?: string
+      indoor?: boolean
+      bikeId?: string | null
+      setupId?: string | null
+    },
+  ) {
+    return aendern(`/rides/${id}`, 'PUT', changes)
+  }
+
+  function fahrtLoeschen(id: string) {
+    return aendern(`/rides/${id}`, 'DELETE')
   }
 
   function radLoeschen(id: string) {
@@ -280,13 +394,14 @@ function createStore() {
     note?: string
     limitKm?: number | null
     installedAt?: string | null
+    setupIds?: string[]
   }) {
     return aendern('/components', 'POST', werte)
   }
 
   function teilSpeichern(
     id: string,
-    changes: { label?: string; note?: string; limitKm?: number | null },
+    changes: { label?: string; note?: string; limitKm?: number | null; setupIds?: string[] },
   ) {
     return aendern(`/components/${id}`, 'PUT', changes)
   }
@@ -326,28 +441,51 @@ function createStore() {
     return aendern('/settings/thresholds', 'PUT', { yellow, red })
   }
 
-  // ── Wahoo ──────────────────────────────────────────────────────────────────
-  /** Schickt den Browser zu Wahoo; von dort kommt er auf /?wahoo=… zurück. */
-  async function wahooVerbinden() {
-    const daten = await api<{ url: string }>('/wahoo/authorize')
+  // ── Quellen ────────────────────────────────────────────────────────────────
+  // Zwei Wege zu denselben Fahrten: direkt von Wahoo (das ist der kurze) oder
+  // über Intervals.icu. Geholt wird immer nur aus der aktiven Quelle, sonst
+  // stünde dieselbe Ausfahrt zweimal in der Rechnung.
+  /** Schickt den Browser zur Quelle; von dort kommt er auf /?wahoo=… zurück. */
+  async function quelleVerbinden(provider: Anbieter) {
+    const daten = await api<{ url: string }>(`/${provider}/authorize`)
     if (daten?.url) window.location.href = daten.url
   }
 
-  function wahooTrennen() {
-    return aendern('/wahoo', 'DELETE')
+  function quelleTrennen(provider: Anbieter) {
+    return aendern(`/${provider}`, 'DELETE')
   }
 
-  async function wahooSync() {
-    const daten = await api<{ neu: number; geaendert: number; state: AppState }>(
-      '/wahoo/sync',
-      'POST',
-    )
+  /** Aus welcher Quelle geholt wird, wenn beide verbunden sind. */
+  function quelleAktivieren(provider: Anbieter) {
+    return aendern('/provider', 'PUT', { provider })
+  }
+
+  async function sync(voll = false) {
+    const daten = await api<{
+      neu: number
+      geaendert: number
+      geloescht: number
+      uebersprungen: number
+      oldest: string
+      state: AppState
+    }>('/sync', 'POST', { voll })
     if (!daten) return false
     uebernehmen(daten.state)
-    hinweis.value = daten.neu
-      ? `${daten.neu} neue Fahrten geholt.`
+    const teile = [
+      daten.neu ? `${daten.neu} neu` : '',
+      daten.geaendert ? `${daten.geaendert} aktualisiert` : '',
+      daten.geloescht ? `${daten.geloescht} entfallen` : '',
+      daten.uebersprungen ? `${daten.uebersprungen} Dubletten übersprungen` : '',
+    ].filter(Boolean)
+    hinweis.value = teile.length
+      ? `Fahrten geholt: ${teile.join(', ')}.`
       : 'Alles auf Stand – keine neuen Fahrten.'
     return true
+  }
+
+  /** Die Verbindung eines Anbieters am eigenen Profil. */
+  function verbindung(provider: Anbieter) {
+    return state.me?.connections?.[provider] ?? null
   }
 
   // ── Ableitungen fürs Dashboard ─────────────────────────────────────────────
@@ -379,9 +517,28 @@ function createStore() {
     return state.components.filter((c) => c.bikeId === bikeId && c.typeId === typeId)
   }
 
-  /** Das gerade aufgezogene Teil einer Kategorie – es bestimmt die Kachel. */
+  /**
+   * Das Teil, das die Kachel bestimmt. An einem Rad können mehrere Teile
+   * derselben Kategorie gleichzeitig aktiv sein (Kassette draußen, Kassette auf
+   * der Rolle) – dann zeigt die Kachel das am weitesten verschlissene, denn das
+   * ist das, was als Nächstes fällig wird.
+   */
   function aktivesTeil(bikeId: string, typeId: string) {
-    return teileAn(bikeId, typeId).find((c) => c.status === 'aktiv') ?? null
+    const aktive = teileAn(bikeId, typeId).filter((c) => c.status === 'aktiv')
+    return aktive.sort((a, b) => b.percent - a.percent)[0] ?? null
+  }
+
+  /** Wie viele Teile dieser Kategorie gerade gleichzeitig laufen. */
+  function aktiveTeile(bikeId: string, typeId: string) {
+    return teileAn(bikeId, typeId).filter((c) => c.status === 'aktiv')
+  }
+
+  /** Die Aufbauten eines Teils als Namen – „Draußen, Rolle“. */
+  function aufbauNamen(teil: Teil) {
+    return state.setups
+      .filter((a) => teil.setupIds?.includes(a.id))
+      .map((a) => a.name)
+      .join(', ')
   }
 
   /** Kategorien, zu denen es an diesem Rad überhaupt Teile gibt – in der
@@ -398,17 +555,13 @@ function createStore() {
     return bike.limits?.[typeId] ?? kategorie(typeId)?.defaultLimitKm ?? 0
   }
 
-  /** Name einer Wahoo-Sportart, für die Anzeige am Rad. */
-  function typName(id: number) {
-    return state.workoutTypes.find((t) => t.id === id)?.name ?? `Typ ${id}`
-  }
-
   return {
     loading,
     error,
     hinweis,
     profiles,
     wahooConfigured,
+    intervalsConfigured,
     state,
     angemeldet,
     refresh,
@@ -434,9 +587,18 @@ function createStore() {
     zeitraumSpeichern,
     zeitraumLoeschen,
     schwellenSpeichern,
-    wahooVerbinden,
-    wahooTrennen,
-    wahooSync,
+    aufbauAnlegen,
+    aufbauSpeichern,
+    aufbauLoeschen,
+    aufbautenVon,
+    fahrtAnlegen,
+    fahrtSpeichern,
+    fahrtLoeschen,
+    quelleVerbinden,
+    quelleTrennen,
+    quelleAktivieren,
+    verbindung,
+    sync,
     filter,
     setzeFilter,
     sichtbareRaeder,
@@ -447,7 +609,8 @@ function createStore() {
     aktivesTeil,
     kategorienAm,
     radGrenze,
-    typName,
+    aktiveTeile,
+    aufbauNamen,
   }
 }
 
