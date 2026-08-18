@@ -690,7 +690,9 @@ describe('Verschleißfaktor je Aufbau', () => {
 
   it('nimmt 1, wenn kein Faktor gesetzt ist', () => {
     const ohne = zuordner(bikes, [{ id: 'draussen', bikeId: 'r1', kind: 'outdoor' }])
-    expect(ohne.loese({ ownerId: 'u1', date: '2026-03-01', km: 80, indoor: false }).verschleissKm).toBe(80)
+    expect(
+      ohne.loese({ ownerId: 'u1', date: '2026-03-01', km: 80, indoor: false }).verschleissKm,
+    ).toBe(80)
   })
 })
 

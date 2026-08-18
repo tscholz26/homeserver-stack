@@ -37,6 +37,14 @@ async function grenzeSpeichern() {
   await store.radGrenzeSetzen(props.bike.id, props.typ.id, Math.round(wert))
 }
 
+const wechsel = ref(String(props.typ.rotationKm ?? 0))
+
+async function wechselSpeichern() {
+  const wert = Number(wechsel.value)
+  if (!(wert >= 0)) return
+  await store.kategorieSpeichern(props.typ.id, { rotationKm: Math.round(wert) })
+}
+
 async function grenzeZuruecksetzen() {
   await store.radGrenzeSetzen(props.bike.id, props.typ.id, null)
   grenze.value = String(props.typ.defaultLimitKm)
@@ -162,6 +170,30 @@ function eigeneGrenzeSpeichern(teil: Teil, wert: string) {
         <p class="fussnote">
           Standard der Kategorie: {{ kmText(typ.defaultLimitKm) }}. Ein Teil kann darüber hinaus
           seinen eigenen Wert haben.
+        </p>
+
+        <!-- Wechselintervall: bei Ketten das, was häufiger dran ist als die
+             Verschleißgrenze – deshalb steht es hier und nicht in der
+             Verwaltung. -->
+        <label class="klein" for="wechsel">Wechselintervall</label>
+        <div class="zeile">
+          <input
+            id="wechsel"
+            v-model="wechsel"
+            type="number"
+            inputmode="numeric"
+            min="0"
+            step="50"
+            :disabled="!darfAendern"
+            @change="wechselSpeichern"
+          />
+          <span class="einheit">km seit dem Aufziehen</span>
+        </div>
+        <p class="fussnote">
+          Für Teile, die im Wechsel gefahren werden – die Kette alle
+          {{ typ.rotationKm || 500 }} km wachsen. 0 schaltet es ab. Gilt für die Kategorie „{{
+            typ.name
+          }}“ an allen Rädern.
         </p>
       </section>
 

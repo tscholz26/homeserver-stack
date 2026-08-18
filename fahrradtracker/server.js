@@ -1372,6 +1372,21 @@ app.put('/api/component-types/:id', auth, (req, res) => {
   })
 })
 
+/** Reihenfolge der Kategorien – sie bestimmt, wie die Kacheln liegen. */
+app.put('/api/component-types/order', auth, (req, res) => {
+  const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(String) : null
+  if (!ids) return res.status(400).json({ error: 'Invalid payload' })
+  antworte(req, res, () => {
+    const nachId = new Map(db.types.map((t) => [t.id, t]))
+    const neu = ids.map((id) => nachId.get(id)).filter(Boolean)
+    // Was nicht genannt wurde, hängt hinten dran – so geht nie eine Kategorie
+    // verloren, auch wenn zwei Geräte gleichzeitig sortieren.
+    for (const typ of db.types) if (!neu.includes(typ)) neu.push(typ)
+    db.types = neu
+    sichere('types')
+  })
+})
+
 app.delete('/api/component-types/:id', auth, (req, res) => {
   antworte(req, res, () => {
     if (db.components.some((c) => c.typeId === req.params.id)) {

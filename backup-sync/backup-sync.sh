@@ -15,11 +15,18 @@ fi
 : "${NC_BASE_URL:?NC_BASE_URL fehlt (siehe backup-sync.env.example)}"
 : "${NC_USER:?NC_USER fehlt (siehe backup-sync.env.example)}"
 : "${NC_PASS:?NC_PASS fehlt (siehe backup-sync.env.example)}"
-# Alle Apps mit Backups sind Vorgabe, damit eine knappe Konfiguration nicht
-# versehentlich eine davon auslässt; in der env-Datei lässt sich das
-# überschreiben.
+# Gesichert wird jedes `<app>/backups` im Stack – gefunden, nicht aufgezählt.
+# So ist eine neue App vom ersten Backup an dabei, ohne dass hier oder in der
+# env-Datei jemand nachträgt. `BACKUP_DIRS` überschreibt die Suche, sollte aber
+# in aller Regel leer bleiben.
 STACK_DIR="${STACK_DIR:-/home/tristans/homeserver-stack}"
-BACKUP_DIRS="${BACKUP_DIRS:-$STACK_DIR/kofferpacken/backups $STACK_DIR/donnerskat/backups $STACK_DIR/fahrradtracker/backups}"
+gefundene_backup_dirs() {
+  for dir in "$STACK_DIR"/*/backups; do
+    [ -d "$dir" ] || continue
+    printf '%s\n' "$dir"
+  done
+}
+BACKUP_DIRS="${BACKUP_DIRS:-$(gefundene_backup_dirs)}"
 REMOTE_DIR="${NC_REMOTE_DIR:-Programmierung/homeserver-backups}"
 DRY_RUN="${DRY_RUN:-0}"
 

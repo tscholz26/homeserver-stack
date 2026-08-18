@@ -400,6 +400,7 @@ const WATCHED = [
   { id: 'donnerskat', path: '/skat/' },
   { id: 'kofferpacken', path: '/koffer/' },
   { id: 'einkaufsliste', path: '/einkauf/' },
+  { id: 'fahrradtracker', path: '/fahrrad/' },
 ]
 
 function probe(path) {

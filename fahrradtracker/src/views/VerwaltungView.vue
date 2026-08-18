@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef } from 'vue'
+import Sortable from 'sortablejs'
 import { useTracker } from '@/composables/useTracker'
 import { datumText } from '@/utils/verschleiss'
 
@@ -36,7 +37,28 @@ const quellen = computed(() => [
 ])
 
 // ── Kategorien ───────────────────────────────────────────────────────────────
-const neueKategorie = ref({ name: '', emoji: '🔧', defaultLimitKm: '3000', rotationKm: '0' })
+const neueKategorie = ref({ name: '', emoji: '🔧', defaultLimitKm: '3000' })
+
+// Reihenfolge der Kategorien: am Griff ziehen, wie in der Einkaufsliste. Der
+// Server bekommt danach die vollständige Liste der Ids.
+const kategorieListe = useTemplateRef<HTMLElement>('kategorieListe')
+let sortable: Sortable | undefined
+
+onMounted(() => {
+  if (!kategorieListe.value) return
+  sortable = new Sortable(kategorieListe.value, {
+    handle: '.griff',
+    animation: 150,
+    onEnd: () => {
+      const ids = [...(kategorieListe.value?.children ?? [])]
+        .map((el) => (el as HTMLElement).dataset.id)
+        .filter((id): id is string => Boolean(id))
+      store.kategorienSortieren(ids)
+    },
+  })
+})
+
+onBeforeUnmount(() => sortable?.destroy())
 
 async function kategorieAnlegen() {
   if (!neueKategorie.value.name.trim()) return
@@ -44,9 +66,8 @@ async function kategorieAnlegen() {
     name: neueKategorie.value.name.trim(),
     emoji: neueKategorie.value.emoji,
     defaultLimitKm: Number(neueKategorie.value.defaultLimitKm) || 3000,
-    rotationKm: Number(neueKategorie.value.rotationKm) || 0,
   })
-  if (ok) neueKategorie.value = { name: '', emoji: '🔧', defaultLimitKm: '3000', rotationKm: '0' }
+  if (ok) neueKategorie.value = { name: '', emoji: '🔧', defaultLimitKm: '3000' }
 }
 
 // ── Ampel ────────────────────────────────────────────────────────────────────
@@ -98,13 +119,13 @@ const FARBEN = ['#7c3aed', '#0891b2', '#c2740a', '#15803d', '#be185d', '#4338ca'
       <h2>Kategorien und Standard-Grenzen</h2>
       <p class="hinweis">
         Der Standard gilt überall dort, wo weder das Rad noch das einzelne Teil einen eigenen Wert
-        hat. Die zweite Zahl ist das <strong>Wechselintervall</strong>: Kilometer seit dem
-        Aufziehen, nach denen ein Teil dran ist – für Ketten, die im Wechsel gefahren und gewachst
-        werden. 0 heißt: kein Intervall.
+        hat. Am Griff ⠿ ziehen ändert die Reihenfolge – so liegen die Kacheln auch auf dem
+        Dashboard.
       </p>
 
-      <ul class="liste">
-        <li v-for="typ in store.state.componentTypes" :key="typ.id">
+      <ul ref="kategorieListe" class="liste kategorien">
+        <li v-for="typ in store.state.componentTypes" :key="typ.id" :data-id="typ.id">
+          <span class="griff" title="Zum Sortieren ziehen">⠿</span>
           <input
             class="emoji"
             :value="typ.emoji"
@@ -114,79 +135,53 @@ const FARBEN = ['#7c3aed', '#0891b2', '#c2740a', '#15803d', '#be185d', '#4338ca'
             "
           />
           <input
+            class="katname"
             :value="typ.name"
             aria-label="Name"
             @change="
               store.kategorieSpeichern(typ.id, { name: ($event.target as HTMLInputElement).value })
             "
           />
-          <input
-            class="zahl"
-            type="number"
-            inputmode="numeric"
-            min="1"
-            step="100"
-            :value="typ.defaultLimitKm"
-            aria-label="Standard-Grenzwert in km"
-            title="Verschleißgrenze"
-            @change="
-              store.kategorieSpeichern(typ.id, {
-                defaultLimitKm: Number(($event.target as HTMLInputElement).value),
-              })
-            "
-          />
-          <input
-            class="zahl"
-            type="number"
-            inputmode="numeric"
-            min="0"
-            step="50"
-            :value="typ.rotationKm ?? 0"
-            aria-label="Wechselintervall in km"
-            title="Wechselintervall – 0 heißt keins"
-            @change="
-              store.kategorieSpeichern(typ.id, {
-                rotationKm: Number(($event.target as HTMLInputElement).value),
-              })
-            "
-          />
-          <!--
-          <button
-            type="button"
-            class="gefahr"
-            :disabled="teileZuKategorie(typ.id) > 0"
-            :title="teileZuKategorie(typ.id) ? 'Es gibt noch Teile dieser Kategorie' : 'Löschen'"
-            @click="store.kategorieLoeschen(typ.id)"
-          >
-            Löschen
-          </button>
-          -->
+          <span class="mitEinheit">
+            <input
+              class="zahl"
+              type="number"
+              inputmode="numeric"
+              min="1"
+              step="100"
+              :value="typ.defaultLimitKm"
+              aria-label="Standard-Grenzwert in km"
+              @change="
+                store.kategorieSpeichern(typ.id, {
+                  defaultLimitKm: Number(($event.target as HTMLInputElement).value),
+                })
+              "
+            />
+            <span class="einheit">km</span>
+          </span>
         </li>
       </ul>
 
       <form class="neu" @submit.prevent="kategorieAnlegen">
         <input v-model="neueKategorie.emoji" class="emoji" maxlength="2" aria-label="Symbol" />
-        <input v-model="neueKategorie.name" placeholder="Neue Kategorie" />
-        <input
-          v-model="neueKategorie.defaultLimitKm"
-          class="zahl"
-          type="number"
-          min="1"
-          step="100"
-          aria-label="Grenzwert in km"
-          title="Verschleißgrenze"
-        />
-        <input
-          v-model="neueKategorie.rotationKm"
-          class="zahl"
-          type="number"
-          min="0"
-          step="50"
-          aria-label="Wechselintervall in km"
-          title="Wechselintervall – 0 heißt keins"
-        />
+        <input v-model="neueKategorie.name" class="katname" placeholder="Neue Kategorie" />
+        <span class="mitEinheit">
+          <input
+            v-model="neueKategorie.defaultLimitKm"
+            class="zahl"
+            type="number"
+            min="1"
+            step="100"
+            aria-label="Grenzwert in km"
+          />
+          <span class="einheit">km</span>
+        </span>
         <button type="submit" class="primaer">Anlegen →</button>
       </form>
+      <p class="hinweis fuss">
+        Das Wechselintervall einer Kette – die Kilometer bis zum nächsten Wachsen – stellst du dort
+        ein, wo du es brauchst: auf dem Dashboard auf die Kachel tippen.
+      </p>
     </section>
 
     <!-- ── Quellen ───────────────────────────────────────────────────────── -->
@@ -468,6 +463,52 @@ h2 {
   gap: 0.4rem;
 }
 
+/* Alles in einer Zeile, ohne dass etwas aus der Karte läuft: Der Name nimmt
+   den Rest, die Zahl hat feste Breite. */
+.kategorien li {
+  gap: 0.3rem;
+}
+
+.griff {
+  flex: 0 0 auto;
+  padding: 0 0.1rem;
+  color: var(--muted);
+  font-size: 1rem;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.katname {
+  flex: 1 1 4rem;
+  min-width: 0;
+}
+
+.mitEinheit {
+  position: relative;
+  flex: 0 0 5.4rem;
+  display: flex;
+  align-items: center;
+}
+
+.mitEinheit .zahl {
+  flex: 1;
+  padding-right: 1.9rem;
+  min-width: 0;
+}
+
+.einheit {
+  position: absolute;
+  right: 0.55rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  pointer-events: none;
+}
+
+.fuss {
+  margin: 0.9rem 0 0;
+}
+
 input,
 select,
 textarea {
@@ -480,12 +521,14 @@ textarea {
 }
 
 .emoji {
-  flex: 0 0 2.8rem;
+  flex: 0 0 2.4rem;
+  padding-left: 0.3rem;
+  padding-right: 0.3rem;
   text-align: center;
 }
 
 .zahl {
-  flex: 0 0 6rem;
+  flex: 0 0 5.4rem;
 }
 
 .raeder > li {

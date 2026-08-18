@@ -647,6 +647,18 @@ export function statistik(fahrten, { bikes = [], heute = '' } = {}) {
     }
   }
 
+  // Die stärksten Abschnitte – über alles gerechnet, nicht nur über das
+  // Fenster, das die Reihen unten zeigen
+  const spitze = (karte, feld) => {
+    let best = null
+    for (const [schluessel, e] of karte) {
+      if (!best || e.km > best.km) best = { [feld]: schluessel, km: runde(e.km), fahrten: e.fahrten }
+    }
+    return best
+  }
+  const besterMonat = spitze(monate, 'monat')
+  const besteWoche = spitze(wochen, 'woche')
+
   const laengste = [...fahrten]
     .sort((a, b) => (Number(b.km) || 0) - (Number(a.km) || 0))
     .slice(0, 5)
@@ -661,6 +673,8 @@ export function statistik(fahrten, { bikes = [], heute = '' } = {}) {
     jahre: alsListe(jahre, 'jahr'),
     monate: gefuellt,
     wochen: alsListe(wochen, 'woche').slice(-16),
+    besterMonat,
+    besteWoche,
     raeder: bikes
       .map((b) => ({ id: b.id, name: b.name, ...(raeder.get(b.id) ?? { km: 0, fahrten: 0 }) }))
       .map((r) => ({ ...r, km: runde(r.km) }))

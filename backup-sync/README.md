@@ -52,10 +52,10 @@ bessere Weg als sie dauerhaft zu synchronisieren.
 Der Erstlauf überträgt alles Vorhandene (aktuell rund 2,6 MB), danach kommt
 pro Tag und App eine Datei von wenigen Kilobyte dazu.
 
-Kommt eine App dazu, steht sie in der Vorgabe von `BACKUP_DIRS` im Skript –
-`sudo install -m 755 backup-sync.sh /usr/local/bin/backup-sync.sh` reicht dann.
-Steht `BACKUP_DIRS` allerdings in `/etc/backup-sync.env`, gilt die Zeile dort
-und muss von Hand ergänzt werden.
+Kommt eine App dazu, ist sie automatisch dabei: Das Skript sichert jedes
+`<app>/backups` im Stack, es zählt die Apps nicht auf. Nachtragen muss man nur
+dann etwas, wenn `BACKUP_DIRS` in `/etc/backup-sync.env` steht – diese Zeile
+gilt allein und schaltet die Suche ab. Im Zweifel dort auskommentieren.
 
 ## Kontrolle
 

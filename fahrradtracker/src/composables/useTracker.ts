@@ -171,6 +171,8 @@ export interface Stats {
   wochen: { woche: string; km: number; indoorKm: number; outdoorKm: number; fahrten: number }[]
   raeder: { id: string; name: string; km: number; fahrten: number }[]
   laengste: { date: string; name: string; km: number; indoor: boolean }[]
+  besterMonat: { monat: string; km: number; fahrten: number } | null
+  besteWoche: { woche: string; km: number; fahrten: number } | null
 }
 
 export interface AppState {
@@ -228,6 +230,8 @@ function createStore() {
       wochen: [],
       raeder: [],
       laengste: [],
+      besterMonat: null,
+      besteWoche: null,
     },
     settings: { thresholds: { yellow: 70, red: 100 }, syncIntervalHours: 3 },
     wahooConfigured: true,
@@ -482,6 +486,11 @@ function createStore() {
     return aendern(`/component-types/${id}`, 'DELETE')
   }
 
+  /** Neue Reihenfolge der Kategorien nach dem Ziehen. */
+  function kategorienSortieren(ids: string[]) {
+    return aendern('/component-types/order', 'PUT', { ids })
+  }
+
   // ── Teile ──────────────────────────────────────────────────────────────────
   function teilAnlegen(werte: {
     bikeId: string
@@ -675,6 +684,7 @@ function createStore() {
     kategorieAnlegen,
     kategorieSpeichern,
     kategorieLoeschen,
+    kategorienSortieren,
     teilAnlegen,
     teilSpeichern,
     teilLoeschen,

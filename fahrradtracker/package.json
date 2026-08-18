@@ -17,8 +17,10 @@
     "format": "prettier --write --experimental-cli src/"
   },
   "dependencies": {
+    "@types/sortablejs": "^1.15.9",
     "express": "^5.2.1",
     "nodemailer": "^9.0.5",
+    "sortablejs": "^1.15.7",
     "vue": "^3.5.40",
     "vue-router": "^5.2.0"
   },

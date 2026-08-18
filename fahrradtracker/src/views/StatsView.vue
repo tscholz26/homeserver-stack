@@ -35,6 +35,18 @@ const aktiverMonat = computed(
 const maxJahr = computed(() => Math.max(1, ...stats.value.jahre.map((j) => j.km)))
 const maxWoche = computed(() => Math.max(1, ...stats.value.wochen.map((w) => w.km)))
 
+/** Angetippte Woche; ohne Auswahl steht die letzte im Kopf. */
+const gewaehlteWoche = ref('')
+const aktiveWoche = computed(
+  () =>
+    stats.value.wochen.find((w) => w.woche === gewaehlteWoche.value) ??
+    stats.value.wochen.at(-1) ??
+    null,
+)
+
+/** Angetipptes Jahr – die Zahl steht ohnehin daneben, hier zählt der Rest. */
+const gewaehltesJahr = ref('')
+
 const anteilDrinnen = computed(() => {
   const gesamt = stats.value.km || 1
   return Math.round((stats.value.indoorKm / gesamt) * 100)
@@ -126,7 +138,13 @@ function wochenLabel(woche: string) {
     <section class="block card">
       <p class="cap">Jahresvergleich</p>
       <ul class="jahre">
-        <li v-for="j in stats.jahre" :key="j.jahr">
+        <li
+          v-for="j in stats.jahre"
+          :key="j.jahr"
+          :class="{ aktiv: gewaehltesJahr === j.jahr }"
+          :title="`${j.jahr}: ${kmText(j.km)} · ${j.fahrten} Fahrten`"
+          @click="gewaehltesJahr = gewaehltesJahr === j.jahr ? '' : j.jahr"
+        >
           <span class="jahr">{{ j.jahr }}</span>
           <span class="schiene">
             <span
@@ -140,6 +158,12 @@ function wochenLabel(woche: string) {
           </span>
           <span class="wert">{{ kmText(j.km) }}</span>
         </li>
+        <li v-if="gewaehltesJahr" class="jahrdetail">
+          <template v-for="j in stats.jahre.filter((x) => x.jahr === gewaehltesJahr)" :key="j.jahr">
+            {{ j.fahrten }} Fahrten · {{ kmText(j.outdoorKm) }} draußen ·
+            {{ kmText(j.indoorKm) }} Rolle
+          </template>
+        </li>
       </ul>
     </section>
 
@@ -147,11 +171,14 @@ function wochenLabel(woche: string) {
     <section v-if="stats.wochen.length > 1" class="block card">
       <p class="cap">Die letzten Wochen</p>
       <div class="balken schmal">
-        <div
+        <button
           v-for="w in stats.wochen"
           :key="w.woche"
-          class="saeule stumm"
+          type="button"
+          class="saeule"
+          :class="{ aktiv: aktiveWoche?.woche === w.woche }"
           :title="`${wochenLabel(w.woche)}: ${kmText(w.km)}`"
+          @click="gewaehlteWoche = w.woche"
         >
           <span class="stapel">
             <span
@@ -163,11 +190,14 @@ function wochenLabel(woche: string) {
               :style="{ height: `${hoehe(w.outdoorKm, maxWoche)}%` }"
             ></span>
           </span>
-        </div>
+        </button>
       </div>
-      <p class="dazu">
-        {{ wochenLabel(stats.wochen[0]!.woche) }} bis
-        {{ wochenLabel(stats.wochen.at(-1)!.woche) }} · Spitze {{ kmText(maxWoche) }}
+      <p v-if="aktiveWoche" class="dazu">
+        <strong class="gewaehlt">
+          {{ wochenLabel(aktiveWoche.woche) }} · {{ kmText(aktiveWoche.km) }}
+        </strong>
+        <span v-if="aktiveWoche.fahrten"> · {{ aktiveWoche.fahrten }} Fahrten</span>
+        <span v-if="aktiveWoche.indoorKm"> · {{ kmText(aktiveWoche.indoorKm) }} Rolle</span>
       </p>
     </section>
 
@@ -183,18 +213,41 @@ function wochenLabel(woche: string) {
         </ul>
       </section>
 
-      <!-- Längste Fahrten -->
-      <section v-if="stats.laengste.length" class="block card">
-        <p class="cap">Längste Fahrten</p>
-        <ul class="liste">
-          <li v-for="(l, i) in stats.laengste" :key="i">
+      <!-- Höhepunkte: drei längste Fahrten, stärkster Monat, stärkste Woche -->
+      <section v-if="stats.fahrten" class="block card">
+        <p class="cap">Höhepunkte</p>
+        <ol class="podest">
+          <li v-for="(l, i) in stats.laengste.slice(0, 3)" :key="i">
+            <span class="platz" :class="`platz${i + 1}`">{{ i + 1 }}</span>
             <span class="name">
               {{ l.name || 'Fahrt' }}
-              <small>{{ l.date.split('-').reverse().join('.') }}</small>
+              <small
+                >{{ l.date.split('-').reverse().join('.') }}{{ l.indoor ? ' · Rolle' : '' }}</small
+              >
             </span>
             <span class="wert">{{ kmText(l.km) }}</span>
           </li>
-        </ul>
+        </ol>
+
+        <div class="rekorde">
+          <div v-if="stats.besterMonat" class="rekord">
+            <p class="cap">Stärkster Monat</p>
+            <p class="rekordwert">{{ kmText(stats.besterMonat.km) }}</p>
+            <p class="dazu">
+              {{ monatsLabel(stats.besterMonat.monat).kurz }}
+              {{ monatsLabel(stats.besterMonat.monat).jahr }} ·
+              {{ stats.besterMonat.fahrten }} Fahrten
+            </p>
+          </div>
+          <div v-if="stats.besteWoche" class="rekord">
+            <p class="cap">Stärkste Woche</p>
+            <p class="rekordwert">{{ kmText(stats.besteWoche.km) }}</p>
+            <p class="dazu">
+              {{ wochenLabel(stats.besteWoche.woche) }} / {{ stats.besteWoche.woche.slice(0, 4) }} ·
+              {{ stats.besteWoche.fahrten }} Fahrten
+            </p>
+          </div>
+        </div>
       </section>
     </div>
 
@@ -338,12 +391,14 @@ function wochenLabel(woche: string) {
 
 .saeule.aktiv .fuss {
   color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 800;
 }
 
-.saeule.aktiv .stapel {
-  outline: 2px solid color-mix(in srgb, var(--text) 20%, transparent);
-  outline-offset: 2px;
-  border-radius: 5px;
+/* Der gewählte Balken tritt hervor, indem die anderen zurücktreten – ohne
+   Rahmen, der die Form zerschneidet. */
+.balken:has(.aktiv) .saeule:not(.aktiv) .teil {
+  opacity: 0.45;
 }
 
 .legende {
@@ -440,6 +495,87 @@ function wochenLabel(woche: string) {
   margin-left: 0.35rem;
   color: var(--muted);
   font-size: 0.72rem;
+}
+
+.gewaehlt {
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.jahre li {
+  cursor: pointer;
+}
+
+.jahre li.aktiv .jahr,
+.jahre li.aktiv .wert {
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.jahrdetail {
+  padding-left: 3.1rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  cursor: default;
+}
+
+/* ── Höhepunkte ─────────────────────────────────────────────────────────── */
+.podest {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.podest li {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.88rem;
+}
+
+.platz {
+  display: grid;
+  place-items: center;
+  flex: 0 0 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.platz1 {
+  background: color-mix(in srgb, var(--amber) 20%, white);
+  color: var(--amber);
+}
+
+.platz2 {
+  background: color-mix(in srgb, var(--cyan) 16%, white);
+  color: var(--cyan);
+}
+
+.platz3 {
+  background: color-mix(in srgb, var(--violet) 14%, white);
+  color: var(--violet);
+}
+
+.rekorde {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--line);
+}
+
+.rekordwert {
+  margin: 0.15rem 0 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
 }
 
 .leer {
