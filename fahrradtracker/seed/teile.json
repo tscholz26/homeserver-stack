@@ -1,5 +1,5 @@
 [
-  { "id": "kette", "name": "Kette", "emoji": "⛓️", "color": "#7c3aed", "defaultLimitKm": 4000 },
+  { "id": "kette", "name": "Kette", "emoji": "⛓️", "color": "#7c3aed", "defaultLimitKm": 4000, "rotationKm": 500 },
   { "id": "kassette", "name": "Kassette", "emoji": "⚙️", "color": "#0891b2", "defaultLimitKm": 12000 },
   { "id": "kettenblaetter", "name": "Kettenblätter", "emoji": "🌀", "color": "#4338ca", "defaultLimitKm": 20000 },
   { "id": "bremse-vorne", "name": "Bremsbeläge vorne", "emoji": "🛑", "color": "#b91c1c", "defaultLimitKm": 3000 },

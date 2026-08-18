@@ -12,7 +12,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev --ignore-scripts
 COPY --from=builder /app/dist ./dist
-COPY server.js ./
+COPY server.js mail.js ./
 COPY shared ./shared
 COPY seed ./seed
 EXPOSE 2609

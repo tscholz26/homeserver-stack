@@ -45,6 +45,15 @@ Profile, mehrere Räder, erreichbar unter
   [Intervals.icu](https://intervals.icu) als zweite Möglichkeit. Fertige
   Fahrten meldet die Quelle per Webhook; zusätzlich fragt der Server alle drei
   Stunden selbst nach
+- **Stats**: eigene Seite mit Kilometer-Dashboard – Monatsbalken (draußen und
+  Rolle getrennt), Jahresvergleich, die letzten Wochen, Kilometer je Rad und die
+  längsten Fahrten
+- **Wechselintervall**: Ketten, die im Wechsel gefahren und gewachst werden,
+  brauchen kein Verschleißlimit, sondern eine Erinnerung alle paar hundert
+  Kilometer. Je Kategorie einstellbar (Kette: 500 km), gezählt **seit dem
+  letzten Aufziehen**; die Kachel warnt, wenn es so weit ist
+- **Benachrichtigungen**: E-Mail, wenn ein Teil das Wechselintervall erreicht,
+  auf gelb springt oder rot wird – Empfänger je Profil in der Verwaltung
 - **Rechte**: sehen darf jedes angemeldete Profil alles, ändern nur der
   Besitzer – seine Räder, seine Teile, seine Fahrten, seine Verbindungen.
   Kategorien und Ampel gelten für alle
@@ -275,6 +284,39 @@ antwortet mit dem kompletten neuen Stand.
 | GET | `/api/wahoo/callback` · `/api/intervals/callback` | Rücksprung (Browser, kein Token) |
 | POST | `/api/wahoo/webhook` · `/api/intervals/webhook` | der Anbieter meldet eine Fahrt (Secret statt Sitzung) |
 | DELETE | `/api/wahoo` · `/api/intervals` | Freigabe zurückziehen, Verbindung und ihre Fahrten löschen |
+
+### Benachrichtigungen
+
+Der Server prüft nach jedem Sync und stündlich, ob ein Teil eine Schwelle
+überschritten hat, und schickt dem Profil eine Mail – eine je Ereignis:
+
+| Ereignis | wann |
+| --- | --- |
+| Wechseln fällig | Kilometer seit dem Aufziehen ≥ Wechselintervall der Kategorie |
+| Bald fällig | Verschleiß ≥ gelbe Schwelle (Standard 70 %) |
+| Überfällig | Verschleiß ≥ rote Schwelle (Standard 100 %) |
+
+Jede Meldung kommt **einmal je Einbau**: Der Vermerk hängt am laufenden
+Nutzungszeitraum, nach einem Wechsel fängt alles von vorn an. Schlägt der
+Versand fehl, werden die Vermerke zurückgenommen, damit es der nächste Lauf
+erneut versucht.
+
+Nötig sind `SMTP_HOST`, `SMTP_FROM` und je nach Server `SMTP_PORT`,
+`SMTP_USER`, `SMTP_PASS` in der `.env` (siehe [.env.example](.env.example)) –
+ohne sie startet die App normal, verschickt aber nichts und sagt das in der
+Verwaltung. Die Empfängeradresse steht je Profil unter Verwaltung →
+Einstellungen, dort gibt es auch eine Probemail. Die Vorlage liegt in
+[mail.js](mail.js); sie ist reines HTML mit Inline-Styles, damit sie in jedem
+Postfach gleich aussieht.
+
+### Verschleißfaktor je Aufbau
+
+Ein Kilometer auf der Rolle nutzt eine Kette anders ab als einer draußen im
+Dreck. Jeder Aufbau hat deshalb einen Faktor (Standard 1): 0,95 heißt, 100 km
+auf der Rolle zählen als 95 km Verschleiß. Er wirkt sofort auf alle Fahrten,
+auch rückwirkend – gerechnet wird ja bei jeder Anfrage neu. Die gefahrene
+Strecke eines Rades bleibt davon unberührt; die Frage „wie weit bin ich
+gefahren“ hat mit Verschleiß nichts zu tun.
 
 ### Zugriffsschutz
 

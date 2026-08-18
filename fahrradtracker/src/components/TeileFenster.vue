@@ -180,6 +180,14 @@ function eigeneGrenzeSpeichern(teil: Teil, wert: string) {
                   {{ store.aufbauNamen(teil) || 'kein Aufbau' }}
                 </span>
               </p>
+              <p
+                v-if="teil.status === 'aktiv' && teil.rotationKm"
+                class="wechsel"
+                :class="{ faellig: teil.rotationFaellig }"
+              >
+                {{ teil.rotationFaellig ? '⚠ wechseln:' : 'seit dem Aufziehen:' }}
+                {{ kmText(teil.currentKm) }} von {{ kmText(teil.rotationKm) }}
+              </p>
               <div class="balken" aria-hidden="true">
                 <span
                   :style="{
@@ -575,6 +583,17 @@ select {
 .quelle.aufbau {
   background: color-mix(in srgb, var(--cyan) 10%, white);
   color: var(--cyan);
+}
+
+.wechsel {
+  margin: 0 0 0.3rem;
+  color: var(--cyan);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.wechsel.faellig {
+  color: var(--amber);
 }
 
 .balken {

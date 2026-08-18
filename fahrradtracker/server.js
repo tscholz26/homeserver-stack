@@ -16,12 +16,15 @@ import {
   ausCsv,
   ausIntervals,
   ausWahoo,
+  kmFuerAufbau,
   kmFuerRad,
   kmImZeitraum,
+  statistik,
   synchronisiereFenster,
   ueberschneidetSich,
   zuordner,
 } from './shared/fahrten.js'
+import { MAIL_CONFIGURED, schickeMeldungen, schickeProbe } from './mail.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const DATA_DIR = join(__dirname, 'data')
@@ -225,6 +228,13 @@ function migriere() {
         conn.active = eintraege.length === 1
         geaendert.add(modell)
       }
+    }
+  }
+
+  for (const aufbau of db.setups) {
+    if (typeof aufbau.factor !== 'number') {
+      aufbau.factor = 1
+      geaendert.add('setups')
     }
   }
 
@@ -716,6 +726,12 @@ function schreibeSync(conn, userId, provider, fahrten, oldest, newest) {
   console.log(
     `[fahrradtracker] Sync ${provider} ${userId} ab ${oldest}: ${neu} neu, ${geaendert} aktualisiert, ${geloescht} entfallen, ${uebersprungen} Dubletten`,
   )
+  // Frische Kilometer können ein Teil über eine Schwelle geschoben haben
+  if (neu || geaendert || geloescht) {
+    pruefeMeldungen().catch((err) =>
+      console.error('[fahrradtracker] Meldungen nach Sync:', err.message),
+    )
+  }
   return { neu, geaendert, geloescht, uebersprungen, oldest }
 }
 
@@ -799,9 +815,16 @@ function komponenteMitKm(component, fahrten) {
   }))
   const totalKm = Math.round(perioden.reduce((s, p) => s + p.km, 0) * 10) / 10
   const { limitKm, limitQuelle } = grenzeFuer(component, bike, typ)
+  // Kilometer seit dem letzten Aufziehen – daran hängt das Wechselintervall
+  // (Ketten, die im Wechsel gefahren und gewachst werden)
+  const laufend = perioden.find((p) => !p.to)
+  const rotationKm = Math.max(0, Math.round(Number(typ?.rotationKm) || 0))
   return {
     ...component,
     periods: perioden,
+    currentKm: laufend?.km ?? 0,
+    rotationKm,
+    rotationFaellig: Boolean(rotationKm > 0 && laufend && laufend.km >= rotationKm),
     // Der eigene Grenzwert der Instanz bleibt sichtbar; `limitKm` weiter unten
     // ist der, der am Ende gilt
     ownLimitKm: component.limitKm ?? null,
@@ -811,6 +834,93 @@ function komponenteMitKm(component, fahrten) {
     percent: limitKm > 0 ? Math.round((totalKm / limitKm) * 100) : 0,
   }
 }
+
+// ── Benachrichtigungen ───────────────────────────────────────────────────────
+// Geprüft wird nach jedem Sync und einmal pro Stunde. Verschickt wird nur, was
+// neu ist: Jede Meldung wird am Teil vermerkt, sonst käme sie mit jedem Lauf
+// wieder. Der Vermerk hängt am laufenden Einbau – nach einem Wechsel fängt
+// alles von vorn an.
+function meldungenFuer(user, fahrten) {
+  const meldungen = []
+  const { yellow, red } = db.settings.thresholds
+
+  for (const component of db.components) {
+    if (component.status !== 'aktiv') continue
+    const bike = db.bikes.find((b) => b.id === component.bikeId)
+    if (!bike || bike.ownerId !== user.id) continue
+
+    const gerechnet = komponenteMitKm(component, fahrten)
+    const laufend = gerechnet.periods.find((p) => !p.to)
+    if (!laufend) continue
+
+    // Der Vermerk gilt für genau diesen Einbau
+    if (component.notified?.periodId !== laufend.id) {
+      component.notified = { periodId: laufend.id }
+    }
+    const vermerk = component.notified
+    const rad = bike.name
+
+    if (gerechnet.rotationFaellig && !vermerk.wachsen) {
+      vermerk.wachsen = true
+      meldungen.push({
+        art: 'wachsen',
+        kurz: `${gerechnet.label} ist bei ${kmText(gerechnet.currentKm)}`,
+        teil: gerechnet.label,
+        rad,
+        text: `${kmText(gerechnet.currentKm)} seit dem Aufziehen – dein Intervall sind ${kmText(gerechnet.rotationKm)}. Zeit zum Wechseln und Wachsen.`,
+      })
+    }
+    if (gerechnet.percent >= red && !vermerk.rot) {
+      vermerk.rot = true
+      vermerk.gelb = true
+      meldungen.push({
+        art: 'rot',
+        kurz: `${gerechnet.label} ist überfällig`,
+        teil: gerechnet.label,
+        rad,
+        text: `${kmText(gerechnet.totalKm)} von ${kmText(gerechnet.limitKm)} – das sind ${gerechnet.percent} % der Verschleißgrenze.`,
+      })
+    } else if (gerechnet.percent >= yellow && !vermerk.gelb) {
+      vermerk.gelb = true
+      meldungen.push({
+        art: 'gelb',
+        kurz: `${gerechnet.label} wird bald fällig`,
+        teil: gerechnet.label,
+        rad,
+        text: `${kmText(gerechnet.totalKm)} von ${kmText(gerechnet.limitKm)} – das sind ${gerechnet.percent} % der Verschleißgrenze.`,
+      })
+    }
+  }
+  return meldungen
+}
+
+/** Kilometer, wie sie in der Mail stehen sollen. */
+function kmText(km) {
+  const wert = Number(km) || 0
+  return `${wert.toLocaleString('de-DE', { maximumFractionDigits: wert < 100 ? 1 : 0 })} km`
+}
+
+async function pruefeMeldungen() {
+  if (!MAIL_CONFIGURED) return
+  const fahrten = geloesteFahrten()
+  for (const user of db.users) {
+    if (!user.notifyEmail) continue
+    const meldungen = meldungenFuer(user, fahrten)
+    if (!meldungen.length) continue
+    try {
+      await schickeMeldungen(user.notifyEmail, user.name, meldungen)
+      sichere('components')
+      console.log(`[fahrradtracker] ${meldungen.length} Meldung(en) an ${user.name} geschickt`)
+    } catch (err) {
+      // Vermerke zurücknehmen, damit die Meldung beim nächsten Lauf erneut
+      // versucht wird
+      for (const component of db.components) delete component.notified
+      console.error('[fahrradtracker] E-Mail fehlgeschlagen:', err.message)
+    }
+  }
+}
+
+setInterval(pruefeMeldungen, 60 * 60 * 1000)
 
 // ── Der Stand für den Browser ────────────────────────────────────────────────
 function verbindungInfo(provider, conn) {
@@ -843,6 +953,7 @@ function profil(u) {
     lastSyncAt: aktiv?.conn.lastSyncAt ?? '',
     lastSyncError: aktiv?.conn.lastSyncError ?? '',
     needsReconnect: Boolean(aktiv?.conn.needsReconnect),
+    notifyEmail: u.notifyEmail ?? '',
   }
 }
 
@@ -862,13 +973,17 @@ function publicState(user) {
     me: profil(user),
     users: db.users.map(profil),
     bikes: db.bikes.map((b) => ({ ...b, totalKm: kmFuerRad(b.id, fahrten) })),
-    setups: db.setups,
+    setups: db.setups.map((auf) => ({ ...auf, ...kmFuerAufbau(auf.id, fahrten) })),
     componentTypes: db.types,
     components: db.components.map((c) => komponenteMitKm(c, fahrten)),
     rides: sichtbar,
+    // Fürs Kilometer-Dashboard – gerechnet über *alle* Fahrten, nicht nur die
+    // mitgeschickten
+    stats: statistik(fahrten, { bikes: db.bikes, heute: heute() }),
     settings: db.settings,
     wahooConfigured: WAHOO_CONFIGURED,
     intervalsConfigured: ICU_CONFIGURED,
+    mailConfigured: MAIL_CONFIGURED,
     fahrten: fahrten.length,
     fahrtenFenster: FAHRTEN_FENSTER,
     ohneZuordnung: offen.length,
@@ -974,8 +1089,16 @@ app.put('/api/profile/pin', auth, (req, res) => {
 })
 
 app.put('/api/profile', auth, (req, res) => {
-  const name = text(req.body?.name, 40)
+  const name = req.body?.name === undefined ? req.user.name : text(req.body.name, 40)
   antworte(req, res, () => {
+    if (req.body?.notifyEmail !== undefined) {
+      const adresse = text(req.body.notifyEmail, 120)
+      if (adresse && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adresse)) {
+        return { reject: { status: 400, error: 'Das sieht nicht nach einer E-Mail-Adresse aus.' } }
+      }
+      // Leer heißt: keine Benachrichtigungen mehr
+      req.user.notifyEmail = adresse
+    }
     if (!name) return { reject: { status: 400, error: 'Bitte einen Namen eintragen.' } }
     if (db.users.some((u) => u.id !== req.user.id && u.name.toLowerCase() === name.toLowerCase())) {
       return { reject: { status: 409, error: 'Diesen Namen gibt es schon.' } }
@@ -984,6 +1107,23 @@ app.put('/api/profile', auth, (req, res) => {
     if (FARBEN.includes(req.body?.color)) req.user.color = req.body.color
     sichere('users')
   })
+})
+
+/** Probemail an die hinterlegte Adresse – prüft die Einrichtung. */
+app.post('/api/notify/test', auth, async (req, res) => {
+  if (!MAIL_CONFIGURED) {
+    return res.status(503).json({ error: 'Auf dem Server fehlen die SMTP-Zugangsdaten.' })
+  }
+  if (!req.user.notifyEmail) {
+    return res.status(400).json({ error: 'Erst eine Adresse eintragen.' })
+  }
+  try {
+    await schickeProbe(req.user.notifyEmail, req.user.name)
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('[fahrradtracker] Probemail fehlgeschlagen:', err.message)
+    res.status(502).json({ error: `Versand fehlgeschlagen: ${err.message}` })
+  }
 })
 
 app.get('/api/state', auth, (req, res) => {
@@ -1116,6 +1256,8 @@ app.post('/api/bikes/:id/setups', auth, (req, res) => {
       bikeId: bike.id,
       name: text(req.body?.name, 40) || (kind === 'indoor' ? 'Rolle' : 'Draußen'),
       kind,
+      // 1 = eins zu eins; auf der Rolle darf es weniger sein
+      factor: faktorAus(req.body?.factor) ?? 1,
     })
     sichere('setups')
   })
@@ -1130,13 +1272,29 @@ function eigenerAufbau(req, res) {
   return eigenesRad(req, res, aufbau.bikeId) ? aufbau : null
 }
 
+/** Verschleißfaktor: eine Zahl über 0 und höchstens 5. */
+function faktorAus(wert) {
+  const zahl = Number(wert)
+  if (!Number.isFinite(zahl) || zahl <= 0 || zahl > 5) return null
+  return Math.round(zahl * 1000) / 1000
+}
+
 app.put('/api/setups/:setupId', auth, (req, res) => {
   const aufbau = eigenerAufbau(req, res)
   if (!aufbau) return
   antworte(req, res, () => {
-    const name = text(req.body?.name, 40)
-    if (!name) return { reject: { status: 400, error: 'Bitte einen Namen eintragen.' } }
-    aufbau.name = name
+    if (req.body?.name !== undefined) {
+      const name = text(req.body.name, 40)
+      if (!name) return { reject: { status: 400, error: 'Bitte einen Namen eintragen.' } }
+      aufbau.name = name
+    }
+    if (req.body?.factor !== undefined) {
+      const faktor = faktorAus(req.body.factor)
+      if (faktor === null) {
+        return { reject: { status: 400, error: 'Der Faktor muss zwischen 0 und 5 liegen.' } }
+      }
+      aufbau.factor = faktor
+    }
     sichere('setups')
   })
 })
@@ -1174,6 +1332,9 @@ app.post('/api/component-types', auth, (req, res) => {
       emoji: text(req.body?.emoji, 4) || '🔧',
       color: text(req.body?.color, 20) || '#7c3aed',
       defaultLimitKm: Math.max(1, Math.round(Number(req.body?.defaultLimitKm) || 3000)),
+      // Wechsel- oder Wachsintervall: Kilometer, nach denen ein Teil im
+      // laufenden Einbau dran ist (0 = kein Intervall)
+      rotationKm: Math.max(0, Math.round(Number(req.body?.rotationKm) || 0)),
     })
     sichere('types')
   })
@@ -2064,6 +2225,9 @@ app.listen(PORT, '0.0.0.0', () => {
   }
   if (WAHOO_CONFIGURED && !WAHOO_WEBHOOK_TOKEN) {
     console.warn('[fahrradtracker] Ohne WAHOO_WEBHOOK_TOKEN werden Wahoo-Webhooks verworfen.')
+  }
+  if (!MAIL_CONFIGURED) {
+    console.warn('[fahrradtracker] Ohne SMTP_HOST/SMTP_FROM gehen keine Benachrichtigungen raus.')
   }
   if (ICU_CONFIGURED && !ICU_WEBHOOK_SECRET) {
     console.warn(

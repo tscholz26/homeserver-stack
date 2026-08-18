@@ -75,6 +75,7 @@ function initiale(text: string) {
           <RouterLink to="/" class="tab-link">Teile</RouterLink>
           <RouterLink to="/raeder" class="tab-link">Räder</RouterLink>
           <RouterLink to="/fahrten" class="tab-link">Fahrten</RouterLink>
+          <RouterLink to="/stats" class="tab-link">Stats</RouterLink>
           <RouterLink to="/verwaltung" class="tab-link" title="Verwaltung">
             <svg
               viewBox="0 0 24 24"

@@ -9,8 +9,8 @@ services:
     # Dateien heran.
     user: "1000:1000"
 
-    # Zugangsdaten der Quellen (Wahoo, optional Intervals.icu) und
-    # PUBLIC_URL – siehe .env.example
+    # Zugangsdaten der Quellen (Wahoo, optional Intervals.icu), der SMTP-Zugang
+    # für Benachrichtigungen und PUBLIC_URL – siehe .env.example
     env_file:
       - .env
 

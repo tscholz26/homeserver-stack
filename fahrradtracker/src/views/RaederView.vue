@@ -154,21 +154,50 @@ function kategorienAm(bike: Bike) {
       <!-- Aufbauten: dasselbe Rad draußen und auf der Rolle -->
       <p class="klein">Aufbauten</p>
       <ul class="aufbauten">
-        <li v-for="auf in store.aufbautenVon(bike.id)" :key="auf.id">
-          <span class="art" :class="auf.kind">{{ auf.kind === 'indoor' ? '🏠' : '🌤' }}</span>
-          <input
-            :value="auf.name"
-            @change="store.aufbauSpeichern(auf.id, ($event.target as HTMLInputElement).value)"
-          />
-          <button
-            v-if="auf.kind === 'indoor'"
-            type="button"
-            class="weg"
-            title="Aufbau löschen"
-            @click="store.aufbauLoeschen(auf.id)"
-          >
-            ✕
-          </button>
+        <li v-for="auf in store.aufbautenVon(bike.id)" :key="auf.id" class="aufbau">
+          <div class="aufbauzeile">
+            <span class="art" :class="auf.kind">{{ auf.kind === 'indoor' ? '🏠' : '🌤' }}</span>
+            <input
+              :value="auf.name"
+              @change="
+                store.aufbauSpeichern(auf.id, { name: ($event.target as HTMLInputElement).value })
+              "
+            />
+            <!-- Faktor: auf der Rolle verschleißt ein Kilometer anders als
+                 draußen. Wirkt sofort auf alle Fahrten, auch rückwirkend. -->
+            <input
+              class="faktor"
+              type="number"
+              min="0.05"
+              max="5"
+              step="0.05"
+              :value="auf.factor"
+              :title="`Verschleißfaktor von „${auf.name}“`"
+              @change="
+                store.aufbauSpeichern(auf.id, {
+                  factor: Number(($event.target as HTMLInputElement).value),
+                })
+              "
+            />
+            <button
+              v-if="auf.kind === 'indoor'"
+              type="button"
+              class="weg"
+              title="Aufbau löschen"
+              @click="store.aufbauLoeschen(auf.id)"
+            >
+              ✕
+            </button>
+          </div>
+          <p class="aufbaukm">
+            ×{{ auf.factor }} ·
+            <template v-if="auf.factor === 1">
+              {{ kmText(auf.gefahren) }} gefahren, zählt eins zu eins
+            </template>
+            <template v-else>
+              {{ kmText(auf.gefahren) }} gefahren → {{ kmText(auf.verschleiss) }} Verschleiß
+            </template>
+          </p>
         </li>
       </ul>
       <button
@@ -181,7 +210,9 @@ function kategorienAm(bike: Bike) {
       </button>
       <p class="fussnote">
         Fahrten drinnen zählen auf den Rollen-Aufbau. Welche Teile daran hängen, entscheidest du je
-        Teil – die Kette meist an beiden, die Kassette nur an einem.
+        Teil – die Kette meist an beiden, die Kassette nur an einem. Der Faktor rechts gewichtet den
+        Verschleiß: 0,95 heißt, 100 km auf der Rolle zählen als 95 km. Er wirkt sofort auf alle
+        Fahrten, auch auf die schon eingetragenen.
       </p>
 
       <!-- Teile dieses Rades, Einstieg wie auf dem Dashboard -->
@@ -379,10 +410,26 @@ input {
   gap: 0.35rem;
 }
 
-.aufbauten li {
+.aufbau {
+  padding-bottom: 0.15rem;
+}
+
+.aufbauzeile {
   display: flex;
   align-items: center;
   gap: 0.4rem;
+}
+
+.faktor {
+  flex: 0 0 4.4rem;
+  text-align: center;
+}
+
+.aufbaukm {
+  margin: 0.15rem 0 0 2.3rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
 .art {

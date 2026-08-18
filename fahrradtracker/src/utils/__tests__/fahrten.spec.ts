@@ -9,6 +9,7 @@ import {
   istRadfahrt,
   kmFuerRad,
   kmImZeitraum,
+  statistik,
   synchronisiereFenster,
   ueberschneidetSich,
   zuordner,
@@ -607,10 +608,9 @@ describe('CSV-Import', () => {
   })
 
   it('erkennt Jahr-Monat-Tag, wenn keine Zahl über 12 dagegen spricht', () => {
-    const { fahrten, datumsformat } = ausCsv(
-      [kopf, '1,"Tour",2026-03-08,"Ride",42'].join('\n'),
-      { ownerId: 'u1' },
-    )
+    const { fahrten, datumsformat } = ausCsv([kopf, '1,"Tour",2026-03-08,"Ride",42'].join('\n'), {
+      ownerId: 'u1',
+    })
     expect(datumsformat).toBe('Jahr-Monat-Tag')
     expect(fahrten[0].date).toBe('2026-03-08')
   })
@@ -659,5 +659,71 @@ describe('Gelöschte Fahrten bleiben gelöscht', () => {
     expect(e.rides[0].deleted).toBe(true)
     // Fortgeschrieben wird sie trotzdem, falls sie je zurückgeholt wird
     expect(e.rides[0].km).toBe(55)
+  })
+})
+
+describe('Verschleißfaktor je Aufbau', () => {
+  const bikes = [{ id: 'r1', ownerId: 'u1', name: 'Rad', from: '2026-01-01', to: null }]
+  const setups = [
+    { id: 'draussen', bikeId: 'r1', name: 'Draußen', kind: 'outdoor', factor: 1 },
+    // Auf der Rolle zählt ein Kilometer nur zu 95 %
+    { id: 'rolle', bikeId: 'r1', name: 'Rolle', kind: 'indoor', factor: 0.95 },
+  ]
+  const { loese } = zuordner(bikes, setups)
+  const fahrten = [
+    { id: '1', ownerId: 'u1', date: '2026-03-01', km: 100, indoor: false },
+    { id: '2', ownerId: 'u1', date: '2026-03-02', km: 100, indoor: true },
+  ].map(loese)
+
+  it('gewichtet die Kilometer der Rolle', () => {
+    expect(fahrten[0]).toMatchObject({ km: 100, verschleissKm: 100, faktor: 1 })
+    expect(fahrten[1]).toMatchObject({ km: 100, verschleissKm: 95, faktor: 0.95 })
+  })
+
+  it('rechnet den Verschleiß eines geteilten Teils mit beiden Faktoren', () => {
+    expect(kmImZeitraum(['draussen', 'rolle'], fahrten, '2026-01-01', '2026-12-31')).toBe(195)
+  })
+
+  it('lässt die gefahrene Strecke des Rades unangetastet', () => {
+    expect(kmFuerRad('r1', fahrten)).toBe(200)
+  })
+
+  it('nimmt 1, wenn kein Faktor gesetzt ist', () => {
+    const ohne = zuordner(bikes, [{ id: 'draussen', bikeId: 'r1', kind: 'outdoor' }])
+    expect(ohne.loese({ ownerId: 'u1', date: '2026-03-01', km: 80, indoor: false }).verschleissKm).toBe(80)
+  })
+})
+
+describe('Statistik', () => {
+  const fahrten = [
+    { date: '2026-08-16', km: 170.6, indoor: false, bikeId: 'r1', name: 'Lange Tour' },
+    { date: '2026-08-02', km: 40, indoor: true, bikeId: 'r1', name: 'Rolle' },
+    { date: '2026-06-01', km: 60, indoor: false, bikeId: 'r1', name: 'Juni' },
+    { date: '2025-12-24', km: 20, indoor: true, bikeId: 'r1', name: 'Weihnachten' },
+  ]
+  const bikes = [{ id: 'r1', name: 'Scott' }]
+
+  it('summiert drinnen und draußen getrennt', () => {
+    const s = statistik(fahrten, { bikes, heute: '2026-08-18' })
+    expect(s.km).toBe(290.6)
+    expect(s.indoorKm).toBe(60)
+    expect(s.outdoorKm).toBe(230.6)
+    expect(s.schnitt).toBe(72.7)
+  })
+
+  it('füllt Monate ohne Fahrt auf, statt sie zu überspringen', () => {
+    const s = statistik(fahrten, { bikes, heute: '2026-08-18' })
+    expect(s.monate[0].monat).toBe('2025-12')
+    expect(s.monate.at(-1)!.monat).toBe('2026-08')
+    // Januar bis Mai 2026 sind leer, müssen aber in der Reihe stehen
+    expect(s.monate).toHaveLength(9)
+    expect(s.monate.find((m: { monat: string }) => m.monat === '2026-03')!.km).toBe(0)
+  })
+
+  it('zählt Jahre, Räder und die längsten Fahrten', () => {
+    const s = statistik(fahrten, { bikes, heute: '2026-08-18' })
+    expect(s.jahre.map((j: { jahr: string }) => j.jahr)).toEqual(['2025', '2026'])
+    expect(s.raeder[0]).toMatchObject({ name: 'Scott', km: 290.6, fahrten: 4 })
+    expect(s.laengste[0].km).toBe(170.6)
   })
 })

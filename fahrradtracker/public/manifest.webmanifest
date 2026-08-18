@@ -1,0 +1,19 @@
+{
+  "name": "Fahrradtracker",
+  "short_name": "Verschleiß",
+  "description": "Kilometer der Verschleißteile am Rad",
+  "start_url": "/fahrrad/",
+  "scope": "/fahrrad/",
+  "display": "standalone",
+  "background_color": "#fbf9f5",
+  "theme_color": "#fbf9f5",
+  "lang": "de",
+  "icons": [
+    {
+      "src": "/fahrrad/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

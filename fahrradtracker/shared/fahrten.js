@@ -179,6 +179,16 @@ export function ueberschneidetSich(a, b) {
  * Nichts davon wird gespeichert – wer einen Nutzungszeitraum korrigiert,
  * verschiebt damit sofort alle betroffenen Fahrten.
  */
+/**
+ * Wie stark eine Fahrt an diesem Aufbau zählt. Auf der Rolle verschleißt eine
+ * Stunde nicht dasselbe wie draußen – kein Dreck, keine Nässe, gleichmäßiger
+ * Tritt –, deshalb bekommt jeder Aufbau einen Faktor. 1 heißt: eins zu eins.
+ */
+export function faktorVon(aufbau) {
+  const wert = Number(aufbau?.factor)
+  return Number.isFinite(wert) && wert > 0 ? wert : 1
+}
+
 export function zuordner(bikes, setups) {
   function rad(fahrt) {
     if (fahrt.override?.bikeId) {
@@ -206,11 +216,18 @@ export function zuordner(bikes, setups) {
     // Antwort auf Fahrten, für die der Anbieter keine Kilometer kennt, und
     // überlebt jeden weiteren Sync.
     const korrigiert = typeof fahrt.kmOverride === 'number' && fahrt.kmOverride >= 0
+    const km = korrigiert ? fahrt.kmOverride : Number(fahrt.km) || 0
+    // Gefahren wurde, was auf der Uhr steht; für den Verschleiß zählt es mit
+    // dem Faktor des Aufbaus – auf der Rolle nutzt sich weniger ab als
+    // draußen im Dreck.
+    const faktor = faktorVon(aufbauDazu)
     return {
       ...fahrt,
-      km: korrigiert ? fahrt.kmOverride : Number(fahrt.km) || 0,
+      km,
       kmGemeldet: Number(fahrt.km) || 0,
       kmKorrigiert: korrigiert,
+      faktor,
+      verschleissKm: Math.round(km * faktor * 100) / 100,
       bikeId: radDazu?.id ?? null,
       bikeName: radDazu?.name ?? '',
       setupId: aufbauDazu?.id ?? null,
@@ -236,17 +253,37 @@ export function kmImZeitraum(setupIds, fahrten, von, bis) {
   for (const f of fahrten) {
     if (!f.setupId || !setupIds.includes(f.setupId)) continue
     if (f.date < von || f.date > bis) continue
-    summe += Number(f.km) || 0
+    // `verschleissKm` ist die gefahrene Strecke mal dem Faktor des Aufbaus
+    summe += Number(f.verschleissKm ?? f.km) || 0
   }
   return Math.round(summe * 10) / 10
 }
 
-/** Gesamtkilometer eines Rades – über alle seine Aufbauten. */
+/**
+ * Gesamtkilometer eines Rades – über alle seine Aufbauten. Hier zählt die
+ * gefahrene Strecke, nicht die gewichtete: Die Frage „wie weit bin ich damit
+ * gefahren“ hat mit Verschleiß nichts zu tun.
+ */
 export function kmFuerRad(bikeId, fahrten) {
   const summe = fahrten
     .filter((f) => f.bikeId === bikeId)
     .reduce((s, f) => s + (Number(f.km) || 0), 0)
   return Math.round(summe * 10) / 10
+}
+
+/** Was ein Aufbau beigetragen hat – gefahren und gewichtet. */
+export function kmFuerAufbau(setupId, fahrten) {
+  let gefahren = 0
+  let verschleiss = 0
+  for (const f of fahrten) {
+    if (f.setupId !== setupId) continue
+    gefahren += Number(f.km) || 0
+    verschleiss += Number(f.verschleissKm ?? f.km) || 0
+  }
+  return {
+    gefahren: Math.round(gefahren * 10) / 10,
+    verschleiss: Math.round(verschleiss * 10) / 10,
+  }
 }
 
 /**
@@ -508,4 +545,126 @@ export function ausCsv(text, { bis = '', ownerId = '' } = {}) {
   const datumsformat = format === 'jahr-tag-monat' ? 'Jahr-Tag-Monat' : 'Jahr-Monat-Tag'
 
   return { fahrten, ignoriert, verdaechtig, datumsformat, fehler: '' }
+}
+
+// ── Statistik ────────────────────────────────────────────────────────────────
+
+/** Kalenderwoche nach ISO – Montag als erster Tag. */
+function isoWoche(datum) {
+  const d = new Date(`${datum}T00:00:00Z`)
+  const tag = (d.getUTCDay() + 6) % 7
+  d.setUTCDate(d.getUTCDate() - tag + 3)
+  const ersterDonnerstag = new Date(Date.UTC(d.getUTCFullYear(), 0, 4))
+  const versatz = (ersterDonnerstag.getUTCDay() + 6) % 7
+  ersterDonnerstag.setUTCDate(ersterDonnerstag.getUTCDate() - versatz + 3)
+  const woche = 1 + Math.round((d - ersterDonnerstag) / (7 * 86400000))
+  return `${d.getUTCFullYear()}-W${String(woche).padStart(2, '0')}`
+}
+
+function runde(n) {
+  return Math.round(n * 10) / 10
+}
+
+/**
+ * Alles, was das Kilometer-Dashboard zeigt – einmal im Server gerechnet, damit
+ * der Browser nicht die ganze Fahrtenliste braucht.
+ *
+ * Gezählt wird die gefahrene Strecke, nicht die für den Verschleiß gewichtete:
+ * „Wie viel bin ich gefahren“ ist eine andere Frage als „wie sehr hat es die
+ * Kette mitgenommen“.
+ */
+export function statistik(fahrten, { bikes = [], heute = '' } = {}) {
+  const jahre = new Map()
+  const monate = new Map()
+  const wochen = new Map()
+  const raeder = new Map()
+  let km = 0
+  let indoorKm = 0
+
+  for (const f of fahrten) {
+    const wert = Number(f.km) || 0
+    km += wert
+    if (f.indoor) indoorKm += wert
+
+    const jahr = f.date.slice(0, 4)
+    const monat = f.date.slice(0, 7)
+    const woche = isoWoche(f.date)
+    for (const [karte, schluessel] of [
+      [jahre, jahr],
+      [monate, monat],
+      [wochen, woche],
+    ]) {
+      const eintrag = karte.get(schluessel) ?? { km: 0, indoorKm: 0, fahrten: 0 }
+      eintrag.km += wert
+      eintrag.fahrten += 1
+      if (f.indoor) eintrag.indoorKm += wert
+      karte.set(schluessel, eintrag)
+    }
+    if (f.bikeId) {
+      const eintrag = raeder.get(f.bikeId) ?? { km: 0, fahrten: 0 }
+      eintrag.km += wert
+      eintrag.fahrten += 1
+      raeder.set(f.bikeId, eintrag)
+    }
+  }
+
+  const alsListe = (karte, feld) =>
+    [...karte.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([schluessel, e]) => ({
+        [feld]: schluessel,
+        km: runde(e.km),
+        indoorKm: runde(e.indoorKm),
+        outdoorKm: runde(e.km - e.indoorKm),
+        fahrten: e.fahrten,
+      }))
+
+  // Lückenlose Monatsreihe: ein Monat ohne Fahrt ist eine Aussage, kein Loch
+  const monatsListe = alsListe(monate, 'monat')
+  const gefuellt = []
+  if (monatsListe.length) {
+    const [ersterJahr, ersterMonat] = monatsListe[0].monat.split('-').map(Number)
+    const bis = (heute || monatsListe.at(-1).monat).slice(0, 7)
+    let jahr = ersterJahr
+    let monat = ersterMonat
+    for (let i = 0; i < 240; i += 1) {
+      const schluessel = `${jahr}-${String(monat).padStart(2, '0')}`
+      gefuellt.push(
+        monatsListe.find((m) => m.monat === schluessel) ?? {
+          monat: schluessel,
+          km: 0,
+          indoorKm: 0,
+          outdoorKm: 0,
+          fahrten: 0,
+        },
+      )
+      if (schluessel >= bis) break
+      monat += 1
+      if (monat > 12) {
+        monat = 1
+        jahr += 1
+      }
+    }
+  }
+
+  const laengste = [...fahrten]
+    .sort((a, b) => (Number(b.km) || 0) - (Number(a.km) || 0))
+    .slice(0, 5)
+    .map((f) => ({ date: f.date, name: f.name, km: runde(Number(f.km) || 0), indoor: f.indoor }))
+
+  return {
+    km: runde(km),
+    fahrten: fahrten.length,
+    indoorKm: runde(indoorKm),
+    outdoorKm: runde(km - indoorKm),
+    schnitt: fahrten.length ? runde(km / fahrten.length) : 0,
+    jahre: alsListe(jahre, 'jahr'),
+    monate: gefuellt,
+    wochen: alsListe(wochen, 'woche').slice(-16),
+    raeder: bikes
+      .map((b) => ({ id: b.id, name: b.name, ...(raeder.get(b.id) ?? { km: 0, fahrten: 0 }) }))
+      .map((r) => ({ ...r, km: runde(r.km) }))
+      .sort((a, b) => b.km - a.km),
+    laengste,
+  }
 }

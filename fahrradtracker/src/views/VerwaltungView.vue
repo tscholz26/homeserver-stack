@@ -36,7 +36,7 @@ const quellen = computed(() => [
 ])
 
 // ── Kategorien ───────────────────────────────────────────────────────────────
-const neueKategorie = ref({ name: '', emoji: '🔧', defaultLimitKm: '3000' })
+const neueKategorie = ref({ name: '', emoji: '🔧', defaultLimitKm: '3000', rotationKm: '0' })
 
 async function kategorieAnlegen() {
   if (!neueKategorie.value.name.trim()) return
@@ -44,12 +44,9 @@ async function kategorieAnlegen() {
     name: neueKategorie.value.name.trim(),
     emoji: neueKategorie.value.emoji,
     defaultLimitKm: Number(neueKategorie.value.defaultLimitKm) || 3000,
+    rotationKm: Number(neueKategorie.value.rotationKm) || 0,
   })
-  if (ok) neueKategorie.value = { name: '', emoji: '🔧', defaultLimitKm: '3000' }
-}
-
-function teileZuKategorie(typeId: string) {
-  return store.state.components.filter((c) => c.typeId === typeId).length
+  if (ok) neueKategorie.value = { name: '', emoji: '🔧', defaultLimitKm: '3000', rotationKm: '0' }
 }
 
 // ── Ampel ────────────────────────────────────────────────────────────────────
@@ -62,6 +59,7 @@ function schwellenSpeichern() {
 
 // ── Profil ───────────────────────────────────────────────────────────────────
 const meinName = ref(store.state.me?.name ?? '')
+const meineMail = ref(store.state.me?.notifyEmail ?? '')
 const altePin = ref('')
 const neuePin = ref('')
 
@@ -100,7 +98,9 @@ const FARBEN = ['#7c3aed', '#0891b2', '#c2740a', '#15803d', '#be185d', '#4338ca'
       <h2>Kategorien und Standard-Grenzen</h2>
       <p class="hinweis">
         Der Standard gilt überall dort, wo weder das Rad noch das einzelne Teil einen eigenen Wert
-        hat.
+        hat. Die zweite Zahl ist das <strong>Wechselintervall</strong>: Kilometer seit dem
+        Aufziehen, nach denen ein Teil dran ist – für Ketten, die im Wechsel gefahren und gewachst
+        werden. 0 heißt: kein Intervall.
       </p>
 
       <ul class="liste">
@@ -128,9 +128,25 @@ const FARBEN = ['#7c3aed', '#0891b2', '#c2740a', '#15803d', '#be185d', '#4338ca'
             step="100"
             :value="typ.defaultLimitKm"
             aria-label="Standard-Grenzwert in km"
+            title="Verschleißgrenze"
             @change="
               store.kategorieSpeichern(typ.id, {
                 defaultLimitKm: Number(($event.target as HTMLInputElement).value),
+              })
+            "
+          />
+          <input
+            class="zahl"
+            type="number"
+            inputmode="numeric"
+            min="0"
+            step="50"
+            :value="typ.rotationKm ?? 0"
+            aria-label="Wechselintervall in km"
+            title="Wechselintervall – 0 heißt keins"
+            @change="
+              store.kategorieSpeichern(typ.id, {
+                rotationKm: Number(($event.target as HTMLInputElement).value),
               })
             "
           />
@@ -158,6 +174,16 @@ const FARBEN = ['#7c3aed', '#0891b2', '#c2740a', '#15803d', '#be185d', '#4338ca'
           min="1"
           step="100"
           aria-label="Grenzwert in km"
+          title="Verschleißgrenze"
+        />
+        <input
+          v-model="neueKategorie.rotationKm"
+          class="zahl"
+          type="number"
+          min="0"
+          step="50"
+          aria-label="Wechselintervall in km"
+          title="Wechselintervall – 0 heißt keins"
         />
         <button type="submit" class="primaer">Anlegen →</button>
       </form>
@@ -289,6 +315,41 @@ const FARBEN = ['#7c3aed', '#0891b2', '#c2740a', '#15803d', '#be185d', '#4338ca'
         </label>
         <span class="einheit">%</span>
       </div>
+
+      <p class="cap zwischen">Benachrichtigungen</p>
+      <h2>E-Mail bei fälligen Teilen</h2>
+      <p v-if="!store.state.mailConfigured" class="warnbox">
+        Auf dem Server fehlen die SMTP-Zugangsdaten – bis die eingetragen sind, geht nichts raus.
+      </p>
+      <p class="hinweis">
+        Geschickt wird, wenn ein Teil das Wechselintervall erreicht (Kette wachsen), wenn es auf
+        <strong>gelb</strong> springt und wenn es <strong>rot</strong> wird. Jede Meldung kommt
+        einmal je Einbau – nach dem Wechsel fängt es von vorn an. Feld leeren schaltet ab.
+      </p>
+      <div class="profilzeile">
+        <input
+          v-model="meineMail"
+          type="email"
+          inputmode="email"
+          placeholder="name@example.org"
+          aria-label="E-Mail für Benachrichtigungen"
+        />
+        <button
+          type="button"
+          class="still"
+          @click="store.profilSpeichern({ notifyEmail: meineMail })"
+        >
+          Speichern
+        </button>
+      </div>
+      <button
+        type="button"
+        class="still schmal"
+        :disabled="!store.state.me?.notifyEmail || !store.state.mailConfigured"
+        @click="store.probeMail()"
+      >
+        Probemail schicken
+      </button>
 
       <p class="cap zwischen">Dein Profil</p>
       <h2>Name, Farbe und PIN</h2>
@@ -532,6 +593,11 @@ textarea {
 .gefahr {
   border-color: color-mix(in srgb, var(--red) 30%, transparent);
   color: var(--red);
+}
+
+.schmal {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
 }
 
 .gefahr:disabled,

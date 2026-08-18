@@ -26,6 +26,8 @@ export interface Profil {
   connections: { wahoo: Verbindung | null; intervals: Verbindung | null }
   activeProvider: Anbieter | ''
   hasQuelle: boolean
+  /** Wohin Benachrichtigungen gehen; leer = keine */
+  notifyEmail?: string
   lastSyncAt?: string
   lastSyncError?: string
   needsReconnect?: boolean
@@ -52,6 +54,11 @@ export interface Aufbau {
   bikeId: string
   name: string
   kind: 'outdoor' | 'indoor'
+  /** Wie stark eine Fahrt hier auf den Verschleiß zählt; 1 = eins zu eins */
+  factor: number
+  /** Vom Server gerechnet: gefahren und daraus gewichtet */
+  gefahren: number
+  verschleiss: number
 }
 
 export interface Fahrt {
@@ -80,6 +87,9 @@ export interface Fahrt {
   setupId: string | null
   setupName: string
   unassigned: boolean
+  /** Faktor des Aufbaus und die daraus gewichteten Kilometer */
+  faktor: number
+  verschleissKm: number
   /** Was der Anbieter gemeldet hat, vor einer Korrektur von Hand */
   kmGemeldet: number
   kmKorrigiert: boolean
@@ -91,6 +101,8 @@ export interface Kategorie {
   emoji: string
   color: string
   defaultLimitKm: number
+  /** Kilometer bis zum nächsten Wechsel im laufenden Einbau (0 = kein Intervall) */
+  rotationKm: number
 }
 
 export interface Zeitraum {
@@ -118,6 +130,11 @@ export interface Teil {
   limitKm: number
   limitQuelle: 'instanz' | 'rad' | 'standard'
   percent: number
+  /** Kilometer seit dem letzten Aufziehen */
+  currentKm: number
+  /** Wechselintervall der Kategorie und ob es erreicht ist */
+  rotationKm: number
+  rotationFaellig: boolean
 }
 
 /** Bericht eines CSV-Imports – erst als Vorschau, dann als Ergebnis. */
@@ -142,6 +159,20 @@ export type RadDaten = {
   to?: string | null
 }
 
+/** Vom Server gerechnet – Grundlage des Kilometer-Dashboards. */
+export interface Stats {
+  km: number
+  fahrten: number
+  indoorKm: number
+  outdoorKm: number
+  schnitt: number
+  jahre: { jahr: string; km: number; indoorKm: number; outdoorKm: number; fahrten: number }[]
+  monate: { monat: string; km: number; indoorKm: number; outdoorKm: number; fahrten: number }[]
+  wochen: { woche: string; km: number; indoorKm: number; outdoorKm: number; fahrten: number }[]
+  raeder: { id: string; name: string; km: number; fahrten: number }[]
+  laengste: { date: string; name: string; km: number; indoor: boolean }[]
+}
+
 export interface AppState {
   me: Profil | null
   users: Profil[]
@@ -150,9 +181,12 @@ export interface AppState {
   componentTypes: Kategorie[]
   components: Teil[]
   rides: Fahrt[]
+  stats: Stats
   settings: { thresholds: Thresholds; syncIntervalHours: number }
   wahooConfigured: boolean
   intervalsConfigured: boolean
+  /** Ob der Server überhaupt Mails verschicken kann */
+  mailConfigured: boolean
   /** Fahrten gesamt; `rides` enthält nur die letzten `fahrtenFenster` */
   fahrten: number
   fahrtenFenster: number
@@ -183,9 +217,22 @@ function createStore() {
     components: [],
     setups: [],
     rides: [],
+    stats: {
+      km: 0,
+      fahrten: 0,
+      indoorKm: 0,
+      outdoorKm: 0,
+      schnitt: 0,
+      jahre: [],
+      monate: [],
+      wochen: [],
+      raeder: [],
+      laengste: [],
+    },
     settings: { thresholds: { yellow: 70, red: 100 }, syncIntervalHours: 3 },
     wahooConfigured: true,
     intervalsConfigured: true,
+    mailConfigured: false,
     fahrten: 0,
     fahrtenFenster: 300,
     ohneZuordnung: 0,
@@ -321,8 +368,15 @@ function createStore() {
     return aendern('/profile/pin', 'PUT', { alt, pin })
   }
 
-  function profilSpeichern(changes: { name?: string; color?: string }) {
+  function profilSpeichern(changes: { name?: string; color?: string; notifyEmail?: string }) {
     return aendern('/profile', 'PUT', changes)
+  }
+
+  /** Probemail an die hinterlegte Adresse. */
+  async function probeMail() {
+    const daten = await api<{ ok: boolean }>('/notify/test', 'POST')
+    if (daten?.ok) hinweis.value = 'Probemail ist raus – schau in dein Postfach.'
+    return Boolean(daten?.ok)
   }
 
   // ── Räder ──────────────────────────────────────────────────────────────────
@@ -339,8 +393,8 @@ function createStore() {
     return aendern(`/bikes/${bikeId}/setups`, 'POST', { kind, name })
   }
 
-  function aufbauSpeichern(setupId: string, name: string) {
-    return aendern(`/setups/${setupId}`, 'PUT', { name })
+  function aufbauSpeichern(setupId: string, changes: { name?: string; factor?: number }) {
+    return aendern(`/setups/${setupId}`, 'PUT', changes)
   }
 
   function aufbauLoeschen(setupId: string) {
@@ -613,6 +667,7 @@ function createStore() {
     abmelden,
     pinAendern,
     profilSpeichern,
+    probeMail,
     radAnlegen,
     radSpeichern,
     radLoeschen,

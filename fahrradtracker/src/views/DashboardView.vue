@@ -120,6 +120,21 @@ function oeffne(bike: Bike, typ: Kategorie) {
             </template>
             <template v-else>kein Teil eingebaut</template>
           </p>
+
+          <!-- Wechselintervall: bei Ketten im Rotationsbetrieb das, was
+               häufiger dran ist als die Verschleißgrenze -->
+          <p
+            v-if="k.aktiv?.rotationKm"
+            class="wechsel"
+            :class="{ faellig: k.aktiv.rotationFaellig }"
+          >
+            <template v-if="k.aktiv.rotationFaellig">
+              ⚠ wechseln – {{ kmText(k.aktiv.currentKm) }} seit dem Aufziehen
+            </template>
+            <template v-else>
+              {{ kmText(k.aktiv.currentKm) }} / {{ kmText(k.aktiv.rotationKm) }} bis zum Wechsel
+            </template>
+          </p>
           <p class="aktuell">
             <template v-if="k.aktiv">
               aktuell: {{ k.aktiv.label }}
@@ -293,6 +308,21 @@ h3 {
   margin: 0;
   color: var(--muted);
   font-size: 0.78rem;
+}
+
+.wechsel {
+  margin: 0;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cyan) 10%, white);
+  color: var(--cyan);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.wechsel.faellig {
+  background: color-mix(in srgb, var(--amber) 16%, white);
+  color: var(--amber);
 }
 
 .neu {

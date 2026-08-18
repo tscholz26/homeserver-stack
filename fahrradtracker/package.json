@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "express": "^5.2.1",
+    "nodemailer": "^9.0.5",
     "vue": "^3.5.40",
     "vue-router": "^5.2.0"
   },
