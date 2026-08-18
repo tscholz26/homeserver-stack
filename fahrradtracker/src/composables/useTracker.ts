@@ -7,17 +7,20 @@ export interface Profil {
   id: string
   name: string
   color: string
-  hasStrava: boolean
+  hasWahoo: boolean
   athleteName?: string
   lastSyncAt?: string
   lastSyncError?: string
+  /** Zugriff zurückgezogen oder Token verfallen – hilft nur neu verbinden */
+  needsReconnect?: boolean
 }
 
 export interface Bike {
   id: string
   ownerId: string
   name: string
-  stravaGearId: string | null
+  /** Die Wahoo-Sportarten, deren Fahrten auf dieses Rad gehen */
+  workoutTypeIds: number[]
   /** Grenzwerte für dieses Rad je Kategorie – schlägt den Standard der Kategorie */
   limits: Record<string, number>
 }
@@ -54,6 +57,20 @@ export interface Teil {
   percent: number
 }
 
+/** Eine Wahoo-Sportart, die sich einem Rad zuteilen lässt. */
+export interface WorkoutType {
+  id: number
+  name: string
+}
+
+/** Fahrten, deren Sportart an keinem Rad hängt – die zählen nirgends mit. */
+export interface Luecke {
+  workoutTypeId: number
+  name: string
+  anzahl: number
+  km: number
+}
+
 export interface AppState {
   me: Profil | null
   users: Profil[]
@@ -61,16 +78,10 @@ export interface AppState {
   componentTypes: Kategorie[]
   components: Teil[]
   settings: { thresholds: Thresholds; syncIntervalHours: number }
-  stravaConfigured: boolean
+  wahooConfigured: boolean
+  workoutTypes: WorkoutType[]
   fahrten: number
-  ohneGear: number
-  unbekanntesGear: number
-}
-
-export interface Gear {
-  id: string
-  name: string
-  km: number
+  ohneZuordnung: Luecke[]
 }
 
 const TOKEN_KEY = 'fahrrad:token'
@@ -85,7 +96,7 @@ function createStore() {
   const hinweis = ref('')
   /** Profile für den Auswahlschirm – das Einzige, was es ohne Sitzung gibt. */
   const profiles = ref<Profil[]>([])
-  const stravaConfigured = ref(true)
+  const wahooConfigured = ref(true)
   const token = ref(localStorage.getItem(TOKEN_KEY) ?? '')
 
   const state = reactive<AppState>({
@@ -95,10 +106,10 @@ function createStore() {
     componentTypes: [],
     components: [],
     settings: { thresholds: { yellow: 70, red: 100 }, syncIntervalHours: 3 },
-    stravaConfigured: true,
+    wahooConfigured: true,
+    workoutTypes: [],
     fahrten: 0,
-    ohneGear: 0,
-    unbekanntesGear: 0,
+    ohneZuordnung: [],
   })
 
   const angemeldet = computed(() => state.me !== null)
@@ -106,7 +117,7 @@ function createStore() {
   function uebernehmen(daten: AppState | null) {
     if (!daten?.me) return
     Object.assign(state, daten)
-    stravaConfigured.value = daten.stravaConfigured
+    wahooConfigured.value = daten.wahooConfigured
   }
 
   function abmeldenLokal() {
@@ -159,10 +170,10 @@ function createStore() {
   }
 
   async function ladeProfile() {
-    const daten = await api<{ profiles: Profil[]; stravaConfigured: boolean }>('/profiles')
+    const daten = await api<{ profiles: Profil[]; wahooConfigured: boolean }>('/profiles')
     if (daten) {
       profiles.value = daten.profiles
-      stravaConfigured.value = daten.stravaConfigured
+      wahooConfigured.value = daten.wahooConfigured
     }
   }
 
@@ -182,7 +193,7 @@ function createStore() {
   // Es gibt keinen Live-Sync wie bei der Einkaufsliste: hier ändert selten
   // jemand etwas, während ein anderer zuschaut. Ein frischer Stand beim
   // Zurückkommen auf die Seite reicht – und die Kilometer wachsen ohnehin nur
-  // im Takt des Strava-Syncs.
+  // im Takt der Fahrten, die Wahoo meldet.
   if (typeof window !== 'undefined') {
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible' && angemeldet.value) refresh()
@@ -230,11 +241,11 @@ function createStore() {
   }
 
   // ── Räder ──────────────────────────────────────────────────────────────────
-  function radAnlegen(name: string, stravaGearId: string | null) {
-    return aendern('/bikes', 'POST', { name, stravaGearId })
+  function radAnlegen(name: string, workoutTypeIds: number[]) {
+    return aendern('/bikes', 'POST', { name, workoutTypeIds })
   }
 
-  function radSpeichern(id: string, changes: { name?: string; stravaGearId?: string | null }) {
+  function radSpeichern(id: string, changes: { name?: string; workoutTypeIds?: number[] }) {
     return aendern(`/bikes/${id}`, 'PUT', changes)
   }
 
@@ -315,20 +326,20 @@ function createStore() {
     return aendern('/settings/thresholds', 'PUT', { yellow, red })
   }
 
-  // ── Strava ─────────────────────────────────────────────────────────────────
-  /** Schickt den Browser zu Strava; von dort kommt er auf /?strava=… zurück. */
-  async function stravaVerbinden() {
-    const daten = await api<{ url: string }>('/strava/authorize')
+  // ── Wahoo ──────────────────────────────────────────────────────────────────
+  /** Schickt den Browser zu Wahoo; von dort kommt er auf /?wahoo=… zurück. */
+  async function wahooVerbinden() {
+    const daten = await api<{ url: string }>('/wahoo/authorize')
     if (daten?.url) window.location.href = daten.url
   }
 
-  function stravaTrennen() {
-    return aendern('/strava', 'DELETE')
+  function wahooTrennen() {
+    return aendern('/wahoo', 'DELETE')
   }
 
-  async function stravaSync() {
+  async function wahooSync() {
     const daten = await api<{ neu: number; geaendert: number; state: AppState }>(
-      '/strava/sync',
+      '/wahoo/sync',
       'POST',
     )
     if (!daten) return false
@@ -337,11 +348,6 @@ function createStore() {
       ? `${daten.neu} neue Fahrten geholt.`
       : 'Alles auf Stand – keine neuen Fahrten.'
     return true
-  }
-
-  async function stravaGear(): Promise<Gear[]> {
-    const daten = await api<{ gear: Gear[] }>('/strava/gear')
-    return daten?.gear ?? []
   }
 
   // ── Ableitungen fürs Dashboard ─────────────────────────────────────────────
@@ -392,12 +398,17 @@ function createStore() {
     return bike.limits?.[typeId] ?? kategorie(typeId)?.defaultLimitKm ?? 0
   }
 
+  /** Name einer Wahoo-Sportart, für die Anzeige am Rad. */
+  function typName(id: number) {
+    return state.workoutTypes.find((t) => t.id === id)?.name ?? `Typ ${id}`
+  }
+
   return {
     loading,
     error,
     hinweis,
     profiles,
-    stravaConfigured,
+    wahooConfigured,
     state,
     angemeldet,
     refresh,
@@ -423,10 +434,9 @@ function createStore() {
     zeitraumSpeichern,
     zeitraumLoeschen,
     schwellenSpeichern,
-    stravaVerbinden,
-    stravaTrennen,
-    stravaSync,
-    stravaGear,
+    wahooVerbinden,
+    wahooTrennen,
+    wahooSync,
     filter,
     setzeFilter,
     sichtbareRaeder,
@@ -437,6 +447,7 @@ function createStore() {
     aktivesTeil,
     kategorienAm,
     radGrenze,
+    typName,
   }
 }
 

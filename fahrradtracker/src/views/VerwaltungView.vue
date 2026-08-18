@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useTracker } from '@/composables/useTracker'
-import type { Gear } from '@/composables/useTracker'
+import type { Bike } from '@/composables/useTracker'
 import { datumText, kmText } from '@/utils/verschleiss'
 
 /**
@@ -11,7 +11,7 @@ import { datumText, kmText } from '@/utils/verschleiss'
  */
 const store = useTracker()
 
-type Reiter = 'raeder' | 'kategorien' | 'strava' | 'einstellungen'
+type Reiter = 'raeder' | 'kategorien' | 'wahoo' | 'einstellungen'
 const reiter = ref<Reiter>('raeder')
 
 const meineRaeder = computed(() =>
@@ -22,33 +22,31 @@ const fremdeRaeder = computed(() =>
 )
 
 // ── Räder ────────────────────────────────────────────────────────────────────
-const gear = ref<Gear[]>([])
-const gearLaedt = ref(false)
 const neuesRad = ref('')
-const neuesGear = ref('')
-
-/** Die Gear-Liste kommt live von Strava – ohne Verbindung bleibt sie leer. */
-async function ladeGear() {
-  if (!store.state.me?.hasStrava || gearLaedt.value) return
-  gearLaedt.value = true
-  gear.value = await store.stravaGear()
-  gearLaedt.value = false
-}
-
-onMounted(ladeGear)
 
 async function radAnlegen() {
   if (!neuesRad.value.trim()) return
-  const ok = await store.radAnlegen(neuesRad.value.trim(), neuesGear.value || null)
-  if (ok) {
-    neuesRad.value = ''
-    neuesGear.value = ''
-  }
+  const ok = await store.radAnlegen(neuesRad.value.trim(), [])
+  if (ok) neuesRad.value = ''
 }
 
-function gearName(id: string | null) {
-  if (!id) return ''
-  return gear.value.find((g) => g.id === id)?.name ?? id
+/**
+ * Wahoo liefert keine Ausrüstung zur Fahrt, deshalb entscheidet die Sportart,
+ * auf welches Rad eine Fahrt geht. Ein Tipp auf die Pille teilt sie zu oder
+ * nimmt sie wieder weg – der Server sorgt dafür, dass sie danach nur an einem
+ * Rad hängt.
+ */
+function typUmschalten(bike: Bike, typeId: number) {
+  const da = bike.workoutTypeIds.includes(typeId)
+  const neu = da
+    ? bike.workoutTypeIds.filter((id) => id !== typeId)
+    : [...bike.workoutTypeIds, typeId]
+  return store.radSpeichern(bike.id, { workoutTypeIds: neu })
+}
+
+/** An welchem anderen Rad diese Sportart gerade hängt – für den Hinweis. */
+function haengtAn(bike: Bike, typeId: number) {
+  return meineRaeder.value.find((b) => b.id !== bike.id && b.workoutTypeIds.includes(typeId))
 }
 
 // ── Kategorien ───────────────────────────────────────────────────────────────
@@ -98,7 +96,7 @@ const FARBEN = ['#7c3aed', '#0891b2', '#c2740a', '#15803d', '#be185d', '#4338ca'
         v-for="r in [
           { id: 'raeder', label: 'Räder' },
           { id: 'kategorien', label: 'Kategorien' },
-          { id: 'strava', label: 'Strava' },
+          { id: 'wahoo', label: 'Wahoo' },
           { id: 'einstellungen', label: 'Einstellungen' },
         ]"
         :key="r.id"
@@ -114,48 +112,51 @@ const FARBEN = ['#7c3aed', '#0891b2', '#c2740a', '#15803d', '#be185d', '#4338ca'
     <!-- ── Räder ─────────────────────────────────────────────────────────── -->
     <section v-if="reiter === 'raeder'" class="block card">
       <p class="cap">Deine Räder</p>
-      <h2>Rad und Strava-Gear</h2>
+      <h2>Rad und Sportarten</h2>
       <p class="hinweis">
-        Die Fahrten kommen über die Gear-ID ans Rad: In Strava jedes Rad als „Gear“ pflegen und der
-        Fahrt zuordnen, hier verknüpfen.
+        Wahoo hängt an eine Fahrt kein Rad – deshalb entscheidet die Sportart, wohin die Kilometer
+        gehen. Jede Sportart gehört zu genau einem Rad; teilst du sie neu zu, verliert das andere
+        Rad sie.
       </p>
 
-      <ul class="liste">
+      <ul class="liste raeder">
         <li v-for="bike in meineRaeder" :key="bike.id">
-          <input
-            :value="bike.name"
-            aria-label="Name des Rades"
-            @change="
-              store.radSpeichern(bike.id, { name: ($event.target as HTMLInputElement).value })
-            "
-          />
-          <select
-            v-if="gear.length"
-            :value="bike.stravaGearId ?? ''"
-            aria-label="Strava-Gear"
-            @change="
-              store.radSpeichern(bike.id, {
-                stravaGearId: ($event.target as HTMLSelectElement).value || null,
-              })
-            "
-          >
-            <option value="">ohne Gear</option>
-            <option v-for="g in gear" :key="g.id" :value="g.id">
-              {{ g.name }} ({{ kmText(g.km) }})
-            </option>
-          </select>
-          <span v-else class="gearid">{{ gearName(bike.stravaGearId) || 'ohne Gear' }}</span>
-          <button type="button" class="gefahr" @click="store.radLoeschen(bike.id)">Löschen</button>
+          <div class="radzeile">
+            <input
+              :value="bike.name"
+              aria-label="Name des Rades"
+              @change="
+                store.radSpeichern(bike.id, { name: ($event.target as HTMLInputElement).value })
+              "
+            />
+            <button type="button" class="gefahr" @click="store.radLoeschen(bike.id)">
+              Löschen
+            </button>
+          </div>
+          <div class="typen">
+            <button
+              v-for="typ in store.state.workoutTypes"
+              :key="typ.id"
+              type="button"
+              class="typ"
+              :class="{ an: bike.workoutTypeIds.includes(typ.id) }"
+              :title="
+                haengtAn(bike, typ.id) ? `hängt gerade an ${haengtAn(bike, typ.id)?.name}` : ''
+              "
+              @click="typUmschalten(bike, typ.id)"
+            >
+              {{ typ.name }}
+            </button>
+          </div>
+          <p v-if="!bike.workoutTypeIds.length" class="warnzeile">
+            Ohne Sportart bekommt dieses Rad keine Kilometer.
+          </p>
         </li>
         <li v-if="!meineRaeder.length" class="leer">Noch kein eigenes Rad.</li>
       </ul>
 
       <form class="neu" @submit.prevent="radAnlegen">
         <input v-model="neuesRad" placeholder="Neues Rad, z. B. Scott Speedster" />
-        <select v-if="gear.length" v-model="neuesGear" aria-label="Strava-Gear">
-          <option value="">ohne Gear</option>
-          <option v-for="g in gear" :key="g.id" :value="g.id">{{ g.name }}</option>
-        </select>
         <button type="submit" class="primaer">Anlegen →</button>
       </form>
 
@@ -239,48 +240,72 @@ const FARBEN = ['#7c3aed', '#0891b2', '#c2740a', '#15803d', '#be185d', '#4338ca'
       </form>
     </section>
 
-    <!-- ── Strava ────────────────────────────────────────────────────────── -->
-    <section v-if="reiter === 'strava'" class="block card">
+    <!-- ── Wahoo ─────────────────────────────────────────────────────────── -->
+    <section v-if="reiter === 'wahoo'" class="block card">
       <p class="cap">Dein Konto</p>
-      <h2>Strava-Verbindung</h2>
+      <h2>Wahoo-Verbindung</h2>
 
-      <p v-if="!store.stravaConfigured.value" class="warnbox">
-        Auf dem Server fehlen STRAVA_CLIENT_ID und STRAVA_CLIENT_SECRET – bis die eingetragen sind,
+      <p v-if="!store.wahooConfigured.value" class="warnbox">
+        Auf dem Server fehlen WAHOO_CLIENT_ID und WAHOO_CLIENT_SECRET – bis die eingetragen sind,
         lässt sich kein Konto verbinden.
       </p>
 
-      <template v-else-if="store.state.me?.hasStrava">
+      <template v-else-if="store.state.me?.hasWahoo">
+        <p v-if="store.state.me.needsReconnect" class="warnbox">
+          Wahoo hat den Zugriff beendet – bis zum Neuverbinden kommen keine Fahrten mehr an.
+        </p>
         <p class="hinweis">
-          Verbunden als <strong>{{ store.state.me.athleteName || 'Strava-Konto' }}</strong
+          Verbunden als <strong>{{ store.state.me.athleteName || 'Wahoo-Konto' }}</strong
           >. Zuletzt geholt:
-          {{ store.state.me.lastSyncAt ? datumText(store.state.me.lastSyncAt) : 'noch nie' }}. Im
-          Hintergrund fragt der Server alle {{ store.state.settings.syncIntervalHours }} Stunden
-          nach.
+          {{ store.state.me.lastSyncAt ? datumText(store.state.me.lastSyncAt) : 'noch nie' }}. Neue
+          Fahrten meldet Wahoo per Webhook; zusätzlich fragt der Server alle
+          {{ store.state.settings.syncIntervalHours }} Stunden selbst nach.
         </p>
-        <p class="zahlen">
-          {{ store.state.fahrten }} Fahrten · {{ store.state.ohneGear }} ohne Rad-Zuordnung ·
-          {{ store.state.unbekanntesGear }} fremde Gear-IDs
-        </p>
+        <p class="zahlen">{{ store.state.fahrten }} Fahrten geholt</p>
+
+        <!-- Sportarten, die an keinem Rad hängen: die zählen nirgends mit -->
+        <template v-if="store.state.ohneZuordnung.length">
+          <p class="cap zwischen">Ohne Rad</p>
+          <ul class="liste luecken">
+            <li v-for="l in store.state.ohneZuordnung" :key="l.workoutTypeId">
+              <span>{{ l.name }}</span>
+              <span class="besitzer">{{ l.anzahl }} Fahrten · {{ kmText(l.km) }}</span>
+            </li>
+          </ul>
+          <p class="hinweis">
+            Diese Sportarten sind keinem Rad zugeteilt – im Reiter „Räder“ nachholen, dann zählen
+            ihre Kilometer rückwirkend mit.
+          </p>
+        </template>
+
         <p v-if="store.state.me.lastSyncError" class="warnbox">
           Letzter Sync-Fehler: {{ store.state.me.lastSyncError }}
         </p>
         <div class="knoepfe">
-          <button type="button" class="primaer" @click="store.stravaSync()">Jetzt holen</button>
-          <button type="button" class="gefahr" @click="store.stravaTrennen()">Trennen</button>
+          <button type="button" class="primaer" @click="store.wahooSync()">Jetzt holen</button>
+          <button
+            v-if="store.state.me.needsReconnect"
+            type="button"
+            class="still"
+            @click="store.wahooVerbinden()"
+          >
+            Neu verbinden
+          </button>
+          <button type="button" class="gefahr" @click="store.wahooTrennen()">Trennen</button>
         </div>
         <p class="hinweis">
-          Beim Trennen gehen auch die geholten Fahrten weg – ein alter, nicht mehr auffrischbarer
-          Stand wäre irreführender als gar keiner.
+          Beim Trennen wird die Freigabe auch bei Wahoo zurückgezogen und die geholten Fahrten gehen
+          mit – ein alter, nicht mehr auffrischbarer Stand wäre irreführender als gar keiner.
         </p>
       </template>
 
       <template v-else>
         <p class="hinweis">
-          Ohne Verbindung bleibt jedes Teil bei 0 km. Der Tracker liest nur Aktivitäten, er schreibt
-          nichts nach Strava.
+          Ohne Verbindung bleibt jedes Teil bei 0 km. Der Tracker liest nur Workouts, er schreibt
+          nichts nach Wahoo.
         </p>
-        <button type="button" class="primaer" @click="store.stravaVerbinden()">
-          Mit Strava verbinden →
+        <button type="button" class="primaer" @click="store.wahooVerbinden()">
+          Mit Wahoo verbinden →
         </button>
       </template>
     </section>
@@ -439,10 +464,55 @@ textarea {
   flex: 0 0 6rem;
 }
 
-.gearid {
-  flex: 1;
+.raeder > li {
+  display: block;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.raeder > li:last-child {
+  border-bottom: none;
+}
+
+.radzeile {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.typen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.4rem;
+}
+
+.typ {
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: white;
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.typ.an {
+  border-color: color-mix(in srgb, var(--violet) 45%, transparent);
+  background: color-mix(in srgb, var(--violet) 12%, white);
+  color: var(--violet);
+}
+
+.warnzeile {
+  margin: 0.4rem 0 0;
+  color: var(--amber);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.luecken li {
+  justify-content: space-between;
+  font-size: 0.88rem;
 }
 
 .neu {

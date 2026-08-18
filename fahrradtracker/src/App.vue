@@ -8,33 +8,37 @@ const store = useTracker()
 const route = useRoute()
 const router = useRouter()
 
-// Rückmeldung des Strava-Flows: der Server schickt den Browser mit ?strava=…
+// Rückmeldung des Wahoo-Flows: der Server schickt den Browser mit ?wahoo=…
 // zurück. Ausgewertet, gemeldet, und dann aus der Adresse geräumt.
 const RUECKMELDUNG: Record<string, string> = {
-  ok: 'Strava ist verbunden – die Fahrten werden geholt.',
-  abgelehnt: 'Die Verbindung zu Strava wurde abgebrochen.',
+  ok: 'Wahoo ist verbunden – die Fahrten werden geholt.',
+  abgelehnt: 'Die Verbindung zu Wahoo wurde abgebrochen.',
   abgelaufen: 'Der Verbindungsversuch ist abgelaufen – bitte noch einmal.',
-  scope: 'Ohne Zugriff auf die Aktivitäten kann der Tracker nichts rechnen.',
-  fehler: 'Strava hat die Anmeldung abgelehnt.',
+  fehler: 'Wahoo hat die Anmeldung abgelehnt.',
 }
 
-async function werteStravaAus() {
-  const wert = String(route.query.strava ?? '')
+async function werteWahooAus() {
+  const wert = String(route.query.wahoo ?? '')
   if (!wert) return
   if (wert === 'ok') {
     store.hinweis.value = RUECKMELDUNG.ok!
     await store.refresh()
   } else {
-    store.error.value = RUECKMELDUNG[wert] ?? 'Die Verbindung zu Strava hat nicht geklappt.'
+    store.error.value = RUECKMELDUNG[wert] ?? 'Die Verbindung zu Wahoo hat nicht geklappt.'
   }
   router.replace({ query: {} })
 }
 
-onMounted(werteStravaAus)
-watch(() => route.query.strava, werteStravaAus)
+onMounted(werteWahooAus)
+watch(() => route.query.wahoo, werteWahooAus)
 
-const ohneStrava = computed(
-  () => store.angemeldet.value && store.stravaConfigured.value && !store.state.me?.hasStrava,
+const ohneWahoo = computed(
+  () => store.angemeldet.value && store.wahooConfigured.value && !store.state.me?.hasWahoo,
+)
+
+// Zugriff zurückgezogen: die Fahrten stehen still, bis neu verbunden wird
+const wahooWegBanner = computed(
+  () => store.angemeldet.value && Boolean(store.state.me?.needsReconnect),
 )
 
 function initiale(text: string) {
@@ -111,8 +115,11 @@ function initiale(text: string) {
     </p>
 
     <!-- Bleibt stehen, bis die Verbindung nachgeholt ist -->
-    <RouterLink v-if="ohneStrava" to="/verwaltung" class="meldung banner">
-      Strava noch nicht verbunden – ohne die Fahrten bleiben alle Teile bei 0 km. Verbinden →
+    <RouterLink v-if="ohneWahoo" to="/verwaltung" class="meldung banner">
+      Wahoo noch nicht verbunden – ohne die Fahrten bleiben alle Teile bei 0 km. Verbinden →
+    </RouterLink>
+    <RouterLink v-else-if="wahooWegBanner" to="/verwaltung" class="meldung banner">
+      Wahoo hat den Zugriff beendet – seitdem kommen keine neuen Fahrten an. Neu verbinden →
     </RouterLink>
 
     <main>

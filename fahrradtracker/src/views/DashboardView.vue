@@ -66,7 +66,7 @@ function oeffne(bike: Bike, typ: Kategorie) {
     </nav>
 
     <p v-if="!store.state.bikes.length" class="leer">
-      Noch kein Rad angelegt. In der Verwaltung anlegen und mit deinem Strava-Gear verknüpfen.
+      Noch kein Rad angelegt. In der Verwaltung anlegen und die Wahoo-Sportarten zuteilen.
     </p>
 
     <p v-else-if="!raeder.length" class="leer">Für dieses Profil ist noch kein Rad angelegt.</p>
@@ -79,7 +79,7 @@ function oeffne(bike: Bike, typ: Kategorie) {
           </p>
           <h2>{{ bike.name }}</h2>
         </div>
-        <span v-if="!bike.stravaGearId" class="warnung">kein Strava-Gear</span>
+        <span v-if="!bike.workoutTypeIds.length" class="warnung">keine Sportart</span>
       </header>
 
       <div class="kacheln">

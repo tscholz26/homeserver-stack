@@ -9,10 +9,16 @@ services:
     # Dateien heran.
     user: "1000:1000"
 
-    # STRAVA_CLIENT_ID und STRAVA_CLIENT_SECRET aus der Strava-API-Anwendung,
-    # dazu PUBLIC_URL – siehe .env.example
+    # WAHOO_CLIENT_ID, WAHOO_CLIENT_SECRET und WAHOO_WEBHOOK_TOKEN aus der
+    # Wahoo-Developer-App, dazu PUBLIC_URL – siehe .env.example
     env_file:
       - .env
+
+    environment:
+      # Wahoo liefert Startzeiten in UTC; die Nutzungszeiträume der Teile sind
+      # Kalendertage. Ohne die Zeitzone landete eine Fahrt am späten Abend auf
+      # dem falschen Tag.
+      TZ: Europe/Berlin
 
     volumes:
       # Profile, Räder, Teile und die geholten Fahrten …

@@ -9,7 +9,7 @@ import { useTracker } from '@/composables/useTracker'
  */
 const store = useTracker()
 
-type Schritt = 'auswahl' | 'pin' | 'name' | 'neu-pin' | 'strava'
+type Schritt = 'auswahl' | 'pin' | 'name' | 'neu-pin' | 'wahoo'
 
 const schritt = ref<Schritt>('auswahl')
 const gewaehlt = ref<string>('')
@@ -49,10 +49,10 @@ function neuerNutzer() {
   nextTick(() => nameFeld.value?.focus())
 }
 
-/** Nach dem Anmelden: entweder fertig oder erst noch Strava verbinden. */
+/** Nach dem Anmelden: entweder fertig oder erst noch Wahoo verbinden. */
 function weiterNachAnmeldung() {
-  if (!store.state.me?.hasStrava && store.stravaConfigured.value) {
-    schritt.value = 'strava'
+  if (!store.state.me?.hasWahoo && store.wahooConfigured.value) {
+    schritt.value = 'wahoo'
     return
   }
   zurueck()
@@ -102,7 +102,7 @@ async function anlegen() {
           >
             <span class="avatar" :style="{ background: p.color }">{{ initiale(p.name) }}</span>
             <span class="pname">{{ p.name }}</span>
-            <span v-if="!p.hasStrava" class="ohne">ohne Strava</span>
+            <span v-if="!p.hasWahoo" class="ohne">ohne Wahoo</span>
           </button>
 
           <button type="button" class="profil neu" @click="neuerNutzer">
@@ -185,19 +185,17 @@ async function anlegen() {
         </form>
       </template>
 
-      <!-- Strava verbinden – geführt, nicht als Häkchen nebenbei -->
+      <!-- Wahoo verbinden – geführt, nicht als Häkchen nebenbei -->
       <template v-else>
         <p class="cap">Schritt 3 von 3</p>
-        <h1>Mit Strava verbinden</h1>
+        <h1>Mit Wahoo verbinden</h1>
         <p class="hinweis">
-          Die Kilometer deiner Teile kommen aus deinen Strava-Fahrten. Ohne Verbindung bleibt der
+          Die Kilometer deiner Teile kommen aus deinen Wahoo-Fahrten. Ohne Verbindung bleibt der
           Tracker leer – nachholen kannst du es jederzeit in der Verwaltung.
         </p>
         <div class="knoepfe">
           <button type="button" class="still" @click="zurueck">Später</button>
-          <button type="button" class="primaer" @click="store.stravaVerbinden()">
-            Zu Strava →
-          </button>
+          <button type="button" class="primaer" @click="store.wahooVerbinden()">Zu Wahoo →</button>
         </div>
       </template>
 

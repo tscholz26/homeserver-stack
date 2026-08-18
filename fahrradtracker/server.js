@@ -11,6 +11,7 @@ import {
 import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto'
 import { join, dirname, basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { kmImZeitraum, zugeteilteTypen } from './shared/aktivitaeten.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const DATA_DIR = join(__dirname, 'data')
@@ -19,14 +20,17 @@ const BACKUPS_DIR = join(__dirname, 'backups')
 const KEEP_BACKUPS = 30
 const PORT = Number(process.env.PORT) || 2609
 
-// Öffentliche Adresse der App – daraus baut sich die Strava-Rücksprungadresse.
+// Öffentliche Adresse der App – daraus baut sich die Wahoo-Rücksprungadresse.
 const PUBLIC_URL = (process.env.PUBLIC_URL || 'https://tshomeserv.duckdns.org/fahrrad').replace(
   /\/+$/,
   '',
 )
-const STRAVA_CLIENT_ID = process.env.STRAVA_CLIENT_ID || ''
-const STRAVA_CLIENT_SECRET = process.env.STRAVA_CLIENT_SECRET || ''
-const STRAVA_CONFIGURED = Boolean(STRAVA_CLIENT_ID && STRAVA_CLIENT_SECRET)
+const WAHOO_CLIENT_ID = process.env.WAHOO_CLIENT_ID || ''
+const WAHOO_CLIENT_SECRET = process.env.WAHOO_CLIENT_SECRET || ''
+const WAHOO_CONFIGURED = Boolean(WAHOO_CLIENT_ID && WAHOO_CLIENT_SECRET)
+// Muss mit dem Token in den Webhook-Einstellungen der Wahoo-App übereinstimmen;
+// ohne ihn wird jeder eingehende Webhook verworfen.
+const WAHOO_WEBHOOK_TOKEN = process.env.WAHOO_WEBHOOK_TOKEN || ''
 
 mkdirSync(DATA_DIR, { recursive: true })
 mkdirSync(BACKUPS_DIR, { recursive: true })
@@ -37,7 +41,7 @@ mkdirSync(BACKUPS_DIR, { recursive: true })
 // im Speicher, die irgendwann nachgezogen würde – geschrieben wird im selben
 // Request, in dem die Änderung ankommt.
 const USERS_FILE = join(DATA_DIR, 'users.json')
-const STRAVA_FILE = join(DATA_DIR, 'strava.json')
+const WAHOO_FILE = join(DATA_DIR, 'wahoo.json')
 const BIKES_FILE = join(DATA_DIR, 'bikes.json')
 const TYPES_FILE = join(DATA_DIR, 'component-types.json')
 const COMPONENTS_FILE = join(DATA_DIR, 'components.json')
@@ -75,13 +79,14 @@ function lies(datei, fallback) {
 const DEFAULT_SETTINGS = {
   // Ampel: unter „gelb“ ist grün, ab „rot“ ist rot. Prozent vom Grenzwert.
   thresholds: { yellow: 70, red: 100 },
-  // Wie oft im Hintergrund bei Strava nachgefragt wird
+  // Wie oft im Hintergrund bei Wahoo nachgefragt wird (der Webhook ist der
+  // schnelle Weg, dieser Takt der sichere)
   syncIntervalHours: 3,
 }
 
 const db = {
   users: [],
-  strava: [],
+  wahoo: [],
   bikes: [],
   types: [],
   components: [],
@@ -92,12 +97,14 @@ const db = {
 
 function ladeAlles() {
   db.users = lies(USERS_FILE, [])
-  db.strava = lies(STRAVA_FILE, [])
+  db.wahoo = lies(WAHOO_FILE, [])
   db.bikes = lies(BIKES_FILE, [])
   db.types =
     lies(TYPES_FILE, null) ?? JSON.parse(readFileSync(join(SEED_DIR, 'teile.json'), 'utf8'))
   db.components = lies(COMPONENTS_FILE, [])
-  db.activities = lies(ACTIVITIES_FILE, [])
+  // Ohne Workout-Typ lässt sich eine Fahrt keinem Rad zurechnen; solche
+  // Einträge fallen beim Lesen weg, statt später die Rechnung zu verwirren.
+  db.activities = lies(ACTIVITIES_FILE, []).filter((a) => typeof a?.workoutTypeId === 'number')
   db.sessions = lies(SESSIONS_FILE, [])
   const s = lies(SETTINGS_FILE, null)
   db.settings = {
@@ -108,7 +115,7 @@ function ladeAlles() {
 
 const DATEIEN = {
   users: USERS_FILE,
-  strava: STRAVA_FILE,
+  wahoo: WAHOO_FILE,
   bikes: BIKES_FILE,
   types: TYPES_FILE,
   components: COMPONENTS_FILE,
@@ -136,7 +143,7 @@ console.log(
 
 // ── Tägliches Backup ─────────────────────────────────────────────────────────
 // Ein Schnappschuss pro Tag in eine einzige Datei, damit backup-sync ihn wie
-// bei den anderen Apps in die Nextcloud schieben kann. Die Strava-Tokens
+// bei den anderen Apps in die Nextcloud schieben kann. Die Wahoo-Tokens
 // bleiben bewusst draußen: das sind echte Zugangsdaten, und nach einer
 // Wiederherstellung ist „neu verbinden“ ein Klick.
 function runBackup() {
@@ -306,133 +313,213 @@ function eigenesRad(req, res, bikeId) {
   return bike
 }
 
-// ── Strava ───────────────────────────────────────────────────────────────────
-// Jedes Profil verbindet sein eigenes Konto. Die Tokens liegen ausschließlich
-// hier auf dem Server (data/strava.json) und gehen nie an den Browser.
-const STRAVA_SCOPE = 'read,activity:read_all'
-const RIDE_TYPES = new Set([
-  'Ride',
-  'GravelRide',
-  'MountainBikeRide',
-  'EBikeRide',
-  'VirtualRide',
-  'Velomobile',
-  'Handcycle',
-])
+// ── Wahoo ────────────────────────────────────────────────────────────────────
+// Jedes Profil verbindet sein eigenes Wahoo-Konto über OAuth. Die Tokens liegen
+// ausschließlich hier auf dem Server (data/wahoo.json) und gehen nie an den
+// Browser – der bekommt nur die Adresse, zu der er springen soll.
+const WAHOO_BASE = 'https://api.wahooligan.com'
+// user_read für den Namen, workouts_read für die Fahrten, offline_data, damit
+// der Webhook auch feuert, wenn niemand die App offen hat.
+const WAHOO_SCOPE = 'user_read workouts_read offline_data'
 
-function verbindung(userId) {
-  return db.strava.find((c) => c.userId === userId) ?? null
+/**
+ * Die Workout-Typen, die überhaupt ein Fahrrad verschleißen. Die Wahoo-API
+ * kennt keine Ausrüstung an der Fahrt – welche Fahrt zu welchem Rad gehört,
+ * entscheidet deshalb die Sportart, die in der Verwaltung je Rad zugeteilt
+ * wird. Motorradfahren (17) steht bewusst nicht in der Liste.
+ */
+const WAHOO_WORKOUT_TYPES = [
+  { id: 0, name: 'Radfahren' },
+  { id: 11, name: 'Cyclocross' },
+  { id: 12, name: 'Indoor' },
+  { id: 13, name: 'Mountainbike' },
+  { id: 14, name: 'Liegerad' },
+  { id: 15, name: 'Rennrad' },
+  { id: 16, name: 'Bahn' },
+  { id: 21, name: 'Ergometer' },
+  { id: 49, name: 'Indoor-Cycling-Kurs' },
+  { id: 61, name: 'Indoor-Trainer' },
+  { id: 64, name: 'E-Bike' },
+  { id: 68, name: 'Indoor virtuell' },
+  { id: 70, name: 'Handbike' },
+]
+
+const WAHOO_TYPE_IDS = new Set(WAHOO_WORKOUT_TYPES.map((t) => t.id))
+
+function typName(id) {
+  return WAHOO_WORKOUT_TYPES.find((t) => t.id === id)?.name ?? `Typ ${id}`
 }
 
-/** Holt bei Bedarf ein frisches Access-Token; Strava-Tokens laufen nach sechs
- *  Stunden ab, das Refresh-Token bleibt gültig. */
+function verbindung(userId) {
+  return db.wahoo.find((c) => c.userId === userId) ?? null
+}
+
+/** Ein Fehler, der bedeutet: Der Nutzer muss die App neu autorisieren. */
+class AuthWeg extends Error {}
+
+/**
+ * Holt bei Bedarf ein frisches Access-Token. Wahoo-Tokens laufen nach zwei
+ * Stunden ab, und mit dem ersten Aufruf auf einem neuen Token verfällt das
+ * alte Paar – das neue muss deshalb sofort auf der Platte stehen, sonst ist
+ * die Verbindung nach einem Absturz nicht mehr zu retten.
+ */
 async function frischesToken(conn) {
   if (conn.expiresAt && Date.parse(conn.expiresAt) > Date.now() + 120_000) return conn.accessToken
-  const r = await fetch('https://www.strava.com/oauth/token', {
+
+  const r = await fetch(`${WAHOO_BASE}/oauth/token`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      client_id: STRAVA_CLIENT_ID,
-      client_secret: STRAVA_CLIENT_SECRET,
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: WAHOO_CLIENT_ID,
+      client_secret: WAHOO_CLIENT_SECRET,
       grant_type: 'refresh_token',
       refresh_token: conn.refreshToken,
     }),
   })
-  if (!r.ok) throw new Error(`Strava-Token abgelaufen (HTTP ${r.status})`)
+  if (r.status === 400 || r.status === 401) {
+    // Zugriff zurückgezogen oder Refresh-Token verbraucht – hier hilft nur
+    // neu verbinden, und das muss die Oberfläche sagen können.
+    conn.needsReconnect = true
+    sichere('wahoo')
+    throw new AuthWeg('Die Verbindung zu Wahoo wurde zurückgezogen – bitte neu verbinden.')
+  }
+  if (!r.ok) throw new Error(`Wahoo gibt kein neues Token (HTTP ${r.status})`)
+
   const daten = await r.json()
   conn.accessToken = daten.access_token
   conn.refreshToken = daten.refresh_token ?? conn.refreshToken
-  conn.expiresAt = new Date(daten.expires_at * 1000).toISOString()
-  sichere('strava')
+  conn.expiresAt = new Date(Date.now() + (Number(daten.expires_in) || 7200) * 1000).toISOString()
+  conn.needsReconnect = false
+  sichere('wahoo')
   return conn.accessToken
 }
 
-async function stravaGet(conn, pfad) {
+async function wahooGet(conn, pfad) {
   const token = await frischesToken(conn)
-  const r = await fetch(`https://www.strava.com/api/v3${pfad}`, {
-    headers: { Authorization: `Bearer ${token}` },
+  const r = await fetch(`${WAHOO_BASE}${pfad}`, {
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
   })
-  if (r.status === 429) throw new Error('Strava-Limit erreicht – später noch einmal versuchen.')
-  if (!r.ok) throw new Error(`Strava antwortet mit HTTP ${r.status}`)
+  if (r.status === 401) {
+    conn.needsReconnect = true
+    sichere('wahoo')
+    throw new AuthWeg('Wahoo hat den Zugriff abgelehnt – bitte neu verbinden.')
+  }
+  if (r.status === 429) throw new Error('Wahoo-Limit erreicht – später noch einmal versuchen.')
+  if (!r.ok) throw new Error(`Wahoo antwortet mit HTTP ${r.status}`)
   return r.json()
 }
 
 /**
- * Holt die Fahrten eines Profils. Gelesen wird ab dem letzten Sync minus zwei
- * Wochen: Strava erlaubt nachträgliche Änderungen an Aktivitäten (auch am
- * zugeordneten Rad), und nur so kommen die hier auch an. Beim ersten Lauf
- * kommt alles.
+ * Ein Wahoo-Workout auf das, was die Verschleißrechnung braucht. Ohne
+ * `workout_summary` gibt es noch keine Kilometer – Wahoo trägt sie nach, sobald
+ * die Fahrt hochgeladen ist, und der nächste Sync holt sie.
+ */
+function alsFahrt(workout, userId) {
+  const summary = workout.workout_summary
+  const meter = Number(summary?.distance_accum ?? 0) || 0
+  return {
+    id: String(workout.id),
+    userId,
+    // Das Datum in der Zeitzone des Servers (TZ in docker-compose.yml): die
+    // Zeiträume der Teile stehen als Kalendertage in der Datei.
+    date: lokalerTag(workout.starts),
+    km: Math.round(meter / 10) / 100,
+    minutes: Math.round(Number(workout.minutes) || 0),
+    name: text(workout.name, 80),
+    workoutTypeId: Number(workout.workout_type_id),
+  }
+}
+
+/** ISO-Zeitstempel → Kalendertag, so wie ihn der Server (Europe/Berlin) sieht. */
+function lokalerTag(zeitpunkt) {
+  const d = new Date(zeitpunkt)
+  if (Number.isNaN(d.getTime())) return heute()
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+/** Legt eine Fahrt an oder schreibt sie fort; sagt, ob sich etwas geändert hat. */
+function uebernehmeFahrt(fahrt) {
+  if (!WAHOO_TYPE_IDS.has(fahrt.workoutTypeId)) return 'ignoriert'
+  const alt = db.activities.find((a) => a.id === fahrt.id && a.userId === fahrt.userId)
+  if (!alt) {
+    db.activities.push(fahrt)
+    return 'neu'
+  }
+  if (alt.date === fahrt.date && alt.km === fahrt.km && alt.workoutTypeId === fahrt.workoutTypeId) {
+    return 'unveraendert'
+  }
+  Object.assign(alt, fahrt)
+  return 'geaendert'
+}
+
+const WAHOO_SEITE = 50
+const NACHLAUF_TAGE = 14
+
+/**
+ * Holt die Fahrten eines Profils. Wahoo liefert sie nach Startzeit absteigend,
+ * seitenweise. Beim ersten Lauf wird alles geholt, danach nur bis zwei Wochen
+ * vor den letzten Sync zurück: So lange kann eine Fahrt noch nachträglich
+ * hochgeladen, korrigiert oder um ihre Zusammenfassung ergänzt werden.
  */
 async function syncUser(userId) {
   const conn = verbindung(userId)
-  if (!conn) throw new Error('Dieses Profil ist nicht mit Strava verbunden.')
+  if (!conn) throw new Error('Dieses Profil ist nicht mit Wahoo verbunden.')
 
-  const ab = conn.lastSyncAt
-    ? Math.floor(Date.parse(conn.lastSyncAt) / 1000) - 14 * 24 * 60 * 60
-    : 0
-  const eigene = new Map(db.activities.filter((a) => a.userId === userId).map((a) => [a.id, a]))
+  const grenze = conn.lastSyncAt
+    ? new Date(Date.parse(conn.lastSyncAt) - NACHLAUF_TAGE * 24 * 3600_000)
+    : null
   let neu = 0
   let geaendert = 0
 
-  for (let seite = 1; seite <= 40; seite += 1) {
-    const liste = await stravaGet(
-      conn,
-      `/athlete/activities?per_page=200&page=${seite}${ab ? `&after=${ab}` : ''}`,
-    )
-    if (!Array.isArray(liste) || !liste.length) break
+  for (let seite = 1; seite <= 100; seite += 1) {
+    const antwort = await wahooGet(conn, `/v1/workouts?page=${seite}&per_page=${WAHOO_SEITE}`)
+    const workouts = Array.isArray(antwort?.workouts) ? antwort.workouts : []
+    if (!workouts.length) break
 
-    for (const a of liste) {
-      const art = a.sport_type ?? a.type
-      if (!RIDE_TYPES.has(art)) continue
-      const fahrt = {
-        id: String(a.id),
-        userId,
-        // Ohne Gear in Strava lässt sich die Fahrt keinem Rad zuordnen; sie
-        // wird trotzdem gemerkt, damit die App darauf hinweisen kann.
-        gearId: a.gear_id ?? null,
-        date: String(a.start_date_local ?? a.start_date ?? '').slice(0, 10),
-        km: Math.round((Number(a.distance) || 0) / 10) / 100,
-        name: text(a.name, 80),
-        type: art,
+    let zuAlt = false
+    for (const workout of workouts) {
+      if (grenze && new Date(workout.starts) < grenze) {
+        zuAlt = true
+        continue
       }
-      const alt = eigene.get(fahrt.id)
-      if (!alt) {
-        db.activities.push(fahrt)
-        eigene.set(fahrt.id, fahrt)
-        neu += 1
-      } else if (alt.gearId !== fahrt.gearId || alt.date !== fahrt.date || alt.km !== fahrt.km) {
-        Object.assign(alt, fahrt)
-        geaendert += 1
-      }
+      const ergebnis = uebernehmeFahrt(alsFahrt(workout, userId))
+      if (ergebnis === 'neu') neu += 1
+      if (ergebnis === 'geaendert') geaendert += 1
     }
-    if (liste.length < 200) break
+
+    // Absteigend sortiert: hinter der ersten zu alten Fahrt kommt nichts mehr,
+    // was uns interessiert.
+    if (zuAlt || workouts.length < WAHOO_SEITE) break
+    const gesamt = Number(antwort.total) || 0
+    if (gesamt && seite * WAHOO_SEITE >= gesamt) break
   }
 
   conn.lastSyncAt = new Date().toISOString()
   conn.lastSyncError = ''
-  sichere('strava', 'activities')
+  conn.needsReconnect = false
+  sichere('wahoo', 'activities')
   console.log(`[fahrradtracker] Sync ${userId}: ${neu} neu, ${geaendert} aktualisiert`)
   return { neu, geaendert }
 }
 
-/** Räder, die in Strava als „Gear“ gepflegt sind – daraus wählt die
- *  Verwaltung beim Verknüpfen. */
-async function stravaGear(userId) {
-  const conn = verbindung(userId)
-  if (!conn) throw new Error('Dieses Profil ist nicht mit Strava verbunden.')
-  const athlet = await stravaGet(conn, '/athlete')
-  return (athlet.bikes ?? []).map((b) => ({
-    id: String(b.id),
-    name: text(b.name, 80),
-    km: Math.round((Number(b.distance) || 0) / 1000),
-  }))
+/** Namen und Wahoo-Id des verbundenen Kontos – einmal beim Verbinden. */
+async function wahooProfil(conn) {
+  const nutzer = await wahooGet(conn, '/v1/user')
+  return {
+    wahooUserId: String(nutzer.id ?? ''),
+    athleteName: text([nutzer.first, nutzer.last].filter(Boolean).join(' '), 60),
+  }
 }
 
-// Regelmäßig im Hintergrund nachfragen – ein Webhook wäre für ein paar Fahrten
-// am Tag zu viel Apparat. Geprüft wird stündlich, gesynct nur, was fällig ist.
+// Der Webhook ist der schnelle Weg; dieser Takt hier ist der sichere. Er fängt
+// alles auf, was der Webhook verpasst hat (nicht eingerichtet, Server war aus,
+// Zustellung fehlgeschlagen). Geprüft wird stündlich, geholt nur, was fällig
+// ist.
 async function syncFaellige() {
-  if (!STRAVA_CONFIGURED) return
-  for (const conn of db.strava) {
+  if (!WAHOO_CONFIGURED) return
+  for (const conn of db.wahoo) {
+    if (conn.needsReconnect) continue
     const faellig =
       !conn.lastSyncAt ||
       Date.now() - Date.parse(conn.lastSyncAt) > db.settings.syncIntervalHours * 3600_000
@@ -441,7 +528,7 @@ async function syncFaellige() {
       await syncUser(conn.userId)
     } catch (err) {
       conn.lastSyncError = err.message
-      sichere('strava')
+      sichere('wahoo')
       console.error(`[fahrradtracker] Sync für ${conn.userId} fehlgeschlagen:`, err.message)
     }
   }
@@ -452,19 +539,10 @@ setInterval(syncFaellige, 60 * 60 * 1000)
 
 // ── Verschleißrechnung ───────────────────────────────────────────────────────
 // Die Kilometer einer Instanz sind die Summe der Fahrten des Rades über alle
-// ihre Nutzungszeiträume. Ein Zeitraum zählt beide Randtage mit: wird an einem
-// Tag gewechselt, zählt die Fahrt dieses Tages für das alte *und* das neue
-// Teil – das ist die Variante, die nie Kilometer verschluckt.
-function kmImZeitraum(bike, von, bis) {
-  const ende = bis ?? heute()
-  let summe = 0
-  for (const a of db.activities) {
-    if (a.userId !== bike.ownerId) continue
-    if (!a.gearId || a.gearId !== bike.stravaGearId) continue
-    if (a.date < von || a.date > ende) continue
-    summe += a.km
-  }
-  return Math.round(summe * 10) / 10
+// ihre Nutzungszeiträume – gerechnet in shared/aktivitaeten.js, damit die
+// Rechnung nichts davon weiß, woher die Fahrten kommen.
+function kmVon(bike, von, bis) {
+  return kmImZeitraum(bike, db.activities, von, bis ?? heute())
 }
 
 /** Grenzwert einer Instanz: eigener Wert → Wert für Rad+Kategorie → Standard
@@ -483,7 +561,7 @@ function komponenteMitKm(component) {
   const typ = db.types.find((t) => t.id === component.typeId)
   const perioden = (component.periods ?? []).map((p) => ({
     ...p,
-    km: bike ? kmImZeitraum(bike, p.from, p.to) : 0,
+    km: bike ? kmVon(bike, p.from, p.to) : 0,
   }))
   const totalKm = Math.round(perioden.reduce((s, p) => s + p.km, 0) * 10) / 10
   const { limitKm, limitQuelle } = grenzeFuer(component, bike, typ)
@@ -507,25 +585,35 @@ function profil(u) {
     id: u.id,
     name: u.name,
     color: u.color,
-    hasStrava: Boolean(conn),
+    hasWahoo: Boolean(conn),
     athleteName: conn?.athleteName ?? '',
     lastSyncAt: conn?.lastSyncAt ?? '',
     lastSyncError: conn?.lastSyncError ?? '',
+    // Zugriff zurückgezogen oder Token verfallen: neu verbinden hilft
+    needsReconnect: Boolean(conn?.needsReconnect),
   }
 }
 
 function publicState(user) {
-  // Fahrten ohne Rad-Zuordnung kann die App keinem Teil zurechnen – die
-  // Verwaltung weist darauf hin, statt sie stillschweigend zu schlucken.
-  const ohneGear = db.activities.filter((a) => a.userId === user.id && !a.gearId).length
-  const verknuepft = new Set(
-    db.bikes.filter((b) => b.ownerId === user.id).map((b) => b.stravaGearId),
-  )
-  const fremdesGear = new Set(
-    db.activities
-      .filter((a) => a.userId === user.id && a.gearId && !verknuepft.has(a.gearId))
-      .map((a) => a.gearId),
-  )
+  // Fahrten, deren Workout-Typ an keinem Rad hängt, kann die App niemandem
+  // zurechnen – die Verwaltung zeigt sie an, statt sie stillschweigend zu
+  // schlucken.
+  const eigene = db.activities.filter((a) => a.userId === user.id)
+  const zugeteilt = zugeteilteTypen(db.bikes, user.id)
+  const luecken = new Map()
+  for (const a of eigene) {
+    if (zugeteilt.has(a.workoutTypeId)) continue
+    const eintrag = luecken.get(a.workoutTypeId) ?? {
+      workoutTypeId: a.workoutTypeId,
+      name: typName(a.workoutTypeId),
+      anzahl: 0,
+      km: 0,
+    }
+    eintrag.anzahl += 1
+    eintrag.km = Math.round((eintrag.km + a.km) * 10) / 10
+    luecken.set(a.workoutTypeId, eintrag)
+  }
+
   return {
     me: profil(user),
     users: db.users.map(profil),
@@ -533,10 +621,11 @@ function publicState(user) {
     componentTypes: db.types,
     components: db.components.map(komponenteMitKm),
     settings: db.settings,
-    stravaConfigured: STRAVA_CONFIGURED,
-    fahrten: db.activities.filter((a) => a.userId === user.id).length,
-    ohneGear,
-    unbekanntesGear: fremdesGear.size,
+    wahooConfigured: WAHOO_CONFIGURED,
+    // Welche Sportarten sich einem Rad zuteilen lassen
+    workoutTypes: WAHOO_WORKOUT_TYPES,
+    fahrten: eigene.length,
+    ohneZuordnung: [...luecken.values()].sort((a, b) => b.anzahl - a.anzahl),
   }
 }
 
@@ -566,9 +655,9 @@ app.get('/api/profiles', (_req, res) => {
       id: u.id,
       name: u.name,
       color: u.color,
-      hasStrava: Boolean(verbindung(u.id)),
+      hasWahoo: Boolean(verbindung(u.id)),
     })),
-    stravaConfigured: STRAVA_CONFIGURED,
+    wahooConfigured: WAHOO_CONFIGURED,
   })
 })
 
@@ -656,19 +745,43 @@ app.get('/api/state', auth, (req, res) => {
 
 // ── Räder ────────────────────────────────────────────────────────────────────
 // Sichtbar sind alle Räder für alle; ändern darf sie nur, wem sie gehören.
+
+/** Nur bekannte Workout-Typen, jeder höchstens einmal. */
+function typenFuerRad(wert) {
+  if (!Array.isArray(wert)) return []
+  return [...new Set(wert.map(Number).filter((id) => WAHOO_TYPE_IDS.has(id)))]
+}
+
+/**
+ * Ein Workout-Typ gehört immer nur zu einem Rad eines Profils – sonst zählte
+ * dieselbe Fahrt an zwei Rädern. Wer einen Typ neu zuteilt, nimmt ihn damit
+ * den anderen Rädern weg.
+ */
+function loeseDoppelteTypen(bike) {
+  for (const anderes of db.bikes) {
+    if (anderes.id === bike.id || anderes.ownerId !== bike.ownerId) continue
+    anderes.workoutTypeIds = (anderes.workoutTypeIds ?? []).filter(
+      (id) => !bike.workoutTypeIds.includes(id),
+    )
+  }
+}
+
 app.post('/api/bikes', auth, (req, res) => {
   const name = text(req.body?.name, 60)
   antworte(req, res, () => {
     if (!name) return { reject: { status: 400, error: 'Bitte einen Namen eintragen.' } }
-    db.bikes.push({
+    const bike = {
       id: createId(),
       ownerId: req.user.id,
       name,
-      // Über die Gear-ID kommen die Fahrten ans Rad; ohne sie bleibt es bei 0 km
-      stravaGearId: text(req.body?.stravaGearId, 40) || null,
+      // Über die Workout-Typen kommen die Fahrten ans Rad; ohne sie bleibt es
+      // bei 0 km
+      workoutTypeIds: typenFuerRad(req.body?.workoutTypeIds),
       limits: {},
       createdAt: new Date().toISOString(),
-    })
+    }
+    db.bikes.push(bike)
+    loeseDoppelteTypen(bike)
     sichere('bikes')
   })
 })
@@ -682,8 +795,9 @@ app.put('/api/bikes/:id', auth, (req, res) => {
       if (!name) return { reject: { status: 400, error: 'Bitte einen Namen eintragen.' } }
       bike.name = name
     }
-    if (req.body?.stravaGearId !== undefined) {
-      bike.stravaGearId = text(req.body.stravaGearId, 40) || null
+    if (req.body?.workoutTypeIds !== undefined) {
+      bike.workoutTypeIds = typenFuerRad(req.body.workoutTypeIds)
+      loeseDoppelteTypen(bike)
     }
     sichere('bikes')
   })
@@ -981,9 +1095,9 @@ app.put('/api/settings/thresholds', auth, (req, res) => {
   })
 })
 
-// ── Strava-Verbindung ────────────────────────────────────────────────────────
+// ── Wahoo-Verbindung ─────────────────────────────────────────────────────────
 // Der Browser bekommt nur die Adresse zum Hinspringen; Code und Tokens laufen
-// zwischen Server und Strava.
+// zwischen Server und Wahoo.
 const oauthStates = new Map()
 
 function raeumeStates() {
@@ -993,42 +1107,44 @@ function raeumeStates() {
   }
 }
 
-app.get('/api/strava/authorize', auth, (req, res) => {
-  if (!STRAVA_CONFIGURED) {
-    return res.status(503).json({ error: 'Auf dem Server fehlen STRAVA_CLIENT_ID und -SECRET.' })
+function redirectUri() {
+  return `${PUBLIC_URL}/api/wahoo/callback`
+}
+
+app.get('/api/wahoo/authorize', auth, (req, res) => {
+  if (!WAHOO_CONFIGURED) {
+    return res.status(503).json({ error: 'Auf dem Server fehlen WAHOO_CLIENT_ID und -SECRET.' })
   }
   raeumeStates()
   const state = randomBytes(16).toString('hex')
   oauthStates.set(state, { userId: req.user.id, bis: Date.now() + 10 * 60 * 1000 })
-  const url = new URL('https://www.strava.com/oauth/authorize')
-  url.searchParams.set('client_id', STRAVA_CLIENT_ID)
-  url.searchParams.set('redirect_uri', `${PUBLIC_URL}/api/strava/callback`)
+  const url = new URL(`${WAHOO_BASE}/oauth/authorize`)
+  url.searchParams.set('client_id', WAHOO_CLIENT_ID)
+  url.searchParams.set('redirect_uri', redirectUri())
   url.searchParams.set('response_type', 'code')
-  url.searchParams.set('approval_prompt', 'auto')
-  url.searchParams.set('scope', STRAVA_SCOPE)
+  url.searchParams.set('scope', WAHOO_SCOPE)
   url.searchParams.set('state', state)
   res.json({ url: url.toString() })
 })
 
-app.get('/api/strava/callback', async (req, res) => {
-  const ziel = (ergebnis) => res.redirect(`${PUBLIC_URL}/?strava=${ergebnis}`)
+app.get('/api/wahoo/callback', async (req, res) => {
+  const ziel = (ergebnis) => res.redirect(`${PUBLIC_URL}/?wahoo=${ergebnis}`)
   raeumeStates()
   const eintrag = oauthStates.get(String(req.query.state ?? ''))
   oauthStates.delete(String(req.query.state ?? ''))
   if (!eintrag) return ziel('abgelaufen')
   if (req.query.error || !req.query.code) return ziel('abgelehnt')
-  // Ohne activity:read_all sieht die App nur öffentliche Fahrten
-  if (!String(req.query.scope ?? '').includes('activity:read')) return ziel('scope')
 
   try {
-    const r = await fetch('https://www.strava.com/oauth/token', {
+    const r = await fetch(`${WAHOO_BASE}/oauth/token`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: STRAVA_CLIENT_ID,
-        client_secret: STRAVA_CLIENT_SECRET,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: WAHOO_CLIENT_ID,
+        client_secret: WAHOO_CLIENT_SECRET,
         grant_type: 'authorization_code',
         code: String(req.query.code),
+        redirect_uri: redirectUri(),
       }),
     })
     if (!r.ok) throw new Error(`HTTP ${r.status}`)
@@ -1036,42 +1152,63 @@ app.get('/api/strava/callback', async (req, res) => {
 
     const conn = verbindung(eintrag.userId) ?? { userId: eintrag.userId }
     Object.assign(conn, {
-      athleteId: String(daten.athlete?.id ?? ''),
-      athleteName: text(
-        [daten.athlete?.firstname, daten.athlete?.lastname].filter(Boolean).join(' '),
-        60,
-      ),
       accessToken: daten.access_token,
       refreshToken: daten.refresh_token,
-      expiresAt: new Date(daten.expires_at * 1000).toISOString(),
+      expiresAt: new Date(Date.now() + (Number(daten.expires_in) || 7200) * 1000).toISOString(),
       lastSyncAt: conn.lastSyncAt ?? '',
       lastSyncError: '',
+      needsReconnect: false,
     })
-    if (!db.strava.includes(conn)) db.strava.push(conn)
-    sichere('strava')
+    if (!db.wahoo.includes(conn)) db.wahoo.push(conn)
+    sichere('wahoo')
+
+    // Wer der Verbundene ist, steht erst nach dem ersten Aufruf fest – und die
+    // Wahoo-Id brauchen wir, um die Webhooks zuzuordnen.
+    try {
+      Object.assign(conn, await wahooProfil(conn))
+      sichere('wahoo')
+    } catch (err) {
+      console.error('[fahrradtracker] Wahoo-Profil nicht lesbar:', err.message)
+    }
 
     // Direkt einmal holen, damit das Dashboard nicht leer bleibt
     syncUser(eintrag.userId).catch((err) => {
+      conn.lastSyncError = err.message
+      sichere('wahoo')
       console.error('[fahrradtracker] Erster Sync fehlgeschlagen:', err.message)
     })
     ziel('ok')
   } catch (err) {
-    console.error('[fahrradtracker] Strava-Anmeldung fehlgeschlagen:', err.message)
+    console.error('[fahrradtracker] Wahoo-Anmeldung fehlgeschlagen:', err.message)
     ziel('fehler')
   }
 })
 
-app.delete('/api/strava', auth, (req, res) => {
+app.delete('/api/wahoo', auth, async (req, res) => {
+  const conn = verbindung(req.user.id)
+  // Erst bei Wahoo abmelden, dann hier vergessen – andersherum bliebe die
+  // Freigabe dort stehen.
+  if (conn) {
+    try {
+      const token = await frischesToken(conn)
+      await fetch(`${WAHOO_BASE}/v1/permissions`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+    } catch (err) {
+      console.error('[fahrradtracker] Abmelden bei Wahoo fehlgeschlagen:', err.message)
+    }
+  }
   antworte(req, res, () => {
-    db.strava = db.strava.filter((c) => c.userId !== req.user.id)
+    db.wahoo = db.wahoo.filter((c) => c.userId !== req.user.id)
     // Die Fahrten gehen mit: ohne Verbindung lassen sie sich nicht mehr
     // auffrischen, und ein alter Stand wäre schlimmer als keiner.
     db.activities = db.activities.filter((a) => a.userId !== req.user.id)
-    sichere('strava', 'activities')
+    sichere('wahoo', 'activities')
   })
 })
 
-app.post('/api/strava/sync', auth, async (req, res) => {
+app.post('/api/wahoo/sync', auth, async (req, res) => {
   try {
     const ergebnis = await syncUser(req.user.id)
     res.json({ ...ergebnis, state: publicState(req.user) })
@@ -1079,18 +1216,40 @@ app.post('/api/strava/sync', auth, async (req, res) => {
     const conn = verbindung(req.user.id)
     if (conn) {
       conn.lastSyncError = err.message
-      sichere('strava')
+      sichere('wahoo')
     }
     res.status(502).json({ error: err.message })
   }
 })
 
-/** Die Räder, die in Strava als Gear gepflegt sind – Auswahl beim Verknüpfen. */
-app.get('/api/strava/gear', auth, async (req, res) => {
+/**
+ * Wahoo meldet jede fertige Fahrt hierher – eingerichtet wird das einmal in
+ * den Webhook-Einstellungen der Wahoo-App (eine Adresse für alle Nutzer,
+ * deshalb die Wahoo-User-Id im Rumpf). Ohne den passenden Token wird nichts
+ * angefasst; wer nicht verbunden ist, wird still ignoriert.
+ */
+app.post('/api/wahoo/webhook', (req, res) => {
+  if (!WAHOO_WEBHOOK_TOKEN || req.body?.webhook_token !== WAHOO_WEBHOOK_TOKEN) {
+    return res.status(401).json({ error: 'Unbekannter Webhook-Token.' })
+  }
+  // Immer 200, sonst stellt Wahoo stunden- und tagelang neu zu
+  res.json({ ok: true })
+
   try {
-    res.json({ gear: await stravaGear(req.user.id) })
+    if (req.body.event_type !== 'workout_summary') return
+    const wahooUserId = String(req.body.user?.id ?? '')
+    const conn = db.wahoo.find((c) => c.wahooUserId === wahooUserId)
+    if (!conn) return
+
+    const workout = { ...req.body.workout, workout_summary: req.body.workout_summary }
+    if (!workout.id) return
+    const ergebnis = uebernehmeFahrt(alsFahrt(workout, conn.userId))
+    if (ergebnis === 'neu' || ergebnis === 'geaendert') {
+      sichere('activities')
+      console.log(`[fahrradtracker] Webhook: Fahrt ${workout.id} ${ergebnis}`)
+    }
   } catch (err) {
-    res.status(502).json({ error: err.message })
+    console.error('[fahrradtracker] Webhook nicht verarbeitet:', err.message)
   }
 })
 
@@ -1101,7 +1260,10 @@ app.use((_req, res) => {
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Fahrradtracker läuft auf http://0.0.0.0:${PORT}`)
-  if (!STRAVA_CONFIGURED) {
-    console.warn('[fahrradtracker] Ohne STRAVA_CLIENT_ID/-SECRET bleibt die Strava-Anbindung aus.')
+  if (!WAHOO_CONFIGURED) {
+    console.warn('[fahrradtracker] Ohne WAHOO_CLIENT_ID/-SECRET bleibt die Wahoo-Anbindung aus.')
+  }
+  if (WAHOO_CONFIGURED && !WAHOO_WEBHOOK_TOKEN) {
+    console.warn('[fahrradtracker] Ohne WAHOO_WEBHOOK_TOKEN werden Webhooks verworfen.')
   }
 })
