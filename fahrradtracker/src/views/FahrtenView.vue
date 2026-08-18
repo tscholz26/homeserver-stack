@@ -42,6 +42,12 @@ const fahrten = computed(() => {
 
 const summe = computed(() => fahrten.value.reduce((s, f) => s + f.km, 0))
 
+/** Fahrten, für die der Anbieter keine Kilometer führt und die noch niemand
+ *  von Hand nachgetragen hat. */
+const ohneDistanz = computed(
+  () => fahrten.value.filter((f) => f.ohneDistanz && !f.kmKorrigiert).length,
+)
+
 async function anlegen() {
   const km = Number(String(neu.value.km).replace(',', '.'))
   if (!(km > 0)) return
@@ -75,6 +81,29 @@ function radSetzen(fahrt: Fahrt, bikeId: string) {
 
 function darfAendern(fahrt: Fahrt) {
   return fahrt.ownerId === store.state.me?.id
+}
+
+/** Woher die Fahrt kam – steht als Marke in der Zeile. */
+const QUELLEN: Record<string, string> = {
+  WAHOO: 'Wahoo',
+  INTERVALS_WAHOO: 'Intervals.icu',
+  MANUAL: 'von Hand',
+}
+
+function quelle(fahrt: Fahrt) {
+  return QUELLEN[fahrt.source] ?? fahrt.externalProvider ?? 'geholt'
+}
+
+/**
+ * Distanz einer geholten Fahrt von Hand setzen. Manche Rollenfahrten kommen
+ * ohne Kilometer an – der Anbieter kennt schlicht keine. Der korrigierte Wert
+ * wird getrennt gespeichert und überlebt den nächsten Sync.
+ */
+function distanzKorrigieren(fahrt: Fahrt, wert: string) {
+  const roh = String(wert).trim().replace(',', '.')
+  if (!roh) return store.fahrtSpeichern(fahrt.id, { km: null })
+  const km = Number(roh)
+  if (km >= 0) store.fahrtSpeichern(fahrt.id, { km })
 }
 </script>
 
@@ -148,7 +177,10 @@ function darfAendern(fahrt: Fahrt) {
       </button>
     </nav>
 
-    <p class="summe">{{ fahrten.length }} Fahrten · {{ kmText(summe) }}</p>
+    <p class="summe">
+      {{ fahrten.length }} Fahrten · {{ kmText(summe) }}
+      <template v-if="ohneDistanz"> · {{ ohneDistanz }} ohne Distanz</template>
+    </p>
 
     <ul class="liste">
       <li
@@ -166,9 +198,13 @@ function darfAendern(fahrt: Fahrt) {
             <p class="titel">
               {{ fahrt.name || 'Fahrt' }}
               <span class="quelle" :class="fahrt.source === 'MANUAL' ? 'manuell' : 'geholt'">
-                {{ fahrt.source === 'MANUAL' ? 'von Hand' : 'Wahoo' }}
+                {{ quelle(fahrt) }}
               </span>
               <span v-if="fahrt.indoor" class="quelle drinnen">Rolle</span>
+              <span v-if="fahrt.ohneDistanz && !fahrt.kmKorrigiert" class="quelle fehlt">
+                ohne Distanz
+              </span>
+              <span v-else-if="fahrt.kmKorrigiert" class="quelle korrigiert">km von Hand</span>
             </p>
             <p class="meta">
               {{ datumText(fahrt.date) }}{{ fahrt.time ? `, ${fahrt.time} Uhr` : '' }} ·
@@ -238,10 +274,23 @@ function darfAendern(fahrt: Fahrt) {
               Fahrt löschen
             </button>
           </template>
-          <p v-else class="fussnote">
-            Geholt von Intervals.icu (Aktivität {{ fahrt.externalActivityId }}). Datum und Distanz
-            stehen dort – hier lässt sich nur das Rad geraderücken.
-          </p>
+          <template v-else>
+            <!-- Für Fahrten, zu denen der Anbieter keine Kilometer kennt -->
+            <label class="klein">
+              Distanz (km) – leer heißt: Wert vom Anbieter ({{ kmText(fahrt.kmGemeldet) }})
+              <input
+                inputmode="decimal"
+                :value="fahrt.kmKorrigiert ? fahrt.km : ''"
+                :placeholder="String(fahrt.kmGemeldet)"
+                @change="distanzKorrigieren(fahrt, ($event.target as HTMLInputElement).value)"
+              />
+            </label>
+            <p class="fussnote">
+              Geholt von {{ quelle(fahrt) }} (Aktivität {{ fahrt.externalActivityId }}). Datum,
+              Titel und drinnen/draußen stehen dort; Rad und Distanz lassen sich hier geraderücken,
+              ohne dass der nächste Sync es wieder überschreibt.
+            </p>
+          </template>
         </div>
       </li>
     </ul>
@@ -438,6 +487,16 @@ select {
 .quelle.drinnen {
   background: color-mix(in srgb, var(--amber) 14%, white);
   color: var(--amber);
+}
+
+.quelle.fehlt {
+  background: color-mix(in srgb, var(--red) 10%, white);
+  color: var(--red);
+}
+
+.quelle.korrigiert {
+  background: color-mix(in srgb, var(--green) 12%, white);
+  color: var(--green);
 }
 
 .meta {

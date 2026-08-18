@@ -460,3 +460,98 @@ describe('Dubletten über zwei Quellen', () => {
     expect(e.rides.map((r: { id: string }) => r.id)).toEqual(['a'])
   })
 })
+
+describe('Wahoo: geplante Einheiten und fehlende Distanzen', () => {
+  const tagAus = (iso: string) => String(iso).slice(0, 10)
+  const basis = {
+    id: 555,
+    starts: '2026-08-12T09:00:00.000Z',
+    minutes: 86,
+    name: 'ChatGPT: VO₂max 5×5min',
+    workout_type_id: 0,
+  }
+
+  it('lässt geplante Einheiten aus einem Trainingsplan liegen', () => {
+    // Ein Plan legt für jede Einheit ein Workout an – ohne Zusammenfassung ist
+    // sie nie gefahren worden
+    expect(ausWahoo({ ...basis, plan_id: 16083424 }, 'u1', tagAus)).toBeNull()
+    expect(ausWahoo({ ...basis, plan_ids: [1, 2] }, 'u1', tagAus)).toBeNull()
+  })
+
+  it('nimmt eine gefahrene Einheit aus dem Plan mit', () => {
+    const gefahren = ausWahoo(
+      { ...basis, plan_id: 16083424, workout_summary: { distance_accum: '42000.0' } },
+      'u1',
+      tagAus,
+    )
+    expect(gefahren?.km).toBe(42)
+  })
+
+  it('merkt sich, wenn der Anbieter keine Distanz führt', () => {
+    // Rollenfahrt aus einer fremden App: echte Fahrt, aber 0 m
+    const rolle = ausWahoo(
+      {
+        ...basis,
+        workout_type_id: 12,
+        workout_summary: { distance_accum: '0.0', duration_active_accum: '11905.0' },
+      },
+      'u1',
+      tagAus,
+    )
+    expect(rolle).toMatchObject({ km: 0, indoor: true, ohneDistanz: true })
+
+    const mitDistanz = ausWahoo(
+      { ...basis, workout_summary: { distance_accum: '30000.0' } },
+      'u1',
+      tagAus,
+    )
+    expect(mitDistanz?.ohneDistanz).toBe(false)
+  })
+})
+
+describe('Distanz von Hand', () => {
+  const bikes = [{ id: 'r1', ownerId: 'u1', name: 'Rad', from: '2026-01-01', to: null }]
+  const setups = [{ id: 's1', bikeId: 'r1', name: 'Rolle', kind: 'indoor' }]
+  const { loese } = zuordner(bikes, setups)
+
+  const rolle = {
+    id: 'f1',
+    ownerId: 'u1',
+    date: '2026-07-17',
+    km: 0,
+    indoor: true,
+    ohneDistanz: true,
+    source: 'WAHOO',
+    externalProvider: 'wahoo',
+    externalActivityId: '9',
+  }
+
+  it('schlägt den gemeldeten Wert und zählt für den Verschleiß', () => {
+    const korrigiert = loese({ ...rolle, kmOverride: 95 })
+    expect(korrigiert.km).toBe(95)
+    expect(korrigiert.kmGemeldet).toBe(0)
+    expect(korrigiert.kmKorrigiert).toBe(true)
+    expect(kmImZeitraum(['s1'], [korrigiert], '2026-01-01', '2026-12-31')).toBe(95)
+  })
+
+  it('fällt ohne Korrektur auf den gemeldeten Wert zurück', () => {
+    const ohne = loese(rolle)
+    expect(ohne.km).toBe(0)
+    expect(ohne.kmKorrigiert).toBe(false)
+  })
+
+  it('überlebt den nächsten Sync', () => {
+    const bestand = [{ ...rolle, kmOverride: 95, override: null, createdAt: 'x' }]
+    // Der Anbieter meldet die Fahrt unverändert mit 0 km
+    const e = synchronisiereFenster(bestand, [{ ...rolle }], {
+      ownerId: 'u1',
+      provider: 'wahoo',
+      von: '2026-07-01',
+      bis: '2026-07-31',
+      neueId: () => 'neu',
+    })
+    expect(e.rides).toHaveLength(1)
+    expect(e.rides[0].kmOverride).toBe(95)
+    expect(loese(e.rides[0]).km).toBe(95)
+  })
+})

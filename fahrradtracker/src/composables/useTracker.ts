@@ -68,12 +68,19 @@ export interface Fahrt {
   externalActivityId: string | null
   externalSource: string | null
   override: { bikeId: string | null; setupId: string | null } | null
+  /** Von Hand gesetzte Distanz – überlebt jeden Sync */
+  kmOverride?: number | null
+  /** Der Anbieter führt für diese Fahrt keine Distanz */
+  ohneDistanz?: boolean
   /** Vom Server aufgelöst – nichts davon steht in der Datei */
   bikeId: string | null
   bikeName: string
   setupId: string | null
   setupName: string
   unassigned: boolean
+  /** Was der Anbieter gemeldet hat, vor einer Korrektur von Hand */
+  kmGemeldet: number
+  kmKorrigiert: boolean
 }
 
 export interface Kategorie {
@@ -347,7 +354,7 @@ function createStore() {
     id: string,
     changes: {
       date?: string
-      km?: number
+      km?: number | null
       time?: string
       minutes?: number
       name?: string

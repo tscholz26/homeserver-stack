@@ -109,11 +109,18 @@ export function ausWahoo(workout, ownerId, tagAus) {
   const typ = WAHOO_TYPEN.find((t) => t.id === Number(workout.workout_type_id))
   if (!typ) return null
 
+  const summary = workout.workout_summary
+  // Ein Trainingsplan legt für jede Einheit ein Workout an, auch für die, die
+  // nie gefahren wurden – erkennbar an der Plan-Id ohne Zusammenfassung. Das
+  // ist ein Vorhaben, keine Fahrt.
+  const ausPlan = Boolean(workout.plan_id) || (workout.plan_ids ?? []).length > 0
+  if (!summary && ausPlan) return null
+
   const id = String(workout.id ?? '')
   const datum = tagAus(workout.starts)
   if (!id || !/^\d{4}-\d{2}-\d{2}$/.test(datum)) return null
 
-  const meter = Number(workout.workout_summary?.distance_accum ?? 0) || 0
+  const meter = Number(summary?.distance_accum ?? 0) || 0
   return {
     ownerId,
     date: datum,
@@ -122,6 +129,10 @@ export function ausWahoo(workout, ownerId, tagAus) {
     minutes: Math.round(Number(workout.minutes) || 0),
     name: String(workout.name ?? '').slice(0, 80),
     indoor: typ.indoor,
+    // Es gibt gefahrene Workouts, für die Wahoo keine Distanz führt – etwa
+    // Rollenfahrten aus fremden Apps. Die Fahrt ist echt, die Kilometer fehlen;
+    // eintragen lassen sie sich von Hand.
+    ohneDistanz: meter <= 0,
     source: 'WAHOO',
     externalProvider: ANBIETER.wahoo,
     externalActivityId: id,
@@ -191,8 +202,15 @@ export function zuordner(bikes, setups) {
   function loese(fahrt) {
     const radDazu = rad(fahrt)
     const aufbauDazu = aufbau(fahrt, radDazu)
+    // Eine von Hand eingetragene Distanz schlägt die gemeldete: Sie ist die
+    // Antwort auf Fahrten, für die der Anbieter keine Kilometer kennt, und
+    // überlebt jeden weiteren Sync.
+    const korrigiert = typeof fahrt.kmOverride === 'number' && fahrt.kmOverride >= 0
     return {
       ...fahrt,
+      km: korrigiert ? fahrt.kmOverride : Number(fahrt.km) || 0,
+      kmGemeldet: Number(fahrt.km) || 0,
+      kmKorrigiert: korrigiert,
       bikeId: radDazu?.id ?? null,
       bikeName: radDazu?.name ?? '',
       setupId: aufbauDazu?.id ?? null,

@@ -142,6 +142,21 @@ beim nächsten Sync ohnehin wieder.
 Der Kalendertag einer Fahrt kommt aus ihrer Startzeit in der Zeitzone des
 Containers (`TZ=Europe/Berlin` in [docker-compose.yml](docker-compose.yml)).
 
+### Was beim Holen liegen bleibt – und was 0 km bedeutet
+
+Nicht jedes Workout beim Anbieter ist eine Fahrt:
+
+- **Geplante Einheiten** aus einem Trainingsplan legt Wahoo als Workout an,
+  auch wenn sie nie gefahren wurden – erkennbar an einer Plan-Id *ohne*
+  Zusammenfassung. Die werden übersprungen; wird dieselbe Einheit gefahren,
+  bekommt sie eine Zusammenfassung und kommt mit.
+- **Fahrten ohne Distanz** gibt es wirklich: Rollenfahrten aus fremden Apps
+  etwa laufen mit Dauer, aber ohne Kilometer bei Wahoo auf (auch der
+  Einzelabruf liefert dort nichts). Sie werden übernommen und in der Liste als
+  „ohne Distanz“ markiert. Die Kilometer lassen sich **von Hand nachtragen** –
+  der Wert wird getrennt vom gemeldeten gespeichert und überlebt jeden weiteren
+  Sync. Dasselbe gilt für die Rad-Zuordnung.
+
 ### Zwei Quellen, einmal Kilometer
 
 Verbunden sein dürfen beide Quellen, **geholt wird immer nur aus einer** – der

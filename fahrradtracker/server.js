@@ -1522,7 +1522,18 @@ app.put('/api/rides/:id', auth, (req, res) => {
     }
 
     if (fahrt.source !== 'MANUAL') {
-      const verboten = ['date', 'km', 'time', 'minutes', 'name', 'indoor'].some(
+      // Die Distanz darf auch bei geholten Fahrten von Hand gesetzt werden –
+      // für die, zu denen der Anbieter keine kennt. Gespeichert wird sie
+      // getrennt vom gemeldeten Wert, damit der nächste Sync sie nicht
+      // überschreibt; `null` nimmt die Korrektur wieder zurück.
+      if (req.body?.km !== undefined) {
+        const km = req.body.km === null ? null : Number(req.body.km)
+        if (km !== null && !(km >= 0)) {
+          return { reject: { status: 400, error: 'Bitte eine Distanz ab 0 eintragen.' } }
+        }
+        fahrt.kmOverride = km === null ? null : Math.round(km * 100) / 100
+      }
+      const verboten = ['date', 'time', 'minutes', 'name', 'indoor'].some(
         (feld) => req.body?.[feld] !== undefined,
       )
       if (verboten) {
@@ -1530,7 +1541,7 @@ app.put('/api/rides/:id', auth, (req, res) => {
           reject: {
             status: 409,
             error:
-              'Importierte Fahrten kommen von Intervals.icu – hier lässt sich nur das Rad ändern.',
+              'Datum, Titel und drinnen/draußen kommen vom Anbieter – hier lassen sich nur Rad und Distanz geraderücken.',
           },
         }
       }
