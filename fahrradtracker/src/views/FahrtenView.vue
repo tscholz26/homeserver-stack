@@ -59,6 +59,9 @@ const importText = ref('')
 const importBis = ref('')
 const importDatei = ref('')
 const bericht = ref<ImportBericht | null>(null)
+// Distanzen aus Dublettengruppen: standardmäßig aus, weil dann dieselbe
+// Distanz mehrfach zählt
+const gruppenDistanzen = ref(false)
 const laeuft = ref(false)
 
 async function dateiGewaehlt(ereignis: Event) {
@@ -73,14 +76,24 @@ async function dateiGewaehlt(ereignis: Event) {
 async function vorschau() {
   if (!importText.value) return
   laeuft.value = true
-  bericht.value = await store.csvImport(importText.value, importBis.value)
+  bericht.value = await store.csvImport(
+    importText.value,
+    importBis.value,
+    false,
+    gruppenDistanzen.value,
+  )
   laeuft.value = false
 }
 
 async function uebernehmen() {
   if (!importText.value || laeuft.value) return
   laeuft.value = true
-  const ergebnis = await store.csvImport(importText.value, importBis.value, true)
+  const ergebnis = await store.csvImport(
+    importText.value,
+    importBis.value,
+    true,
+    gruppenDistanzen.value,
+  )
   laeuft.value = false
   if (!ergebnis) return
   store.hinweis.value = `${ergebnis.angelegt} Fahrten übernommen, davon ${ergebnis.ohneDistanz} ohne Distanz.`
@@ -243,6 +256,11 @@ function distanzKorrigieren(fahrt: Fahrt, wert: string) {
         </label>
       </div>
 
+      <label class="haken">
+        <input v-model="gruppenDistanzen" type="checkbox" @change="vorschau" />
+        Distanzen aus Dublettengruppen übernehmen
+      </label>
+
       <template v-if="bericht">
         <p class="summe">
           {{ bericht.angelegt }} neue Fahrten · {{ kmText(bericht.km) }}
@@ -255,7 +273,11 @@ function distanzKorrigieren(fahrt: Fahrt, wert: string) {
         <p v-if="bericht.ohneDistanz" class="warnzeile">
           {{ bericht.ohneDistanz }} davon ohne Distanz: Dort stehen Datum und Distanz im Export für
           mehrere Fahrten gleich, das sind keine echten Werte. Die Kilometer trägst du bei Bedarf
-          von Hand nach.
+          von Hand nach – oder du setzt oben das Häkchen und übernimmst den Gruppenwert.
+        </p>
+        <p v-else-if="gruppenDistanzen" class="warnzeile">
+          Achtung: Fahrten aus einer Dublettengruppe bekommen alle dieselbe Distanz. Das sind keine
+          gemessenen Werte, sie zählen aber voll für den Verschleiß.
         </p>
         <ul v-if="bericht.beispiele?.length" class="beispiele">
           <li v-for="(b, i) in bericht.beispiele" :key="i">

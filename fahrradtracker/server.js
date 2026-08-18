@@ -1522,6 +1522,7 @@ app.post('/api/rides/import', auth, (req, res) => {
   const { fahrten, ignoriert, hundertstel, fehler } = ausCsv(String(req.body?.csv ?? ''), {
     bis: typeof req.body?.bis === 'string' ? req.body.bis : '',
     ownerId: req.user.id,
+    gruppenDistanzen: req.body?.gruppenDistanzen === true,
   })
   if (fehler) return res.status(400).json({ error: fehler })
 

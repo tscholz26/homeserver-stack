@@ -394,10 +394,11 @@ function createStore() {
    * Fahrten aus einer Tabelle nachtragen. Ohne `speichern` ist es nur eine
    * Vorschau – ein Import lässt sich nicht in einem Rutsch zurücknehmen.
    */
-  async function csvImport(csv: string, bis: string, speichern = false) {
+  async function csvImport(csv: string, bis: string, speichern = false, gruppenDistanzen = false) {
     const daten = await api<ImportBericht & { me?: unknown }>('/rides/import', 'POST', {
       csv,
       bis,
+      gruppenDistanzen,
       dryRun: !speichern,
     })
     if (daten && speichern) await refresh()

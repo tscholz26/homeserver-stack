@@ -403,7 +403,7 @@ const CSV_SPORT = {
  *    Solche Zeilen kommen ohne Distanz herein, statt erfundene Kilometer in die
  *    Verschleißrechnung zu tragen.
  */
-export function ausCsv(text, { bis = '', ownerId = '' } = {}) {
+export function ausCsv(text, { bis = '', ownerId = '', gruppenDistanzen = false } = {}) {
   const zeilen = String(text)
     .split(/\r?\n/)
     .filter((z) => z.trim())
@@ -466,7 +466,10 @@ export function ausCsv(text, { bis = '', ownerId = '' } = {}) {
   const fahrten = roh.map((r) => {
     const gruppe = zaehler.get(`${r.date}|${r.wert}`) ?? 1
     const verdaechtig = gruppe > 1 && r.wert > 0
-    const km = verdaechtig ? 0 : Math.round((r.wert / teiler) * 100) / 100
+    // Standardmäßig bleibt der Wert einer Dublettengruppe draußen. Wer ihn
+    // trotzdem will, bekommt ihn – dann steht an jeder Fahrt der Gruppe
+    // dieselbe Distanz, und der Hinweis dazu in der Notiz.
+    const km = verdaechtig && !gruppenDistanzen ? 0 : Math.round((r.wert / teiler) * 100) / 100
     return {
       ownerId,
       date: r.date,
@@ -483,7 +486,11 @@ export function ausCsv(text, { bis = '', ownerId = '' } = {}) {
       externalActivityId: `${r.date}|${r.name}|${r.wert}`,
       externalSource: null,
       // Warum ohne Distanz: damit die Oberfläche es erklären kann
-      grund: verdaechtig ? `Datum und Distanz stehen ${gruppe}× gleich im Export` : '',
+      grund: verdaechtig
+        ? `Datum und Distanz stehen ${gruppe}× gleich im Export – ${
+            gruppenDistanzen ? 'Wert trotzdem übernommen' : 'Distanz deshalb offen'
+          }`
+        : '',
     }
   })
 
