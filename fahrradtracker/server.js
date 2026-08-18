@@ -238,6 +238,16 @@ function migriere() {
     }
   }
 
+  // Wechselintervall: Kategorien aus der Zeit davor kennen das Feld nicht.
+  // Ketten werden im Wechsel gefahren und gewachst – dafür ist es gedacht,
+  // deshalb bekommen sie einen Startwert; alles andere bleibt ohne Intervall.
+  for (const typ of db.types) {
+    if (typeof typ.rotationKm !== 'number') {
+      typ.rotationKm = /kette/i.test(typ.name ?? '') && !/blatt/i.test(typ.name ?? '') ? 500 : 0
+      geaendert.add('types')
+    }
+  }
+
   for (const teil of db.components) {
     // Teile hängen jetzt an Aufbauten, nicht mehr am Rad als Ganzem
     if (!Array.isArray(teil.setupIds)) {
