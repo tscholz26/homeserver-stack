@@ -45,6 +45,9 @@ const kategorieListe = useTemplateRef<HTMLElement>('kategorieListe')
 let sortable: Sortable | undefined
 
 onMounted(() => {
+  // Ein Tab, der seit gestern offen ist, weiß nichts von einer inzwischen
+  // eingerichteten Mail-Zustellung
+  store.refresh()
   if (!kategorieListe.value) return
   sortable = new Sortable(kategorieListe.value, {
     handle: '.griff',
@@ -81,6 +84,32 @@ function schwellenSpeichern() {
 // ── Profil ───────────────────────────────────────────────────────────────────
 const meinName = ref(store.state.me?.name ?? '')
 const meineMail = ref(store.state.me?.notifyEmail ?? '')
+
+// Der Knopf bleibt anklickbar und sagt selbst, was fehlt – ein grau
+// ausgegrauter Knopf ohne Begründung ist keine Antwort.
+const probeLaeuft = ref(false)
+const probeMeldung = ref('')
+const probeOk = ref(true)
+
+async function probeSchicken() {
+  probeMeldung.value = ''
+  if (!meineMail.value.trim()) {
+    probeOk.value = false
+    probeMeldung.value = 'Erst eine Adresse eintragen und speichern.'
+    return
+  }
+  probeLaeuft.value = true
+  // Die eingetippte Adresse zählt, auch wenn „Speichern“ vergessen wurde
+  if (meineMail.value.trim() !== store.state.me?.notifyEmail) {
+    await store.profilSpeichern({ notifyEmail: meineMail.value.trim() })
+  }
+  const ok = await store.probeMail()
+  probeLaeuft.value = false
+  probeOk.value = ok
+  probeMeldung.value = ok
+    ? `Ist raus an ${meineMail.value.trim()}.`
+    : store.error.value || 'Versand fehlgeschlagen.'
+}
 const altePin = ref('')
 const neuePin = ref('')
 
@@ -337,14 +366,14 @@ const FARBEN = ['#7c3aed', '#0891b2', '#c2740a', '#15803d', '#be185d', '#4338ca'
           Speichern
         </button>
       </div>
-      <button
-        type="button"
-        class="still schmal"
-        :disabled="!store.state.me?.notifyEmail || !store.state.mailConfigured"
-        @click="store.probeMail()"
-      >
-        Probemail schicken
-      </button>
+      <div class="probezeile">
+        <button type="button" class="still schmal" :disabled="probeLaeuft" @click="probeSchicken">
+          {{ probeLaeuft ? 'schickt …' : 'Probemail schicken' }}
+        </button>
+        <span v-if="probeMeldung" class="probemeldung" :class="{ fehler: !probeOk }">
+          {{ probeMeldung }}
+        </span>
+      </div>
 
       <p class="cap zwischen">Dein Profil</p>
       <h2>Name, Farbe und PIN</h2>
@@ -643,6 +672,23 @@ textarea {
 .schmal {
   padding: 0.4rem 0.8rem;
   font-size: 0.8rem;
+}
+
+.probezeile {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.probemeldung {
+  color: var(--green);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.probemeldung.fehler {
+  color: var(--red);
 }
 
 .gefahr:disabled,

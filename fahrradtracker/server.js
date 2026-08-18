@@ -738,11 +738,7 @@ function schreibeSync(conn, userId, provider, fahrten, oldest, newest) {
     `[fahrradtracker] Sync ${provider} ${userId} ab ${oldest}: ${neu} neu, ${geaendert} aktualisiert, ${geloescht} entfallen, ${uebersprungen} Dubletten`,
   )
   // Frische Kilometer können ein Teil über eine Schwelle geschoben haben
-  if (neu || geaendert || geloescht) {
-    pruefeMeldungen().catch((err) =>
-      console.error('[fahrradtracker] Meldungen nach Sync:', err.message),
-    )
-  }
+  if (neu || geaendert || geloescht) meldungenBaldPruefen()
   return { neu, geaendert, geloescht, uebersprungen, oldest }
 }
 
@@ -871,6 +867,17 @@ function meldungenFuer(user, fahrten) {
     const vermerk = component.notified
     const rad = bike.name
 
+    // Fällt ein Teil wieder unter eine Schwelle – etwa weil die Grenze
+    // heraufgesetzt wurde –, wird die Meldung wieder scharf. Sonst käme sie
+    // nach einer Korrektur nie wieder.
+    if (!gerechnet.rotationFaellig) delete vermerk.wachsen
+    if (gerechnet.percent < yellow) {
+      delete vermerk.gelb
+      delete vermerk.rot
+    } else if (gerechnet.percent < red) {
+      delete vermerk.rot
+    }
+
     if (gerechnet.rotationFaellig && !vermerk.wachsen) {
       vermerk.wachsen = true
       meldungen.push({
@@ -931,6 +938,14 @@ async function pruefeMeldungen() {
   }
 }
 
+// Einmal kurz nach dem Start: Zwischen zwei Läufen kann sich etwas geändert
+// haben, während der Server aus war – oder die Zustellung war eben erst
+// eingerichtet.
+setTimeout(() => {
+  pruefeMeldungen().catch((err) =>
+    console.error('[fahrradtracker] Meldungen beim Start:', err.message),
+  )
+}, 30_000)
 setInterval(pruefeMeldungen, 60 * 60 * 1000)
 
 // ── Der Stand für den Browser ────────────────────────────────────────────────
@@ -1005,12 +1020,31 @@ const app = express()
 app.use(express.json({ limit: '1mb' }))
 app.use(express.static(join(__dirname, 'dist')))
 
+/**
+ * Jede Änderung kann ein Teil über eine Schwelle schieben – eine gesenkte
+ * Verschleißgrenze genauso wie eine nachgetragene Fahrt. Geprüft wird deshalb
+ * nach jeder Änderung, aber gebündelt: Ein Import mit hundert Fahrten löst
+ * einen Lauf aus, nicht hundert.
+ */
+let meldungsTimer
+
+function meldungenBaldPruefen() {
+  if (!MAIL_CONFIGURED) return
+  clearTimeout(meldungsTimer)
+  meldungsTimer = setTimeout(() => {
+    pruefeMeldungen().catch((err) =>
+      console.error('[fahrradtracker] Meldungen nach Änderung:', err.message),
+    )
+  }, 5000)
+}
+
 function antworte(req, res, arbeit) {
   try {
     const ergebnis = arbeit()
     if (ergebnis?.reject) {
       return res.status(ergebnis.reject.status).json({ error: ergebnis.reject.error })
     }
+    meldungenBaldPruefen()
     res.json(publicState(req.user))
   } catch (err) {
     console.error('[fahrradtracker] Änderung fehlgeschlagen:', err.message)
