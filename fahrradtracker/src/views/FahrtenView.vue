@@ -12,7 +12,7 @@ import { datumText, heute, kmText } from '@/utils/verschleiss'
  */
 const store = useTracker()
 
-type Filter = 'alle' | 'manuell' | 'importiert' | 'offen'
+type Filter = 'alle' | 'manuell' | 'importiert' | 'offen' | 'csv' | 'ohneKm'
 const filter = ref<Filter>('alle')
 
 const neuOffen = ref(false)
@@ -37,6 +37,8 @@ const fahrten = computed(() => {
   if (filter.value === 'manuell') return alle.filter((f) => f.source === 'MANUAL')
   if (filter.value === 'importiert') return alle.filter((f) => f.source !== 'MANUAL')
   if (filter.value === 'offen') return alle.filter((f) => f.unassigned)
+  if (filter.value === 'csv') return alle.filter((f) => f.externalProvider === 'csv')
+  if (filter.value === 'ohneKm') return alle.filter((f) => !(f.km > 0))
   return alle
 })
 
@@ -47,6 +49,9 @@ const summe = computed(() => fahrten.value.reduce((s, f) => s + f.km, 0))
 const ohneDistanz = computed(
   () => fahrten.value.filter((f) => f.ohneDistanz && !f.kmKorrigiert).length,
 )
+
+const ohneKm = computed(() => store.state.rides.filter((f) => !(f.km > 0)).length)
+const ausCsv = computed(() => store.state.rides.filter((f) => f.externalProvider === 'csv').length)
 
 // ── Tabelle einlesen ─────────────────────────────────────────────────────────
 // Für Fahrten aus der Zeit vor dem Gerät, die als CSV vorliegen
@@ -85,6 +90,17 @@ async function uebernehmen() {
   importText.value = ''
   importDatei.value = ''
   bericht.value = null
+}
+
+const sammelFrage = ref(false)
+
+/** Löscht genau das, was der aktive Filter gerade zeigt. */
+async function sammelLoeschen() {
+  const ids = fahrten.value.filter((f) => f.ownerId === store.state.me?.id).map((f) => f.id)
+  sammelFrage.value = false
+  if (!ids.length) return
+  const ok = await store.fahrtenLoeschen({ ids })
+  if (ok) store.hinweis.value = `${ids.length} Fahrten gelöscht.`
 }
 
 async function anlegen() {
@@ -264,6 +280,8 @@ function distanzKorrigieren(fahrt: Fahrt, wert: string) {
           { id: 'importiert', label: 'Geholt' },
           { id: 'manuell', label: 'Von Hand' },
           { id: 'offen', label: `Ohne Rad (${store.state.ohneZuordnung})` },
+          { id: 'ohneKm', label: `Ohne km (${ohneKm})` },
+          ...(ausCsv ? [{ id: 'csv', label: `Aus CSV (${ausCsv})` }] : []),
         ]"
         :key="f.id"
         type="button"
@@ -275,10 +293,23 @@ function distanzKorrigieren(fahrt: Fahrt, wert: string) {
       </button>
     </nav>
 
-    <p class="summe">
-      {{ fahrten.length }} Fahrten · {{ kmText(summe) }}
-      <template v-if="ohneDistanz"> · {{ ohneDistanz }} ohne Distanz</template>
-    </p>
+    <div class="summenzeile">
+      <p class="summe">
+        {{ fahrten.length }} Fahrten · {{ kmText(summe) }}
+        <template v-if="ohneDistanz"> · {{ ohneDistanz }} ohne Distanz</template>
+      </p>
+      <!-- Ganze Auswahl wegräumen – zweistufig, das ist nicht rückgängig zu machen -->
+      <template v-if="fahrten.length && filter !== 'alle'">
+        <button v-if="!sammelFrage" type="button" class="still schmal" @click="sammelFrage = true">
+          Angezeigte löschen
+        </button>
+        <span v-else class="sammelfrage">
+          {{ fahrten.length }} Fahrten löschen?
+          <button type="button" class="still schmal" @click="sammelFrage = false">Nein</button>
+          <button type="button" class="gefahr schmal" @click="sammelLoeschen">Ja</button>
+        </span>
+      </template>
+    </div>
 
     <ul class="liste">
       <li
@@ -368,9 +399,6 @@ function distanzKorrigieren(fahrt: Fahrt, wert: string) {
               />
               auf der Rolle gefahren
             </label>
-            <button type="button" class="gefahr schmal" @click="store.fahrtLoeschen(fahrt.id)">
-              Fahrt löschen
-            </button>
           </template>
           <template v-else>
             <!-- Für Fahrten, zu denen der Anbieter keine Kilometer kennt -->
@@ -537,11 +565,29 @@ select {
   line-height: 1.4;
 }
 
-.summe {
+.summenzeile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.4rem;
   margin: 0.6rem 0;
+}
+
+.summe {
+  margin: 0;
   color: var(--muted);
   font-size: 0.8rem;
   font-weight: 600;
+}
+
+.sammelfrage {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--red);
 }
 
 .liste {

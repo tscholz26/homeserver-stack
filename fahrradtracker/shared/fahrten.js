@@ -295,7 +295,16 @@ export function synchronisiereFenster(rides, neueFahrten, { ownerId, provider, v
       alt.indoor === fahrt.indoor &&
       alt.name === fahrt.name
     if (unveraendert) continue
-    Object.assign(alt, fahrt, { id: alt.id, override: alt.override, createdAt: alt.createdAt })
+    Object.assign(alt, fahrt, {
+      id: alt.id,
+      override: alt.override,
+      createdAt: alt.createdAt,
+      // Von Hand entfernt heißt entfernt – auch wenn der Anbieter die Fahrt
+      // weiter führt
+      deleted: alt.deleted,
+      deletedAt: alt.deletedAt,
+      kmOverride: alt.kmOverride,
+    })
     geaendert += 1
   }
 

@@ -383,6 +383,11 @@ function createStore() {
     return aendern(`/rides/${id}`, 'DELETE')
   }
 
+  /** Mehrere auf einmal – etwa ein Import, der nichts taugte. */
+  function fahrtenLoeschen(auswahl: { ids?: string[]; provider?: string; ohneDistanz?: boolean }) {
+    return aendern('/rides', 'DELETE', auswahl)
+  }
+
   /**
    * Fahrten aus einer Tabelle nachtragen. Ohne `speichern` ist es nur eine
    * Vorschau – ein Import lässt sich nicht in einem Rutsch zurücknehmen.
@@ -628,6 +633,7 @@ function createStore() {
     fahrtAnlegen,
     fahrtSpeichern,
     fahrtLoeschen,
+    fahrtenLoeschen,
     csvImport,
     quelleVerbinden,
     quelleTrennen,

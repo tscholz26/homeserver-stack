@@ -775,7 +775,7 @@ setInterval(syncFaellige, 60 * 60 * 1000)
 // (drinnen/draußen) → die Teile dieses Aufbaus.
 function geloesteFahrten() {
   const { loese } = zuordner(db.bikes, db.setups)
-  return db.rides.map(loese)
+  return db.rides.filter((r) => !r.deleted).map(loese)
 }
 
 /** Grenzwert einer Instanz: eigener Wert → Wert für Rad+Kategorie → Standard
@@ -1530,6 +1530,7 @@ app.post('/api/rides/import', auth, (req, res) => {
       .filter((r) => r.ownerId === req.user.id && r.externalProvider === 'csv')
       .map((r) => r.externalActivityId),
   )
+  // Was einmal von Hand entfernt wurde, kommt durch dieselbe Datei nicht wieder
   const neue = fahrten.filter((f) => !bekannt.has(f.externalActivityId))
   const bericht = {
     gelesen: fahrten.length,
@@ -1639,20 +1640,51 @@ app.put('/api/rides/:id', auth, (req, res) => {
   })
 })
 
+/**
+ * Fahrt löschen.
+ *
+ * Von Hand eingetragene und eingelesene Fahrten sind danach weg. Geholte
+ * bleiben als Grabstein liegen (`deleted`): Sie stehen beim Anbieter weiterhin
+ * und kämen beim nächsten Sync sonst sofort wieder. Sichtbar sind sie nirgends
+ * mehr und für den Verschleiß zählen sie nicht.
+ */
 app.delete('/api/rides/:id', auth, (req, res) => {
   const fahrt = eigeneFahrt(req, res)
   if (!fahrt) return
   antworte(req, res, () => {
-    if (fahrt.source !== 'MANUAL') {
-      return {
-        reject: {
-          status: 409,
-          error:
-            'Importierte Fahrten stehen bei Intervals.icu – dort löschen, dann verschwinden sie hier.',
-        },
-      }
-    }
+    entferne(fahrt)
+    sichere('rides')
+  })
+})
+
+function entferne(fahrt) {
+  if (fahrt.source === 'MANUAL') {
     db.rides = db.rides.filter((r) => r.id !== fahrt.id)
+    return
+  }
+  fahrt.deleted = true
+  fahrt.deletedAt = new Date().toISOString()
+}
+
+/**
+ * Mehrere auf einmal – für einen Import, der sich als unbrauchbar herausstellt.
+ * Verlangt wird immer eine ausdrückliche Auswahl, nie „alles“.
+ */
+app.delete('/api/rides', auth, (req, res) => {
+  const { ids, provider, ohneDistanz } = req.body ?? {}
+  antworte(req, res, () => {
+    const eigene = db.rides.filter((r) => r.ownerId === req.user.id && !r.deleted)
+    let treffer = []
+    if (Array.isArray(ids) && ids.length) {
+      treffer = eigene.filter((r) => ids.includes(r.id))
+    } else if (typeof provider === 'string' && provider) {
+      treffer = eigene.filter(
+        (r) => r.externalProvider === provider && (!ohneDistanz || !(r.km > 0)),
+      )
+    } else {
+      return { reject: { status: 400, error: 'Bitte angeben, welche Fahrten weg sollen.' } }
+    }
+    for (const fahrt of treffer) entferne(fahrt)
     sichere('rides')
   })
 })

@@ -622,3 +622,35 @@ describe('CSV-Import', () => {
     )
   })
 })
+
+describe('Gelöschte Fahrten bleiben gelöscht', () => {
+  const fahrt = {
+    id: 'a',
+    ownerId: 'u1',
+    date: '2026-08-10',
+    km: 50,
+    indoor: false,
+    name: 'Tour',
+    source: 'WAHOO',
+    externalProvider: 'wahoo',
+    externalActivityId: '900',
+    override: null,
+    createdAt: 'x',
+  }
+
+  it('holt eine entfernte Fahrt beim nächsten Sync nicht zurück', () => {
+    const bestand = [{ ...fahrt, deleted: true, deletedAt: '2026-08-18T10:00:00.000Z' }]
+    // Der Anbieter meldet sie unverändert weiter
+    const e = synchronisiereFenster(bestand, [{ ...fahrt, km: 55 }], {
+      ownerId: 'u1',
+      provider: 'wahoo',
+      von: '2026-08-01',
+      bis: '2026-08-31',
+      neueId: () => 'neu',
+    })
+    expect(e.rides).toHaveLength(1)
+    expect(e.rides[0].deleted).toBe(true)
+    // Fortgeschrieben wird sie trotzdem, falls sie je zurückgeholt wird
+    expect(e.rides[0].km).toBe(55)
+  })
+})
