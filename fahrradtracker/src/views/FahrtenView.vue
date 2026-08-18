@@ -12,7 +12,7 @@ import { datumText, heute, kmText } from '@/utils/verschleiss'
  */
 const store = useTracker()
 
-type Filter = 'alle' | 'manuell' | 'importiert' | 'offen' | 'csv' | 'ohneKm'
+type Filter = 'alle' | 'manuell' | 'importiert' | 'offen' | 'ohneKm'
 const filter = ref<Filter>('alle')
 
 const neuOffen = ref(false)
@@ -37,7 +37,6 @@ const fahrten = computed(() => {
   if (filter.value === 'manuell') return alle.filter((f) => f.source === 'MANUAL')
   if (filter.value === 'importiert') return alle.filter((f) => f.source !== 'MANUAL')
   if (filter.value === 'offen') return alle.filter((f) => f.unassigned)
-  if (filter.value === 'csv') return alle.filter((f) => f.externalProvider === 'csv')
   if (filter.value === 'ohneKm') return alle.filter((f) => !(f.km > 0))
   return alle
 })
@@ -51,7 +50,6 @@ const ohneDistanz = computed(
 )
 
 const ohneKm = computed(() => store.state.rides.filter((f) => !(f.km > 0)).length)
-const ausCsv = computed(() => store.state.rides.filter((f) => f.externalProvider === 'csv').length)
 
 // ── Tabelle einlesen ─────────────────────────────────────────────────────────
 // Für Fahrten aus der Zeit vor dem Gerät, die als CSV vorliegen
@@ -90,6 +88,14 @@ async function uebernehmen() {
   importText.value = ''
   importDatei.value = ''
   bericht.value = null
+}
+
+const loeschFrage = ref('')
+
+async function loeschen(fahrt: Fahrt) {
+  loeschFrage.value = ''
+  const ok = await store.fahrtLoeschen(fahrt.id)
+  if (ok) store.hinweis.value = 'Fahrt gelöscht.'
 }
 
 const sammelFrage = ref(false)
@@ -281,7 +287,6 @@ function distanzKorrigieren(fahrt: Fahrt, wert: string) {
           { id: 'manuell', label: 'Von Hand' },
           { id: 'offen', label: `Ohne Rad (${store.state.ohneZuordnung})` },
           { id: 'ohneKm', label: `Ohne km (${ohneKm})` },
-          ...(ausCsv ? [{ id: 'csv', label: `Aus CSV (${ausCsv})` }] : []),
         ]"
         :key="f.id"
         type="button"
@@ -417,6 +422,25 @@ function distanzKorrigieren(fahrt: Fahrt, wert: string) {
               ohne dass der nächste Sync es wieder überschreibt.
             </p>
           </template>
+
+          <p v-if="fahrt.note" class="fussnote">{{ fahrt.note }}</p>
+
+          <!-- Löschen: bei jeder Fahrt, mit Rückfrage. Geholte kommen dabei
+               auch durch den nächsten Sync nicht zurück. -->
+          <div class="loeschzeile">
+            <template v-if="loeschFrage === fahrt.id">
+              <span class="frage">Wirklich löschen?</span>
+              <button type="button" class="still schmal" @click="loeschFrage = ''">
+                Abbrechen
+              </button>
+              <button type="button" class="gefahr schmal" @click="loeschen(fahrt)">
+                Ja, löschen
+              </button>
+            </template>
+            <button v-else type="button" class="gefahr schmal" @click="loeschFrage = fahrt.id">
+              🗑 Fahrt löschen
+            </button>
+          </div>
         </div>
       </li>
     </ul>
@@ -712,6 +736,22 @@ select {
 .gefahr {
   border-color: color-mix(in srgb, var(--red) 30%, transparent);
   color: var(--red);
+}
+
+.loeschzeile {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--line);
+}
+
+.frage {
+  flex: 1;
+  color: var(--red);
+  font-size: 0.82rem;
+  font-weight: 600;
 }
 
 .schmal {

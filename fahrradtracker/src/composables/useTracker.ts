@@ -70,6 +70,8 @@ export interface Fahrt {
   override: { bikeId: string | null; setupId: string | null } | null
   /** Von Hand gesetzte Distanz – überlebt jeden Sync */
   kmOverride?: number | null
+  /** Warum diese Fahrt ist, wie sie ist – etwa woher eine Distanz stammt */
+  note?: string
   /** Der Anbieter führt für diese Fahrt keine Distanz */
   ohneDistanz?: boolean
   /** Vom Server aufgelöst – nichts davon steht in der Datei */
