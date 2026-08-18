@@ -134,6 +134,7 @@ const FARBEN = ['#7c3aed', '#0891b2', '#c2740a', '#15803d', '#be185d', '#4338ca'
               })
             "
           />
+          <!--
           <button
             type="button"
             class="gefahr"
@@ -143,6 +144,7 @@ const FARBEN = ['#7c3aed', '#0891b2', '#c2740a', '#15803d', '#be185d', '#4338ca'
           >
             Löschen
           </button>
+          -->
         </li>
       </ul>
 
