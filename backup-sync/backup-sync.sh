@@ -16,17 +16,24 @@ fi
 : "${NC_USER:?NC_USER fehlt (siehe backup-sync.env.example)}"
 : "${NC_PASS:?NC_PASS fehlt (siehe backup-sync.env.example)}"
 # Gesichert wird jedes `<app>/backups` im Stack – gefunden, nicht aufgezählt.
-# So ist eine neue App vom ersten Backup an dabei, ohne dass hier oder in der
-# env-Datei jemand nachträgt. `BACKUP_DIRS` überschreibt die Suche, sollte aber
-# in aller Regel leer bleiben.
+# Eine neue App ist damit vom ersten Backup an dabei, ohne dass jemand hier
+# oder in der env-Datei nachträgt.
+#
+# `BACKUP_DIRS` aus der env-Datei kommt *dazu* und ersetzt die Suche nicht:
+# Eine dort vergessene App war der wahrscheinlichste Weg, ein Backup stillschweigend
+# zu verlieren.
 STACK_DIR="${STACK_DIR:-/home/tristans/homeserver-stack}"
-gefundene_backup_dirs() {
+
+alle_backup_dirs() {
   for dir in "$STACK_DIR"/*/backups; do
-    [ -d "$dir" ] || continue
-    printf '%s\n' "$dir"
+    [ -d "$dir" ] && printf '%s\n' "$dir"
+  done
+  for dir in $BACKUP_DIRS; do
+    [ -d "$dir" ] && printf '%s\n' "$dir"
   done
 }
-BACKUP_DIRS="${BACKUP_DIRS:-$(gefundene_backup_dirs)}"
+
+BACKUP_DIRS="$(alle_backup_dirs | sort -u)"
 REMOTE_DIR="${NC_REMOTE_DIR:-Programmierung/homeserver-backups}"
 DRY_RUN="${DRY_RUN:-0}"
 

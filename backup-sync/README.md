@@ -53,9 +53,16 @@ Der Erstlauf überträgt alles Vorhandene (aktuell rund 2,6 MB), danach kommt
 pro Tag und App eine Datei von wenigen Kilobyte dazu.
 
 Kommt eine App dazu, ist sie automatisch dabei: Das Skript sichert jedes
-`<app>/backups` im Stack, es zählt die Apps nicht auf. Nachtragen muss man nur
-dann etwas, wenn `BACKUP_DIRS` in `/etc/backup-sync.env` steht – diese Zeile
-gilt allein und schaltet die Suche ab. Im Zweifel dort auskommentieren.
+`<app>/backups` im Stack, es zählt die Apps nicht auf. Steht `BACKUP_DIRS` in
+`/etc/backup-sync.env`, kommen diese Ordner **zusätzlich** dazu – eine dort
+vergessene App kann also nicht mehr durchs Raster fallen.
+
+Nach einer Änderung am Skript einmal neu installieren:
+
+```sh
+sudo install -m 755 backup-sync.sh /usr/local/bin/backup-sync.sh
+sudo /usr/local/bin/backup-sync.sh      # zeigt, was hochgeladen wurde
+```
 
 ## Kontrolle
 
