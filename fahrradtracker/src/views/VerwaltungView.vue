@@ -420,7 +420,7 @@ const FARBEN = ['#7c3aed', '#0891b2', '#c2740a', '#15803d', '#be185d', '#4338ca'
 }
 
 .block {
-  padding: 1rem;
+  padding: 1rem 0.85rem;
   background: white;
 }
 
@@ -486,22 +486,24 @@ h2 {
 
 .mitEinheit {
   position: relative;
-  flex: 0 0 5.4rem;
+  flex: 0 0 4.5rem;
   display: flex;
   align-items: center;
 }
 
 .mitEinheit .zahl {
   flex: 1;
-  padding-right: 1.9rem;
+  padding-left: 0.5rem;
+  padding-right: 1.6rem;
   min-width: 0;
+  text-align: right;
 }
 
 .einheit {
   position: absolute;
-  right: 0.55rem;
+  right: 0.45rem;
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   pointer-events: none;
 }
 
@@ -521,9 +523,9 @@ textarea {
 }
 
 .emoji {
-  flex: 0 0 2.4rem;
-  padding-left: 0.3rem;
-  padding-right: 0.3rem;
+  flex: 0 0 2.2rem;
+  padding-left: 0.2rem;
+  padding-right: 0.2rem;
   text-align: center;
 }
 

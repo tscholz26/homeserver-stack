@@ -56,6 +56,19 @@ textarea {
   color: inherit;
 }
 
+/* Die kleinen Pfeile an Zahlenfeldern kosten Platz und werden nie benutzt –
+   getippt wird hier ohnehin frei. */
+input[type='number'] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
 :focus-visible {
   outline: 2px solid var(--violet);
   outline-offset: 2px;

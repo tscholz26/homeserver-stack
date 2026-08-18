@@ -1351,6 +1351,21 @@ app.post('/api/component-types', auth, (req, res) => {
   })
 })
 
+/** Reihenfolge der Kategorien – sie bestimmt, wie die Kacheln liegen. */
+app.put('/api/component-types/order', auth, (req, res) => {
+  const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(String) : null
+  if (!ids) return res.status(400).json({ error: 'Invalid payload' })
+  antworte(req, res, () => {
+    const nachId = new Map(db.types.map((t) => [t.id, t]))
+    const neu = ids.map((id) => nachId.get(id)).filter(Boolean)
+    // Was nicht genannt wurde, hängt hinten dran – so geht nie eine Kategorie
+    // verloren, auch wenn zwei Geräte gleichzeitig sortieren.
+    for (const typ of db.types) if (!neu.includes(typ)) neu.push(typ)
+    db.types = neu
+    sichere('types')
+  })
+})
+
 app.put('/api/component-types/:id', auth, (req, res) => {
   antworte(req, res, () => {
     const typ = db.types.find((t) => t.id === req.params.id)
@@ -1368,21 +1383,6 @@ app.put('/api/component-types/:id', auth, (req, res) => {
         return { reject: { status: 400, error: 'Der Grenzwert muss über 0 liegen.' } }
       typ.defaultLimitKm = Math.round(wert)
     }
-    sichere('types')
-  })
-})
-
-/** Reihenfolge der Kategorien – sie bestimmt, wie die Kacheln liegen. */
-app.put('/api/component-types/order', auth, (req, res) => {
-  const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(String) : null
-  if (!ids) return res.status(400).json({ error: 'Invalid payload' })
-  antworte(req, res, () => {
-    const nachId = new Map(db.types.map((t) => [t.id, t]))
-    const neu = ids.map((id) => nachId.get(id)).filter(Boolean)
-    // Was nicht genannt wurde, hängt hinten dran – so geht nie eine Kategorie
-    // verloren, auch wenn zwei Geräte gleichzeitig sortieren.
-    for (const typ of db.types) if (!neu.includes(typ)) neu.push(typ)
-    db.types = neu
     sichere('types')
   })
 })
