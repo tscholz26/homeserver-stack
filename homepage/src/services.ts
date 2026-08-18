@@ -54,7 +54,7 @@ export const services: Service[] = [
     id: 'fahrradtracker',
     name: 'Fahrradtracker',
     tagline: 'Verschleiß',
-    description: 'Kilometer der Verschleißteile am Rad, gefüttert aus Strava.',
+    description: 'Kilometer der Verschleißteile am Rad, gefüttert aus Wahoo.',
     href: '/fahrrad/',
     ping: '/fahrrad/',
   },
