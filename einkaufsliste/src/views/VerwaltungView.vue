@@ -100,8 +100,8 @@ function alsSchreibweise(key: string, name: string, ziel: string) {
 }
 
 // ── Märkte ────────────────────────────────────────────────────────────────────
-// Kategorie-Reihenfolge pro Filiale. Beim Einkaufen taucht davon nichts auf,
-// dort zählt nur, was hier als aktiv eingestellt ist.
+// Kategorie-Reihenfolge pro Filiale. Gewählt wird der Markt beim „Einkauf
+// starten“; hier wird er angelegt, umbenannt und in Ruhe sortiert.
 const kategorisierteListen = computed(() =>
   store.state.lists.filter((l) => l.type === 'kategorisiert'),
 )
@@ -514,15 +514,15 @@ function anlegen() {
     <!-- ── Märkte ──────────────────────────────────────────────────────────── -->
     <section v-else-if="reiter === 'maerkte'">
       <p class="hinweis">
-        Jede Filiale hat ihren eigenen Weg durch den Laden. Der aktive Markt bestimmt, in welcher
-        Reihenfolge die Kategorien beim Einkaufen stehen.
+        Jede Filiale hat ihren eigenen Weg durch den Laden. Welcher gilt, wird beim „Einkauf
+        starten“ gewählt – hier lässt sich die Reihenfolge in Ruhe vorbereiten.
       </p>
 
       <div v-for="liste in kategorisierteListen" :key="liste.id" class="block">
         <h3 v-if="kategorisierteListen.length > 1">{{ liste.name }}</h3>
 
         <label class="card offen aktiv">
-          <span>Ich kaufe gerade ein bei</span>
+          <span>Liste sortiert wie bei</span>
           <select
             :value="liste.storeProfileId ?? ''"
             @change="
