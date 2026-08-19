@@ -64,6 +64,11 @@ const resumesIn = computed(() => {
   return `${minutes}:${String(seconds % 60).padStart(2, '0')} min`
 })
 
+const alarm = computed(() => {
+  if (!paused.value) return null
+  return resumesIn.value ? `Schutz ist aus · ${resumesIn.value}` : 'Schutz ist aus'
+})
+
 // Von unterwegs führt der Knopf ins Leere – dann bleibt die Kachel eine reine
 // Anzeige ohne Verweis.
 const tag = computed(() => (props.adguard?.local ? 'a' : 'div'))
@@ -101,7 +106,7 @@ const tag = computed(() => (props.adguard?.local ? 'a' : 'div'))
     </span>
 
     <span class="text">
-      <span class="tagline">Netzschutz</span>
+      <span class="tagline">{{ alarm ?? 'Netzschutz' }}</span>
       <h2>AdGuard Home</h2>
 
       <template v-if="adguard">
@@ -113,13 +118,9 @@ const tag = computed(() => (props.adguard?.local ? 'a' : 'div'))
         <span class="chart" aria-hidden="true">
           <span v-for="bar in bars" :key="bar.key" class="bar" :title="bar.title">
             <span class="stack" :style="{ height: `${bar.height}%` }">
-              <span class="hit" :style="{ height: `${bar.blocked}%` }" />
+              <span v-if="bar.blocked > 0" class="hit" :style="{ height: `${bar.blocked}%` }" />
             </span>
           </span>
-        </span>
-
-        <span v-if="paused" class="warn">
-          Schutz ist aus{{ resumesIn ? `, läuft in ${resumesIn} wieder an` : '' }}
         </span>
       </template>
 
@@ -240,7 +241,9 @@ a.guard:hover .badge {
 
 .text {
   grid-area: text;
-  display: block;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   margin-top: 0.9rem;
 }
 
@@ -265,13 +268,13 @@ h2 {
   display: flex;
   align-items: baseline;
   gap: 0.5rem;
-  margin-top: 0.45rem;
+  margin-top: 0.2rem;
   min-width: 0;
 }
 
 .stat strong {
   flex: none;
-  font-size: 1.4rem;
+  font-size: 1.3rem;
   font-weight: 800;
   letter-spacing: -0.03em;
   line-height: 1.2;
@@ -290,13 +293,16 @@ h2 {
 }
 
 /* Ein Balken je Stunde: die Höhe sind die Anfragen, der eingefärbte Fuß der
-   geblockte Anteil daran. */
+   geblockte Anteil daran. Der Verlauf nimmt sich, was in der Kachel übrig
+   bleibt, und gibt es wieder her, wenn es eng wird. */
 .chart {
   display: flex;
   align-items: flex-end;
   gap: 2px;
-  height: 1.9rem;
-  margin-top: 0.7rem;
+  flex: 1;
+  min-height: 1.1rem;
+  max-height: 2.2rem;
+  margin-top: 0.4rem;
 }
 
 .bar {
@@ -312,22 +318,15 @@ h2 {
   width: 100%;
   min-height: 1px;
   border-radius: 2px;
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
 }
 
 .hit {
   position: absolute;
   inset: auto 0 0 0;
+  min-height: 2px;
   border-radius: 2px;
   background: var(--accent);
-}
-
-.warn {
-  display: block;
-  margin-top: 0.7rem;
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: var(--accent);
 }
 
 .fallback {
@@ -342,7 +341,7 @@ h2 {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  margin-top: 0.9rem;
+  margin-top: 0.7rem;
   font-size: 0.9rem;
   font-weight: 700;
   color: var(--accent);

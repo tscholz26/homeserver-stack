@@ -183,7 +183,7 @@ describe('HomeView', () => {
     await flushPromises()
 
     expect(wrapper.find('.guard').classes()).toContain('paused')
-    expect(wrapper.find('.guard').text()).toContain('Schutz ist aus, läuft in')
+    expect(wrapper.find('.guard').text()).toContain('Schutz ist aus ·')
 
     wrapper.unmount()
   })
