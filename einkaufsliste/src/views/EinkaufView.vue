@@ -178,6 +178,8 @@ onBeforeUnmount(() => beobachter?.disconnect())
         >
           <span class="punkt" aria-hidden="true"></span>
           {{ l.name }}
+          <!-- Läuft dort gerade ein Einkauf – auch wenn ihn der andere gestartet hat -->
+          <span v-if="l.shopping" class="laeuft" title="Einkauf läuft">🛒</span>
         </button>
       </nav>
 
@@ -368,6 +370,10 @@ onBeforeUnmount(() => beobachter?.disconnect())
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
+}
+
+.laeuft {
+  font-size: 0.8rem;
 }
 
 .punkt {
