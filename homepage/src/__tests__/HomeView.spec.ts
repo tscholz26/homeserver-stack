@@ -150,7 +150,8 @@ describe('HomeView', () => {
     // 2.847 von 12.400 sind gerundet 23 Prozent
     expect(wrapper.find('.guard').text()).toContain('AdGuard Home')
     expect(wrapper.find('.guard').text()).toContain('23 %')
-    expect(wrapper.find('.guard').text()).toContain('2.847 von 12.400 Anfragen in 24 Stunden')
+    expect(wrapper.find('.guard').text()).toContain('2.847/12.400 Anfragen geblockt')
+    expect(wrapper.find('.guard').text()).toContain('24 Stunden')
     expect(wrapper.findAll('.guard .bar')).toHaveLength(24)
 
     expect(wrapper.find('a.guard').attributes('href')).toBe('http://192.168.178.34:81/')
@@ -181,7 +182,7 @@ describe('HomeView', () => {
     const wrapper = await mountHome()
     await flushPromises()
 
-    expect(wrapper.find('.guard').text()).toContain('pausiert')
+    expect(wrapper.find('.guard').classes()).toContain('paused')
     expect(wrapper.find('.guard').text()).toContain('Schutz ist aus, läuft in')
 
     wrapper.unmount()

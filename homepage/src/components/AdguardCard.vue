@@ -17,7 +17,7 @@ const share = computed(() => {
 })
 
 const period = computed(() =>
-  props.adguard?.unit === 'days' ? `${props.adguard.series.length} Tagen` : '24 Stunden',
+  props.adguard?.unit === 'days' ? `${props.adguard.series.length} Tage` : '24 Stunden',
 )
 
 // Die Balken werden auf den größten Wert der Reihe skaliert – es geht um den
@@ -48,7 +48,7 @@ const bars = computed(() =>
 const summary = computed(() => {
   const data = props.adguard
   if (!data) return ''
-  return `${number(data.blocked)} von ${number(data.queries)} Anfragen in ${period.value} geblockt`
+  return `${number(data.blocked)}/${number(data.queries)} Anfragen geblockt`
 })
 
 const paused = computed(() => props.adguard?.protectionEnabled === false)
@@ -96,8 +96,8 @@ const tag = computed(() => (props.adguard?.local ? 'a' : 'div'))
     </span>
 
     <span class="meta">
-      <span class="dot" />
-      {{ paused ? 'pausiert' : 'aktiv' }}
+      {{ adguard ? period : '' }}
+      <span class="dot" :title="paused ? 'Schutz ist aus' : 'Schutz läuft'" />
     </span>
 
     <span class="text">
@@ -107,7 +107,7 @@ const tag = computed(() => (props.adguard?.local ? 'a' : 'div'))
       <template v-if="adguard">
         <span class="stat">
           <strong>{{ share === null ? '–' : `${share} %` }}</strong>
-          <span class="of">{{ summary }}</span>
+          <span class="of" :title="summary">{{ summary }}</span>
         </span>
 
         <span class="chart" aria-hidden="true">
@@ -202,7 +202,8 @@ a.guard:hover .badge {
   transform: rotate(-8deg) scale(1.06);
 }
 
-/* Wie der Status-Punkt der Dienste, nur mit Wort daneben */
+/* Wie bei den Dienst-Kacheln sagt der Punkt den Zustand; das Wort daneben ist
+   der Zeitraum, für den die Zahlen unten gelten. */
 .meta {
   grid-area: meta;
   justify-self: end;
@@ -258,25 +259,33 @@ h2 {
   letter-spacing: -0.02em;
 }
 
-/* Die Zahl führt, der Satz daneben erklärt sie */
+/* Eine Zeile: der Anteil führt, die Zahlen daneben erklären ihn. Beides bleibt
+   umbruchfrei, sonst wächst die Kachel über die der Dienste hinaus. */
 .stat {
   display: flex;
   align-items: baseline;
-  gap: 0.6rem;
-  margin-top: 0.7rem;
+  gap: 0.5rem;
+  margin-top: 0.45rem;
+  min-width: 0;
 }
 
 .stat strong {
-  font-size: 1.9rem;
+  flex: none;
+  font-size: 1.4rem;
   font-weight: 800;
-  letter-spacing: -0.04em;
-  line-height: 1;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  white-space: nowrap;
   color: var(--accent);
 }
 
 .of {
-  font-size: 0.82rem;
-  line-height: 1.35;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.78rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   color: var(--muted);
 }
 
@@ -286,8 +295,8 @@ h2 {
   display: flex;
   align-items: flex-end;
   gap: 2px;
-  height: 2.4rem;
-  margin-top: 0.9rem;
+  height: 1.9rem;
+  margin-top: 0.7rem;
 }
 
 .bar {
@@ -382,10 +391,6 @@ a.guard:focus-visible .go svg {
 
   .stat strong {
     font-size: 1.15rem;
-  }
-
-  .of {
-    font-size: 0.78rem;
   }
 
   .chart,
