@@ -38,5 +38,25 @@
       "getraenke",
       "tiefkuehl"
     ]
+  },
+  {
+    "id": "9e0bf312-980a-45d0-bca5-1619b162299a",
+    "name": "Edeka Elsterpassage",
+    "listId": "msoyr62z-72e0a599",
+    "categoryOrder": [
+      "obst_gemuese",
+      "getraenke",
+      "suesses_snacks",
+      "backen_gewuerze",
+      "milch_kuehlwaren",
+      "fleisch_wurst",
+      "fisch",
+      "tiefkuehl",
+      "convenience_kuehl",
+      "brot_backwaren",
+      "nudeln_reis",
+      "konserven",
+      "drogerie"
+    ]
   }
 ]

@@ -2,12 +2,12 @@
   {
     "id": "frisch",
     "emoji": "🥗",
-    "label": "Frisch gekocht"
+    "label": "Frisch (Zutaten schnell verbrauchen)"
   },
   {
     "id": "vorrat",
     "emoji": "🥫",
-    "label": "Aus dem Vorrat"
+    "label": "Vorrat (Hält sich länger)"
   },
   {
     "id": "saisonal",
@@ -21,6 +21,11 @@
   },
   {
     "id": "sonstiges",
+    "emoji": "🥞",
+    "label": "Süßes"
+  },
+  {
+    "id": "suesses",
     "emoji": "❓",
     "label": "Sonstiges"
   }

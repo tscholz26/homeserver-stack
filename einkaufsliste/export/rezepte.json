@@ -1333,5 +1333,44 @@
     "name": "Gefüllter Butternut Kürbis aus dem Ofen",
     "group": "saisonal",
     "ingredients": []
+  },
+  {
+    "id": "576fb01e-e86f-4d5f-bf1b-64f94d0f4a70",
+    "name": "Schupfnudel-Gemüse-Pfanne",
+    "group": "frisch",
+    "ingredients": [
+      {
+        "name": "Zucchini",
+        "quantity": "1 mittlere"
+      },
+      {
+        "name": "Cherrytomaten",
+        "quantity": "1"
+      },
+      {
+        "name": "(Paprika)",
+        "quantity": "1"
+      },
+      {
+        "name": "Noch ein weiteres gemüse?",
+        "quantity": ""
+      },
+      {
+        "name": "Schmand",
+        "quantity": "1"
+      },
+      {
+        "name": "Sahne",
+        "quantity": "400ml"
+      },
+      {
+        "name": "Schupfnudeln",
+        "quantity": "2"
+      },
+      {
+        "name": "Feta",
+        "quantity": "1"
+      }
+    ]
   }
 ]
