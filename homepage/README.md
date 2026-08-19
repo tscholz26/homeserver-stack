@@ -22,6 +22,11 @@ Dienste zeigt und per Kachel weiterschickt. Erreichbar unter
 - **Status**: jeder Dienst wird jede Minute per HEAD angepingt; alles unter
   HTTP 500 gilt als „läuft" (ein 401 von Nextcloud heißt nur „nicht angemeldet").
   Die Karte führt weiter aufs Dashboard
+- **Netzschutz** aus AdGuard Home: Anteil geblockter DNS-Anfragen, der Verlauf
+  der letzten 24 Stunden als Balken (Höhe = Anfragen, eingefärbt = davon
+  geblockt). Ist der Schutz gerade aus, schlägt die Karte in einen roten
+  Warnzustand um und zählt herunter, bis er wieder angeht. Aus dem Heimnetz
+  lässt er sich hier auch für fünf Minuten pausieren – siehe unten
 
 Neue Dienste kommen als weiterer Eintrag im Array `services` in
 [src/services.ts](src/services.ts) dazu, plus ein Icon-Zweig in
@@ -135,6 +140,28 @@ Balken werden ab 70 % gelb und ab 90 % rot (`toneFor` in
   Umrechnung der CPU-Watt auf den geschätzten Gesamtverbrauch passiert erst in
   der Anzeige. So bleibt die Datei unabhängig davon, wie die Grundlast gerade
   eingestellt ist
+
+### Netzschutz aus AdGuard Home
+
+AdGuards API verlangt Basic Auth, deshalb fragt der Express-Server sie ab und
+nicht der Browser – das Passwort verlässt den Server nie. Zugang kommt aus
+`ADGUARD_USERNAME` und `ADGUARD_PASSWORD`; ohne die beiden meldet
+`/start/api/adguard` schlicht `configured: false` und die Karte erscheint gar
+nicht. Beide stehen in `homepage/.env` (Vorlage: [.env.example](.env.example)),
+die Datei liegt nicht im Git.
+
+AdGuard läuft in einem eigenen Compose-Netz, seine Oberfläche aber auf Port 81
+des Hosts. Deshalb hat der Container `host.docker.internal:host-gateway` als
+`extra_hosts` und fragt `ADGUARD_URL` (Standard
+`http://host.docker.internal:81`) ab. Die Antworten werden 15 Sekunden lang
+gecacht.
+
+Nach außen gibt die API nur Summen und den Verlauf heraus – **keine**
+Top-Domains, Clients oder Query-Logs, das wäre Surf-Verhalten auf einer offenen
+Seite. `POST /start/api/adguard/protection` schaltet den Schutz (Pause maximal
+120 Minuten) und ist deshalb auf private IP-Bereiche beschränkt. Maßgeblich ist
+der **letzte** Eintrag in `X-Forwarded-For`: den hat Caddy angehängt, alles
+davor kann der Anrufer selbst geschrieben haben.
 
 ### Die Seite ist öffentlich
 

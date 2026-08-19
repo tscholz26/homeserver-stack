@@ -5,14 +5,23 @@ import ServiceIcon from '@/components/ServiceIcon.vue'
 import WeatherCard from '@/components/WeatherCard.vue'
 import SunCard from '@/components/SunCard.vue'
 import StatusCard from '@/components/StatusCard.vue'
+import AdguardCard from '@/components/AdguardCard.vue'
 import { useClock } from '@/composables/useClock'
 import { useWeather } from '@/composables/useWeather'
 import { useStatus } from '@/composables/useStatus'
+import { useAdguard } from '@/composables/useAdguard'
 import { planned, services } from '@/services'
 
 const { now, time, date, greeting } = useClock()
 const { weather, failed } = useWeather()
 const { statuses, onlineCount, allOnline } = useStatus()
+const {
+  adguard,
+  available: adguardAvailable,
+  failed: adguardFailed,
+  pending,
+  setProtection,
+} = useAdguard()
 
 // 1, 2, 3 springen direkt in den jeweiligen Dienst – die Ziffer steht auf der
 // Kachel. Nicht, wenn gerade getippt wird oder eine Sondertaste mitläuft.
@@ -89,12 +98,23 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
             <p>{{ entry.description }}</p>
           </span>
         </RouterLink>
+
+        <!-- Füllt die Reihe der Dienste auf und ist die Info, die man beim
+             Rausgehen sowieso sucht -->
+        <WeatherCard :weather="weather" :failed="failed" />
       </section>
 
-      <section class="widgets" aria-label="Auf dem Server">
-        <WeatherCard :weather="weather" :failed="failed" />
+      <section class="widgets" aria-label="Übersicht">
         <SunCard :weather="weather" :now="now" />
         <StatusCard :statuses="statuses" :online-count="onlineCount" :all-online="allOnline" />
+        <AdguardCard
+          v-if="adguardAvailable"
+          :adguard="adguard"
+          :failed="adguardFailed"
+          :pending="pending"
+          :now="now"
+          @protection="setProtection"
+        />
       </section>
     </main>
   </div>
@@ -308,16 +328,28 @@ h1 {
   animation-delay: 0.12s;
 }
 
-.widgets > *:nth-child(1) {
+.tiles > *:nth-child(4) {
   animation-delay: 0.16s;
 }
 
-.widgets > *:nth-child(2) {
+.tiles > *:nth-child(5) {
   animation-delay: 0.2s;
 }
 
-.widgets > *:nth-child(3) {
+.tiles > *:nth-child(6) {
   animation-delay: 0.24s;
+}
+
+.widgets > *:nth-child(1) {
+  animation-delay: 0.28s;
+}
+
+.widgets > *:nth-child(2) {
+  animation-delay: 0.32s;
+}
+
+.widgets > *:nth-child(3) {
+  animation-delay: 0.36s;
 }
 
 /* Auf dem Handy fliegt die Uhr raus – der Platz gehört den Kacheln, die alle
