@@ -22,6 +22,8 @@ export interface List {
   name: string
   type: ListType
   storeProfileId: string | null
+  /** Läuft gerade ein Einkauf? Steht im Serverstand, gilt also auf beiden Handys */
+  shopping: boolean
   items: Item[]
 }
 
@@ -391,6 +393,20 @@ function createStore() {
     return sendChange(`/lists/${list.id}/items/${itemId}`, 'DELETE')
   }
 
+  /**
+   * „Einkauf starten“: hält fest, in welchem Laden gerade eingekauft wird –
+   * davon hängt die Reihenfolge der Kategorien ab. `profileId` null heißt
+   * Standard-Reihenfolge.
+   */
+  function startShopping(list: List, profileId: string | null) {
+    list.shopping = true
+    list.storeProfileId = profileId
+    return sendChange(`/lists/${list.id}/shopping`, 'PUT', {
+      shopping: true,
+      storeProfileId: profileId,
+    })
+  }
+
   /** „Einkauf beenden“: Abgehaktes raus, alles andere bleibt liegen. */
   async function finishShopping(list: List) {
     // Erst müssen die wartenden Haken durch, sonst löscht der Server nur die
@@ -401,6 +417,7 @@ function createStore() {
       return false
     }
     list.items = list.items.filter((i) => !i.done)
+    list.shopping = false
     return sendChange(`/lists/${list.id}/finish`, 'POST')
   }
 
@@ -409,14 +426,17 @@ function createStore() {
     return state.storeProfiles.filter((p) => p.listId === list.id)
   }
 
-  function addStoreProfile(list: List, name: string) {
-    return sendChange('/store-profiles', 'POST', {
-      id: createId(),
+  /** Legt einen Markt an und gibt seine id zurück – null, wenn es schiefging. */
+  async function addStoreProfile(list: List, name: string): Promise<string | null> {
+    const id = createId()
+    const ok = await sendChange('/store-profiles', 'POST', {
+      id,
       name: name.trim(),
       listId: list.id,
       // Startpunkt ist die Standard-Reihenfolge, danach wird sie umsortiert
       categoryOrder: state.defaultCategoryOrder,
     })
+    return ok ? id : null
   }
 
   function updateStoreProfile(
@@ -699,6 +719,7 @@ function createStore() {
     setQuantity,
     setDone,
     removeItem,
+    startShopping,
     finishShopping,
     profilesFor,
     addStoreProfile,

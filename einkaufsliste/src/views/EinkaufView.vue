@@ -5,12 +5,14 @@ import { useEinkaufStore } from '@/composables/useEinkaufStore'
 import { vervollstaendige } from '@/utils/matching'
 import ArtikelZeile from '@/components/ArtikelZeile.vue'
 import RezeptFenster from '@/components/RezeptFenster.vue'
+import LadenFenster from '@/components/LadenFenster.vue'
 
 const store = useEinkaufStore()
 
 const menge = ref('')
 const name = ref('')
 const rezepteOffen = ref(false)
+const ladenOffen = ref(false)
 const nameFeld = useTemplateRef<HTMLInputElement>('nameFeld')
 
 const liste = computed(() => store.activeList.value)
@@ -81,6 +83,20 @@ function schreibweise(name: string, artikel: string) {
 const kategorienZurAuswahl = computed(() =>
   liste.value?.type === 'kategorisiert' ? store.state.categories : [],
 )
+
+// Während des Einkaufs steht unten „Einkauf beenden“, sonst „Einkauf starten“.
+const einkaufLaeuft = computed(() => liste.value?.shopping === true)
+
+/**
+ * Los geht es mit der Frage, in welchem Laden – danach richtet sich die
+ * Reihenfolge der Kategorien. Flache Listen kennen keine Märkte, dort wäre die
+ * Frage nur ein Tipp zu viel.
+ */
+function einkaufStarten() {
+  if (!liste.value) return
+  if (liste.value.type !== 'kategorisiert') store.startShopping(liste.value, null)
+  else ladenOffen.value = true
+}
 
 function einkaufBeenden() {
   if (liste.value) store.finishShopping(liste.value)
@@ -203,6 +219,8 @@ onBeforeUnmount(() => beobachter?.disconnect())
 
     <RezeptFenster v-if="rezepteOffen && liste" :list="liste" @close="rezepteOffen = false" />
 
+    <LadenFenster v-if="ladenOffen && liste" :list="liste" @close="ladenOffen = false" />
+
     <p v-if="!liste" class="leer">Noch keine Liste vorhanden – anlegen in der Verwaltung.</p>
 
     <p v-else-if="!liste.items.length" class="leer">
@@ -287,9 +305,11 @@ onBeforeUnmount(() => beobachter?.disconnect())
           <path d="M4 6h16M4 12h16M4 18h16" />
         </svg>
       </button>
-      <button type="button" class="beenden" :disabled="!erledigt" @click="einkaufBeenden">
-        Einkauf beenden
+      <button v-if="!einkaufLaeuft" type="button" class="starten" @click="einkaufStarten">
+        Einkauf starten
       </button>
+      <!-- Läuft der Einkauf, geht der Knopf immer: ohne Haken beendet er ihn nur -->
+      <button v-else type="button" class="beenden" @click="einkaufBeenden">Einkauf beenden</button>
     </footer>
   </div>
 </template>
@@ -533,10 +553,14 @@ onBeforeUnmount(() => beobachter?.disconnect())
   cursor: pointer;
 }
 
-.beenden:disabled {
-  background: color-mix(in srgb, var(--muted) 25%, white);
-  color: var(--muted);
-  box-shadow: none;
-  cursor: default;
+.starten {
+  padding: 0.7rem 1.1rem;
+  border: none;
+  border-radius: 0.9rem;
+  background: var(--violet);
+  color: white;
+  font-weight: 700;
+  box-shadow: var(--shadow);
+  cursor: pointer;
 }
 </style>

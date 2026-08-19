@@ -21,9 +21,14 @@ Handys gleichzeitig abgehakt. Erreichbar unter
   3. Teilstring in beide Richtungen, jeweils am Wortanfang (siehe unten)
   4. Levenshtein-Distanz als Fallback: eine Abweichung, ab acht Zeichen zwei
   5. kein Treffer → `sonstiges` plus ◌-Badge in der Zeile
+- **Einkauf starten**: der Knopf unten rechts fragt zuerst, in welchem Laden
+  eingekauft wird – aus den angelegten Märkten, „Woanders“ für die
+  Standard-Reihenfolge oder „Anderer Supermarkt …“ für einen neuen Markt, der
+  mit der Standard-Reihenfolge anfängt. Danach steht dort **„Einkauf beenden“**.
+  Flache Listen kennen keine Märkte, dort geht es ohne Rückfrage los
 - **Abhaken** rutscht den Artikel ans Ende seiner Kategorie (ausgegraut,
-  durchgestrichen); **„Einkauf beenden“** löscht alles Abgehakte und lässt
-  liegen, was nicht im Laden war
+  durchgestrichen); **„Einkauf beenden“** löscht alles Abgehakte, beendet den
+  Einkauf und lässt liegen, was nicht im Laden war
 - **Korrektur in der Liste**: ein Tipp auf den Artikelnamen macht aus der Zeile
   ein Eingabefeld – Name, Menge und Kategorie. Eine geänderte Kategorie wandert
   immer auch in den Katalog, falsch einsortiert wird also nur einmal. Wird nur
@@ -153,7 +158,8 @@ selbst sind ersetzbar, alles andere liegt im git. Das alte Verzeichnis
 | POST / PUT / DELETE | `/api/recipes[/:id]` | Rezept anlegen / ändern / löschen |
 | PUT | `/api/recipes/order` | Reihenfolge im Rezeptbuch |
 | POST / PUT / DELETE | `/api/recipe-groups[/:id]` | Gruppe anlegen / umbenennen / löschen |
-| POST | `/api/lists/:id/finish` | „Einkauf beenden“: Abgehaktes löschen |
+| PUT | `/api/lists/:id/shopping` | Einkauf starten: `{ shopping, storeProfileId }` |
+| POST | `/api/lists/:id/finish` | „Einkauf beenden“: Abgehaktes löschen, Einkauf aus |
 | POST | `/api/catalog` | `{ name, category_id }` dauerhaft zuordnen |
 | POST | `/api/catalog/alias` | `{ name, alias }` – Schreibweise an einen Artikel hängen |
 | PUT / DELETE | `/api/catalog` | Artikel anlegen bzw. überschreiben / löschen |
@@ -263,14 +269,16 @@ deshalb nichts weiter als eine eigene Kategorie-Reihenfolge:
 ```
 
 Angelegt und sortiert werden Märkte in der Verwaltung (Reihenfolge per Griff
-⠿ ziehen), ausgewählt ebenfalls dort – die Einkaufsansicht zeigt davon nichts.
+⠿ ziehen); gewählt wird der Markt beim „Einkauf starten“.
 `categoryOrderFor()` in
 [useEinkaufStore.ts](src/composables/useEinkaufStore.ts) zieht die Kategorien
 des aktiven Marktes nach vorn, hängt alles nicht Genannte in
 Standard-Reihenfolge an und `sonstiges` ganz ans Ende. Neue Kategorien im Seed
 tauchen dadurch auch in bestehenden Märkten auf, ohne dass dort etwas
 nachgetragen werden muss. Welcher Markt gilt, steht pro Liste in
-`storeProfileId`; die Einkaufsansicht zeigt davon bewusst nichts.
+`storeProfileId`, und ob gerade eingekauft wird, in `shopping` – beides im
+Serverstand, damit beide Handys denselben Laden sehen, wenn sie zusammen
+losgehen.
 
 ## Entwicklung
 

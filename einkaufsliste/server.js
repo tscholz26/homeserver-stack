@@ -86,6 +86,9 @@ function normalizeList(l) {
     type: LIST_TYPES.has(l.type) ? l.type : 'kategorisiert',
     // Welches Ladenprofil gerade aktiv ist (null = Standard-Reihenfolge)
     storeProfileId: typeof l.storeProfileId === 'string' ? l.storeProfileId : null,
+    // Läuft gerade ein Einkauf? Steht im State und nicht im Browser, damit beide
+    // Handys denselben Laden sehen, wenn sie zusammen loslaufen.
+    shopping: l.shopping === true,
     items: Array.isArray(l.items) ? l.items.map(normalizeItem) : [],
   }
 }
@@ -425,6 +428,23 @@ app.put('/api/lists/:listId/store-profile', (req, res) => {
   })
 })
 
+// Einkauf starten und beenden. Laden und Schalter gehen zusammen raus: „Einkauf
+// starten“ ist ein Tipp, und zwei Requests könnten sich auf dem Weg überholen.
+app.put('/api/lists/:listId/shopping', (req, res) => {
+  const { shopping, storeProfileId } = req.body || {}
+  if (typeof shopping !== 'boolean') return res.status(400).json({ error: 'Invalid payload' })
+  if (storeProfileId !== undefined && storeProfileId !== null && typeof storeProfileId !== 'string') {
+    return res.status(400).json({ error: 'Invalid payload' })
+  }
+  mutateList(req, res, (list) => {
+    if (storeProfileId && !buch.storeProfiles.some((p) => p.id === storeProfileId)) {
+      return { reject: { status: 404, error: 'Ladenprofil nicht gefunden.' } }
+    }
+    if (storeProfileId !== undefined) list.storeProfileId = storeProfileId
+    list.shopping = shopping
+  })
+})
+
 // ── Ladenprofile ──────────────────────────────────────────────────────────────
 // Ein Profil ist die Reihenfolge der Kategorien in einer Filiale. Ohne Profil
 // gilt die Standard-Reihenfolge aus seed/kategorien.json.
@@ -580,6 +600,7 @@ app.put('/api/lists/:listId/order', (req, res) => {
 app.post('/api/lists/:listId/finish', (req, res) => {
   mutateList(req, res, (list) => {
     list.items = list.items.filter((x) => !x.done)
+    list.shopping = false
   })
 })
 
