@@ -523,6 +523,93 @@ function power() {
   }
 }
 
+// ── AdGuard Home ─────────────────────────────────────────────────────────────
+// Die Zahlen holt der Server, nicht der Browser: AdGuards API verlangt Basic
+// Auth, und das Passwort soll die Seite nie erreichen. AdGuard hängt in einem
+// eigenen Compose-Netz, erreichbar ist es über den Host-Port (siehe
+// docker-compose.yml, `host.docker.internal`).
+const ADGUARD_URL = (process.env.ADGUARD_URL || 'http://host.docker.internal:81').replace(/\/+$/, '')
+const ADGUARD_USERNAME = process.env.ADGUARD_USERNAME || ''
+const ADGUARD_PASSWORD = process.env.ADGUARD_PASSWORD || ''
+const ADGUARD_CONFIGURED = Boolean(ADGUARD_USERNAME && ADGUARD_PASSWORD)
+const ADGUARD_CACHE_MS = 15_000
+// Länger als das darf niemand den Schutz abschalten – ein Versehen soll nicht
+// den ganzen Abend gelten.
+const ADGUARD_MAX_PAUSE_MINUTES = 120
+
+async function adguardRequest(path, body) {
+  const credentials = Buffer.from(`${ADGUARD_USERNAME}:${ADGUARD_PASSWORD}`).toString('base64')
+  const response = await fetch(`${ADGUARD_URL}${path}`, {
+    method: body === undefined ? 'GET' : 'POST',
+    headers: {
+      Authorization: `Basic ${credentials}`,
+      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+    signal: AbortSignal.timeout(8000),
+  })
+  if (!response.ok) throw new Error(`AdGuard antwortete mit ${response.status}`)
+  // Das Schalten des Schutzes antwortet ohne Inhalt
+  return response.json().catch(() => null)
+}
+
+let adguardCache = { at: 0, data: null }
+
+async function adguardSnapshot() {
+  if (adguardCache.data && Date.now() - adguardCache.at < ADGUARD_CACHE_MS) return adguardCache.data
+
+  const [status, stats] = await Promise.all([
+    adguardRequest('/control/status'),
+    adguardRequest('/control/stats'),
+  ])
+
+  // Wie lang ein Wert der Reihen ist, hängt an AdGuards Aufbewahrung: bei einem
+  // Tag ist es eine Stunde, bei längerer Aufbewahrung ein Tag. `time_units`
+  // sagt, was von beidem – die Karte beschriftet sich danach.
+  const queries = Array.isArray(stats?.dns_queries) ? stats.dns_queries : []
+  const blocked = Array.isArray(stats?.blocked_filtering) ? stats.blocked_filtering : []
+
+  const data = {
+    protectionEnabled: status?.protection_enabled !== false,
+    // Gibt es erst ab neueren AdGuard-Versionen; ohne den Wert wissen wir nur,
+    // dass der Schutz aus ist, aber nicht bis wann.
+    protectionDisabledUntil: status?.protection_disabled_until ?? null,
+    unit: stats?.time_units === 'days' ? 'days' : 'hours',
+    queries: stats?.num_dns_queries ?? 0,
+    blocked: stats?.num_blocked_filtering ?? 0,
+    series: queries.map((value, index) => ({
+      queries: Number(value) || 0,
+      blocked: Number(blocked[index]) || 0,
+    })),
+  }
+
+  adguardCache = { at: Date.now(), data }
+  return data
+}
+
+// Hinter Caddy ist die Gegenstelle immer der Proxy. Caddy hängt die echte
+// Adresse hinten an X-Forwarded-For an; selbst mitgeschickte Einträge stehen
+// davor. Verlassen kann man sich deshalb nur auf den letzten.
+function clientAddress(req) {
+  const forwarded = String(req.headers['x-forwarded-for'] ?? '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+  const address = forwarded.at(-1) ?? req.socket.remoteAddress ?? ''
+  return address.replace(/^::ffff:/, '')
+}
+
+/** Die Startseite ist über DuckDNS ohne Anmeldung offen. Alles, was AdGuard
+ *  verstellt, darf deshalb nur aus dem Heimnetz kommen. */
+function isLocal(req) {
+  const address = clientAddress(req)
+  if (address === '127.0.0.1' || address === '::1') return true
+  if (address.startsWith('10.') || address.startsWith('192.168.')) return true
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(address)) return true
+  return /^f[cd]/i.test(address)
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 const app = express()
 app.use(express.static(join(__dirname, 'dist')))
 
@@ -597,6 +684,44 @@ app.get('/api/uptime', (req, res) => {
   const hours = Math.min(KEEP_HOURS, Math.max(1, Number(req.query.hours) || 24))
   res.set('Cache-Control', 'no-store')
   res.json(uptimeReport(hours))
+})
+
+// Zahlen für die Netzschutz-Karte. Öffentlich sind nur Summen und der Verlauf –
+// welche Domains angefragt wurden, gibt diese Antwort bewusst nicht her.
+app.get('/api/adguard', async (req, res) => {
+  res.set('Cache-Control', 'no-store')
+  if (!ADGUARD_CONFIGURED) return res.json({ configured: false })
+
+  try {
+    res.json({ configured: true, canPause: isLocal(req), ...(await adguardSnapshot()) })
+  } catch (err) {
+    res.status(502).json({ configured: true, error: err.message })
+  }
+})
+
+// Schutz pausieren oder wieder anschalten – schreibend, deshalb nur von zuhause.
+app.post('/api/adguard/protection', express.json(), async (req, res) => {
+  res.set('Cache-Control', 'no-store')
+  if (!ADGUARD_CONFIGURED) return res.status(503).json({ error: 'AdGuard ist nicht eingerichtet.' })
+  if (!isLocal(req)) return res.status(403).json({ error: 'Das geht nur aus dem Heimnetz.' })
+
+  const enabled = req.body?.enabled === true
+  const minutes = Number(req.body?.minutes)
+  if (!enabled && !(minutes > 0 && minutes <= ADGUARD_MAX_PAUSE_MINUTES)) {
+    return res.status(400).json({ error: 'Pause muss zwischen 1 und 120 Minuten liegen.' })
+  }
+
+  try {
+    await adguardRequest(
+      '/control/protection',
+      enabled ? { enabled: true } : { enabled: false, duration: Math.round(minutes * 60_000) },
+    )
+    // Der Cache hält sonst bis zu 15 Sekunden den alten Zustand fest
+    adguardCache = { at: 0, data: null }
+    res.json({ configured: true, canPause: true, ...(await adguardSnapshot()) })
+  } catch (err) {
+    res.status(502).json({ error: err.message })
+  }
 })
 
 // SPA-Fallback (app.use fängt in Express 5 alle übrigen Routen)

@@ -13,6 +13,18 @@ services:
       # - PSU_EFFICIENCY=0.8
       # - PRICE_PER_KWH=0.22
 
+      # AdGuard Home hängt in einem eigenen Compose-Netz, seine Oberfläche liegt
+      # aber auf Port 81 des Hosts – darüber geht die Abfrage. Benutzer und
+      # Passwort stehen in homepage/.env (siehe .env.example, nicht im Git).
+      - ADGUARD_URL=http://host.docker.internal:81
+      - ADGUARD_USERNAME=${ADGUARD_USERNAME:-}
+      - ADGUARD_PASSWORD=${ADGUARD_PASSWORD:-}
+
+    # Macht den Host unter host.docker.internal erreichbar; ohne das käme der
+    # Container nicht an AdGuards Port 81.
+    extra_hosts:
+      - host.docker.internal:host-gateway
+
     # Nur einzelne Dateien statt ganzer Bäume: /proc als Ganzes würde auch die
     # Umgebungsvariablen aller Prozesse enthalten (Passwörter), /sys und die
     # Systemplatte braucht das Dashboard nicht.
