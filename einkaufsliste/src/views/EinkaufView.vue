@@ -6,6 +6,7 @@ import { vervollstaendige } from '@/utils/matching'
 import ArtikelZeile from '@/components/ArtikelZeile.vue'
 import RezeptFenster from '@/components/RezeptFenster.vue'
 import LadenFenster from '@/components/LadenFenster.vue'
+import RegalFenster from '@/components/RegalFenster.vue'
 
 const store = useEinkaufStore()
 
@@ -13,6 +14,7 @@ const menge = ref('')
 const name = ref('')
 const rezepteOffen = ref(false)
 const ladenOffen = ref(false)
+const regalOffen = ref(false)
 const nameFeld = useTemplateRef<HTMLInputElement>('nameFeld')
 
 const liste = computed(() => store.activeList.value)
@@ -86,6 +88,11 @@ const kategorienZurAuswahl = computed(() =>
 
 // Während des Einkaufs steht unten „Einkauf beenden“, sonst „Einkauf starten“.
 const einkaufLaeuft = computed(() => liste.value?.shopping === true)
+
+// In welchem Laden gerade eingekauft wird; ohne Markt gilt die Standard-Reihenfolge
+const markt = computed(() =>
+  store.state.storeProfiles.find((p) => p.id === liste.value?.storeProfileId),
+)
 
 /**
  * Los geht es mit der Frage, in welchem Laden – danach richtet sich die
@@ -221,6 +228,8 @@ onBeforeUnmount(() => beobachter?.disconnect())
 
     <LadenFenster v-if="ladenOffen && liste" :list="liste" @close="ladenOffen = false" />
 
+    <RegalFenster v-if="regalOffen && liste" :list="liste" @close="regalOffen = false" />
+
     <p v-if="!liste" class="leer">Noch keine Liste vorhanden – anlegen in der Verwaltung.</p>
 
     <p v-else-if="!liste.items.length" class="leer">
@@ -269,6 +278,13 @@ onBeforeUnmount(() => beobachter?.disconnect())
         @menge="mengeSetzen(item.id, $event)"
       />
     </ul>
+
+    <!-- Läuft der Einkauf, steht hier unten leise, in welchem Laden – und ein
+         Weg, die Regale nachzusortieren, wenn sie doch anders stehen -->
+    <p v-if="einkaufLaeuft && markt" class="im-laden">
+      🛒 {{ markt.name }} ·
+      <button type="button" class="regale" @click="regalOffen = true">Regale sortieren</button>
+    </p>
 
     <footer v-if="liste" class="fuss">
       <span class="zaehler">
@@ -494,6 +510,24 @@ onBeforeUnmount(() => beobachter?.disconnect())
   margin: 2.5rem 0.4rem;
   color: var(--muted);
   text-align: center;
+}
+
+.im-laden {
+  margin: 1.4rem 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+.regale {
+  padding: 0.2rem 0.1rem;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
 }
 
 .fuss {

@@ -53,6 +53,10 @@ Handys gleichzeitig abgehakt. Erreichbar unter
   Hause ist, und die Menge für **diesen einen Einkauf** angepasst. Das Rezept
   selbst bleibt davon unberührt; über den Stift ✎ wird es dauerhaft geändert
   oder neu angelegt
+- **Regale live sortieren**: während des Einkaufs steht unter der Liste leise
+  „🛒 Markt · Regale sortieren“. Das Fenster zeigt zuerst nur die Kategorien,
+  die heute wirklich auf der Liste stehen (mit Anzahl); am Griff ⠿ verschoben
+  sortiert sich die Liste sofort um und der Markt merkt es sich dauerhaft
 - **Märkte**: pro kategorisierter Liste beliebig viele Filialen mit eigener
   Kategorie-Reihenfolge; der aktive Markt wird in der Verwaltung gewählt und
   taucht beim Einkaufen nicht auf
