@@ -16,7 +16,7 @@ const weatherPayload = {
 
 const adguardPayload = {
   configured: true,
-  canPause: true,
+  local: true,
   protectionEnabled: true,
   protectionDisabledUntil: null,
   unit: 'hours',
@@ -26,7 +26,7 @@ const adguardPayload = {
 }
 
 // Der Netzschutz-Zustand gilt für den einzelnen Test: ohne ihn meldet der
-// Server „nicht eingerichtet“ und die Karte taucht gar nicht erst auf.
+// Server „nicht eingerichtet“ und die Kachel taucht gar nicht erst auf.
 let adguard: Record<string, unknown> | null = null
 
 const json = (body: unknown) =>
@@ -39,20 +39,10 @@ const json = (body: unknown) =>
 function stubFetch(overrides: Record<string, Response> = {}) {
   vi.stubGlobal(
     'fetch',
-    vi.fn(async (input: string, init?: RequestInit) => {
+    vi.fn(async (input: string) => {
       const url = String(input)
       if (overrides[url]) return overrides[url]
-      if (url.includes('api/adguard')) {
-        if (init?.method === 'POST') {
-          const wanted = JSON.parse(String(init.body))
-          adguard = {
-            ...adguard,
-            protectionEnabled: wanted.enabled === true,
-            protectionDisabledUntil: null,
-          }
-        }
-        return json(adguard ?? { configured: false })
-      }
+      if (url.includes('api/adguard')) return json(adguard ?? { configured: false })
       if (url === '/home/weather') return json(weatherPayload)
       return new Response(null, { status: 200 })
     }),
@@ -148,26 +138,40 @@ describe('HomeView', () => {
     wrapper.unmount()
   })
 
-  it('zeigt den geblockten Anteil und pausiert den Schutz auf Knopfdruck', async () => {
+  it('steht mit Anteil und Verlauf in der Kachelreihe und führt zu AdGuard', async () => {
     adguard = { ...adguardPayload }
     stubFetch()
     const wrapper = await mountHome()
     await flushPromises()
 
+    // Die Kachel füllt den freien Platz neben den Diensten
+    expect(wrapper.find('.tiles .guard').exists()).toBe(true)
+
     // 2.847 von 12.400 sind gerundet 23 Prozent
+    expect(wrapper.find('.guard').text()).toContain('AdGuard Home')
     expect(wrapper.find('.guard').text()).toContain('23 %')
-    expect(wrapper.text()).toContain('2.847 von 12.400 Anfragen')
+    expect(wrapper.find('.guard').text()).toContain('2.847 von 12.400 Anfragen in 24 Stunden')
     expect(wrapper.findAll('.guard .bar')).toHaveLength(24)
 
-    await wrapper.find('.guard button').trigger('click')
-    await flushPromises()
-
-    expect(wrapper.find('.guard').text()).toContain('Schutz pausiert')
+    expect(wrapper.find('a.guard').attributes('href')).toBe('http://192.168.178.34:81/')
 
     wrapper.unmount()
   })
 
-  it('schaltet den pausierten Schutz wieder an', async () => {
+  it('lässt den Verweis von unterwegs weg', async () => {
+    adguard = { ...adguardPayload, local: false }
+    stubFetch()
+    const wrapper = await mountHome()
+    await flushPromises()
+
+    expect(wrapper.find('.guard').text()).toContain('23 %')
+    expect(wrapper.find('a.guard').exists()).toBe(false)
+    expect(wrapper.find('.guard').text()).not.toContain('Öffnen')
+
+    wrapper.unmount()
+  })
+
+  it('meldet, wenn der Schutz gerade aus ist', async () => {
     adguard = {
       ...adguardPayload,
       protectionEnabled: false,
@@ -177,25 +181,8 @@ describe('HomeView', () => {
     const wrapper = await mountHome()
     await flushPromises()
 
-    expect(wrapper.find('.guard').text()).toContain('Schutz pausiert')
-    expect(wrapper.find('.guard').text()).toContain('läuft in')
-
-    await wrapper.find('.guard button').trigger('click')
-    await flushPromises()
-
-    expect(wrapper.find('.guard').text()).toContain('23 %')
-
-    wrapper.unmount()
-  })
-
-  it('blendet den Pausenknopf von außerhalb des Heimnetzes aus', async () => {
-    adguard = { ...adguardPayload, canPause: false }
-    stubFetch()
-    const wrapper = await mountHome()
-    await flushPromises()
-
-    expect(wrapper.find('.guard').text()).toContain('23 %')
-    expect(wrapper.find('.guard button').exists()).toBe(false)
+    expect(wrapper.find('.guard').text()).toContain('pausiert')
+    expect(wrapper.find('.guard').text()).toContain('Schutz ist aus, läuft in')
 
     wrapper.unmount()
   })

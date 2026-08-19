@@ -22,11 +22,12 @@ Dienste zeigt und per Kachel weiterschickt. Erreichbar unter
 - **Status**: jeder Dienst wird jede Minute per HEAD angepingt; alles unter
   HTTP 500 gilt als „läuft" (ein 401 von Nextcloud heißt nur „nicht angemeldet").
   Die Karte führt weiter aufs Dashboard
-- **Netzschutz** aus AdGuard Home: Anteil geblockter DNS-Anfragen, der Verlauf
-  der letzten 24 Stunden als Balken (Höhe = Anfragen, eingefärbt = davon
-  geblockt). Ist der Schutz gerade aus, schlägt die Karte in einen roten
-  Warnzustand um und zählt herunter, bis er wieder angeht. Aus dem Heimnetz
-  lässt er sich hier auch für fünf Minuten pausieren – siehe unten
+- **AdGuard Home** als sechste Kachel in der Dienstreihe, gebaut wie die
+  anderen: Anteil geblockter DNS-Anfragen, darunter der Verlauf der letzten 24
+  Stunden als Balken (Höhe = Anfragen, eingefärbter Fuß = davon geblockt). Ist
+  der Schutz gerade aus, wird die Kachel rot und sagt, wann er wieder angeht.
+  „Öffnen" führt auf AdGuards eigene Oberfläche – die liegt im Heimnetz, deshalb
+  erscheint der Verweis auch nur dort (siehe unten)
 
 Neue Dienste kommen als weiterer Eintrag im Array `services` in
 [src/services.ts](src/services.ts) dazu, plus ein Icon-Zweig in
@@ -158,10 +159,14 @@ gecacht.
 
 Nach außen gibt die API nur Summen und den Verlauf heraus – **keine**
 Top-Domains, Clients oder Query-Logs, das wäre Surf-Verhalten auf einer offenen
-Seite. `POST /start/api/adguard/protection` schaltet den Schutz (Pause maximal
-120 Minuten) und ist deshalb auf private IP-Bereiche beschränkt. Maßgeblich ist
-der **letzte** Eintrag in `X-Forwarded-For`: den hat Caddy angehängt, alles
-davor kann der Anrufer selbst geschrieben haben.
+Seite. Verstellen lässt sich über sie nichts, sie liest nur.
+
+AdGuards Oberfläche (`http://192.168.178.34:81/`, fest in
+[AdguardCard.vue](src/components/AdguardCard.vue)) ist nur im Heimnetz
+erreichbar. Die Antwort sagt deshalb mit `local`, ob die Anfrage von dort kam;
+nur dann zeigt die Kachel den Öffnen-Verweis. Maßgeblich ist der **letzte**
+Eintrag in `X-Forwarded-For`: den hat Caddy angehängt, alles davor kann der
+Anrufer selbst geschrieben haben.
 
 ### Die Seite ist öffentlich
 

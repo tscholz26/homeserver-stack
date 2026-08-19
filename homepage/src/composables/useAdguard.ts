@@ -14,8 +14,8 @@ export interface Adguard {
   queries: number
   blocked: number
   series: AdguardPoint[]
-  /** Nur aus dem Heimnetz darf der Schutz geschaltet werden */
-  canPause: boolean
+  /** Ob die Anfrage aus dem Heimnetz kam – nur von dort ist AdGuard erreichbar */
+  local: boolean
 }
 
 const REFRESH_MS = 30 * 1000
@@ -28,13 +28,12 @@ interface Answer extends Partial<Adguard> {
 /**
  * Netzschutz-Zahlen aus AdGuard Home, über den eigenen Server geholt (der hält
  * das Passwort). Ist AdGuard nicht eingerichtet, bleibt `available` falsch und
- * die Startseite zeigt die Karte gar nicht erst.
+ * die Startseite zeigt die Kachel gar nicht erst.
  */
 export function useAdguard() {
   const adguard = ref<Adguard | null>(null)
   const available = ref(true)
   const failed = ref(false)
-  const pending = ref(false)
 
   function apply(data: Answer) {
     if (data.configured === false) {
@@ -51,7 +50,7 @@ export function useAdguard() {
       queries: data.queries ?? 0,
       blocked: data.blocked ?? 0,
       series: data.series,
-      canPause: data.canPause === true,
+      local: data.local === true,
     }
     failed.value = false
   }
@@ -66,29 +65,9 @@ export function useAdguard() {
     }
   }
 
-  /** `minutes` pausiert den Schutz, `null` schaltet ihn wieder an. */
-  async function setProtection(minutes: number | null) {
-    pending.value = true
-    try {
-      const response = await fetch(`${import.meta.env.BASE_URL}api/adguard/protection`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(minutes === null ? { enabled: true } : { minutes }),
-      })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.error ?? `HTTP ${response.status}`)
-      apply(data)
-    } catch {
-      // Der nächste Durchlauf holt den echten Zustand ohnehin nach
-      await load()
-    } finally {
-      pending.value = false
-    }
-  }
-
   load()
   const timer = setInterval(load, REFRESH_MS)
   onUnmounted(() => clearInterval(timer))
 
-  return { adguard, available, failed, pending, setProtection }
+  return { adguard, available, failed }
 }

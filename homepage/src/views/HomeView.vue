@@ -15,13 +15,7 @@ import { planned, services } from '@/services'
 const { now, time, date, greeting } = useClock()
 const { weather, failed } = useWeather()
 const { statuses, onlineCount, allOnline } = useStatus()
-const {
-  adguard,
-  available: adguardAvailable,
-  failed: adguardFailed,
-  pending,
-  setProtection,
-} = useAdguard()
+const { adguard, available: adguardAvailable, failed: adguardFailed } = useAdguard()
 
 // 1, 2, 3 springen direkt in den jeweiligen Dienst – die Ziffer steht auf der
 // Kachel. Nicht, wenn gerade getippt wird oder eine Sondertaste mitläuft.
@@ -99,22 +93,19 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
           </span>
         </RouterLink>
 
-        <!-- Füllt die Reihe der Dienste auf und ist die Info, die man beim
-             Rausgehen sowieso sucht -->
-        <WeatherCard :weather="weather" :failed="failed" />
-      </section>
-
-      <section class="widgets" aria-label="Übersicht">
-        <SunCard :weather="weather" :now="now" />
-        <StatusCard :statuses="statuses" :online-count="onlineCount" :all-online="allOnline" />
+        <!-- Füllt die Reihe der Dienste auf und führt im Heimnetz zu AdGuard -->
         <AdguardCard
           v-if="adguardAvailable"
           :adguard="adguard"
           :failed="adguardFailed"
-          :pending="pending"
           :now="now"
-          @protection="setProtection"
         />
+      </section>
+
+      <section class="widgets" aria-label="Auf dem Server">
+        <WeatherCard :weather="weather" :failed="failed" />
+        <SunCard :weather="weather" :now="now" />
+        <StatusCard :statuses="statuses" :online-count="onlineCount" :all-online="allOnline" />
       </section>
     </main>
   </div>

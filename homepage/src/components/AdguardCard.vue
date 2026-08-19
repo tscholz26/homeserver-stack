@@ -2,16 +2,11 @@
 import { computed } from 'vue'
 import type { Adguard } from '@/composables/useAdguard'
 
-const props = defineProps<{
-  adguard: Adguard | null
-  failed: boolean
-  pending: boolean
-  now: Date
-}>()
+const props = defineProps<{ adguard: Adguard | null; failed: boolean; now: Date }>()
 
-const emit = defineEmits<{ protection: [minutes: number | null] }>()
-
-const PAUSE_MINUTES = 5
+// AdGuards eigene Oberfläche liegt auf Port 81 des Servers und ist nur im
+// Heimnetz erreichbar – deshalb die feste Adresse statt der DuckDNS-Domain.
+const ADGUARD_URL = 'http://192.168.178.34:81/'
 
 const number = (value: number) => value.toLocaleString('de-DE')
 
@@ -22,13 +17,11 @@ const share = computed(() => {
 })
 
 const period = computed(() =>
-  props.adguard?.unit === 'days'
-    ? `letzte ${props.adguard.series.length} Tage`
-    : 'letzte 24 Stunden',
+  props.adguard?.unit === 'days' ? `${props.adguard.series.length} Tagen` : '24 Stunden',
 )
 
 // Die Balken werden auf den größten Wert der Reihe skaliert – es geht um den
-// Tagesverlauf, nicht um absolute Höhen.
+// Verlauf, nicht um absolute Höhen.
 const peak = computed(() => Math.max(1, ...(props.adguard?.series ?? []).map((p) => p.queries)))
 
 const bars = computed(() =>
@@ -52,15 +45,15 @@ const bars = computed(() =>
   }),
 )
 
-// Erste, mittlere und letzte Beschriftung unter dem Verlauf
-const axis = computed(() => {
-  const first = bars.value[0]?.title.split(':')[0] ?? ''
-  const middle = bars.value[Math.floor(bars.value.length / 2)]?.title.split(':')[0] ?? ''
-  return [first, middle, 'jetzt']
+const summary = computed(() => {
+  const data = props.adguard
+  if (!data) return ''
+  return `${number(data.blocked)} von ${number(data.queries)} Anfragen in ${period.value} geblockt`
 })
 
 const paused = computed(() => props.adguard?.protectionEnabled === false)
 
+/** Wie lange die Pause noch läuft; ältere AdGuard-Versionen sagen das nicht. */
 const resumesIn = computed(() => {
   const until = props.adguard?.protectionDisabledUntil
   if (!until) return null
@@ -70,151 +63,231 @@ const resumesIn = computed(() => {
   if (minutes >= 60) return `${Math.floor(minutes / 60)} h ${minutes % 60} min`
   return `${minutes}:${String(seconds % 60).padStart(2, '0')} min`
 })
+
+// Von unterwegs führt der Knopf ins Leere – dann bleibt die Kachel eine reine
+// Anzeige ohne Verweis.
+const tag = computed(() => (props.adguard?.local ? 'a' : 'div'))
 </script>
 
 <template>
-  <div class="card guard" :class="{ paused }">
-    <p class="label">
-      Netzschutz
-      <span class="period">{{ adguard ? period : '' }}</span>
-    </p>
-
-    <template v-if="paused">
-      <p class="headline warn">
-        <span class="beacon" />
-        Schutz pausiert
-      </p>
-      <p class="sub">
-        {{ resumesIn ? `läuft in ${resumesIn} wieder an` : 'bleibt aus, bis du ihn anschaltest' }}
-      </p>
-      <button
-        v-if="adguard?.canPause"
-        class="action on"
-        :disabled="pending"
-        @click="emit('protection', null)"
+  <component
+    :is="tag"
+    class="tile guard"
+    :class="{ paused }"
+    :href="adguard?.local ? ADGUARD_URL : undefined"
+    target="_blank"
+    rel="noopener noreferrer"
+  >
+    <span class="badge">
+      <svg
+        viewBox="0 0 24 24"
+        width="26"
+        height="26"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
       >
-        Jetzt wieder anschalten
-      </button>
-    </template>
+        <path d="M12 3 4.5 6v5.5c0 4.4 3.1 8.3 7.5 9.5 4.4-1.2 7.5-5.1 7.5-9.5V6L12 3Z" />
+        <path d="m8.8 11.9 2.2 2.2 4.2-4.2" />
+      </svg>
+    </span>
 
-    <template v-else-if="adguard">
-      <p class="headline">
-        {{ share === null ? '–' : `${share} %` }}
-        <span class="unit">geblockt</span>
-      </p>
-      <p class="sub">{{ number(adguard.blocked) }} von {{ number(adguard.queries) }} Anfragen</p>
+    <span class="meta">
+      <span class="dot" />
+      {{ paused ? 'pausiert' : 'aktiv' }}
+    </span>
 
-      <div class="chart" aria-hidden="true">
-        <span v-for="bar in bars" :key="bar.key" class="bar" :title="bar.title">
-          <span class="stack" :style="{ height: `${bar.height}%` }">
-            <span class="hit" :style="{ height: `${bar.blocked}%` }" />
+    <span class="text">
+      <span class="tagline">Netzschutz</span>
+      <h2>AdGuard Home</h2>
+
+      <template v-if="adguard">
+        <span class="stat">
+          <strong>{{ share === null ? '–' : `${share} %` }}</strong>
+          <span class="of">{{ summary }}</span>
+        </span>
+
+        <span class="chart" aria-hidden="true">
+          <span v-for="bar in bars" :key="bar.key" class="bar" :title="bar.title">
+            <span class="stack" :style="{ height: `${bar.height}%` }">
+              <span class="hit" :style="{ height: `${bar.blocked}%` }" />
+            </span>
           </span>
         </span>
-      </div>
-      <p class="axis">
-        <span v-for="(tick, index) in axis" :key="index">{{ tick }}</span>
-      </p>
 
-      <button
-        v-if="adguard.canPause"
-        class="action"
-        :disabled="pending"
-        @click="emit('protection', PAUSE_MINUTES)"
+        <span v-if="paused" class="warn">
+          Schutz ist aus{{ resumesIn ? `, läuft in ${resumesIn} wieder an` : '' }}
+        </span>
+      </template>
+
+      <span v-else class="fallback">
+        {{ failed ? 'Keine Verbindung zu AdGuard.' : 'Lade Zahlen …' }}
+      </span>
+    </span>
+
+    <span v-if="adguard?.local" class="go">
+      Öffnen
+      <svg
+        viewBox="0 0 24 24"
+        width="18"
+        height="18"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
       >
-        {{ PAUSE_MINUTES }} Minuten pausieren
-      </button>
-    </template>
-
-    <p v-else-if="failed" class="fallback">Keine Verbindung zu AdGuard.</p>
-    <p v-else class="fallback">Lade Netzschutz …</p>
-  </div>
+        <path d="M5 12h13M13 6l6 6-6 6" />
+      </svg>
+    </span>
+  </component>
 </template>
 
 <style scoped>
-/* Wie die Wetterkarte: die Reihe zieht die Karte auf Höhe, der Knopf soll sich
-   dann unten absetzen statt in der Mitte zu hängen. */
+/* Gleiche Geometrie wie die Dienst-Kacheln, damit sie in derselben Reihe nicht
+   aus dem Rahmen fällt – nur ohne Lichtschein, sie ist ja kein Dienst. */
 .guard {
   --accent: #0f766e;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas:
+    'badge meta'
+    'text  text'
+    'go    go';
+  padding: 1.4rem;
+  border: 1px solid var(--line);
+  border-radius: 1.5rem;
+  background: var(--card);
+  box-shadow: var(--shadow);
+  color: inherit;
+  text-decoration: none;
+  transition:
+    transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+a.guard:hover,
+a.guard:focus-visible {
+  transform: translateY(-6px);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  box-shadow:
+    var(--shadow),
+    0 1.2rem 2.6rem -1.4rem color-mix(in srgb, var(--accent) 70%, transparent);
 }
 
 .guard.paused {
   --accent: #b91c1c;
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
 }
 
-.label {
-  display: flex;
+.badge {
+  grid-area: badge;
+  display: grid;
+  place-items: center;
+  width: 3.2rem;
+  height: 3.2rem;
+  border-radius: 1rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+a.guard:hover .badge {
+  transform: rotate(-8deg) scale(1.06);
+}
+
+/* Wie der Status-Punkt der Dienste, nur mit Wort daneben */
+.meta {
+  grid-area: meta;
+  justify-self: end;
+  align-self: start;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin: 0 0 0.7rem;
+  gap: 0.4rem;
   font-size: 0.7rem;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
 }
 
-.period {
-  letter-spacing: 0.04em;
-  text-transform: none;
-}
-
-.headline {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  margin: 0;
-  font-size: 2.4rem;
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  line-height: 1;
-}
-
-.headline.warn {
-  align-items: center;
-  font-size: 1.35rem;
-  color: var(--accent);
-}
-
-.unit {
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--muted);
-}
-
-.beacon {
-  width: 0.6rem;
-  height: 0.6rem;
+.dot {
+  width: 0.55rem;
+  height: 0.55rem;
   border-radius: 50%;
-  background: var(--accent);
-  flex-shrink: 0;
+  background: #16a34a;
+  box-shadow: 0 0 0 0.25rem rgba(22, 163, 74, 0.18);
+}
+
+.paused .dot {
+  background: #dc2626;
+  box-shadow: 0 0 0 0.25rem rgba(220, 38, 38, 0.18);
   animation: blink 1.6s ease-in-out infinite;
 }
 
 @keyframes blink {
   50% {
-    opacity: 0.25;
+    opacity: 0.3;
   }
 }
 
-.sub {
-  margin: 0.5rem 0 0;
-  font-size: 0.85rem;
+.text {
+  grid-area: text;
+  display: block;
+  margin-top: 0.9rem;
+}
+
+.tagline {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+}
+
+/* Die Zahl führt, der Satz daneben erklärt sie */
+.stat {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-top: 0.7rem;
+}
+
+.stat strong {
+  font-size: 1.9rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.of {
+  font-size: 0.82rem;
+  line-height: 1.35;
   color: var(--muted);
 }
 
-/* Ein Balken je Stunde: die Höhe ist die Zahl der Anfragen, der eingefärbte
-   Fuß der geblockte Anteil daran. */
+/* Ein Balken je Stunde: die Höhe sind die Anfragen, der eingefärbte Fuß der
+   geblockte Anteil daran. */
 .chart {
   display: flex;
   align-items: flex-end;
   gap: 2px;
-  height: 3.2rem;
-  margin: auto 0 0;
-  padding-top: 0.9rem;
+  height: 2.4rem;
+  margin-top: 0.9rem;
 }
 
 .bar {
@@ -230,7 +303,7 @@ const resumesIn = computed(() => {
   width: 100%;
   min-height: 1px;
   border-radius: 2px;
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 .hit {
@@ -240,57 +313,98 @@ const resumesIn = computed(() => {
   background: var(--accent);
 }
 
-.axis {
-  display: flex;
-  justify-content: space-between;
-  margin: 0.35rem 0 0;
-  font-size: 0.7rem;
-  color: var(--muted);
-}
-
-.action {
-  margin-top: 0.9rem;
-  padding: 0.55rem 0.9rem;
-  border: 1px solid var(--line);
-  border-radius: 0.7rem;
-  background: transparent;
-  font: inherit;
-  font-size: 0.85rem;
+.warn {
+  display: block;
+  margin-top: 0.7rem;
+  font-size: 0.82rem;
   font-weight: 700;
-  color: var(--muted);
-  cursor: pointer;
-  transition:
-    border-color 0.25s ease,
-    color 0.25s ease;
-}
-
-.action:hover:not(:disabled),
-.action:focus-visible:not(:disabled) {
-  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
   color: var(--accent);
-}
-
-/* Wieder anschalten ist der wichtigere Knopf – der darf auffallen */
-.action.on {
-  margin-top: auto;
-  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
-  color: var(--accent);
-}
-
-.action:disabled {
-  opacity: 0.5;
-  cursor: progress;
 }
 
 .fallback {
-  margin: 0;
+  display: block;
+  margin-top: 0.7rem;
   font-size: 0.9rem;
   color: var(--muted);
 }
 
+.go {
+  grid-area: go;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.9rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.go svg {
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+a.guard:hover .go svg,
+a.guard:focus-visible .go svg {
+  transform: translateX(0.35rem);
+}
+
+/* Auf dem Handy wie die Dienst-Kacheln eine flache Zeile – der Verlauf ist
+   dort Beiwerk und fliegt raus, die Zahl bleibt. */
+@media (max-width: 34rem) {
+  .guard {
+    grid-template-columns: auto 1fr auto;
+    grid-template-rows: auto;
+    grid-template-areas: 'badge text meta';
+    align-items: center;
+    gap: 0 0.9rem;
+    padding: 1rem 1.1rem;
+  }
+
+  .badge {
+    width: 2.9rem;
+    height: 2.9rem;
+    border-radius: 0.9rem;
+  }
+
+  .text {
+    margin-top: 0;
+    min-width: 0;
+  }
+
+  h2 {
+    font-size: 1.25rem;
+  }
+
+  .stat {
+    margin-top: 0.15rem;
+    gap: 0.45rem;
+  }
+
+  .stat strong {
+    font-size: 1.15rem;
+  }
+
+  .of {
+    font-size: 0.78rem;
+  }
+
+  .chart,
+  .go {
+    display: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .beacon {
+  .paused .dot {
     animation: none;
+  }
+
+  .guard {
+    transition: none;
+  }
+
+  a.guard:hover {
+    transform: none;
   }
 }
 </style>

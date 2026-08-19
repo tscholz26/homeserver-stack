@@ -533,24 +533,15 @@ const ADGUARD_USERNAME = process.env.ADGUARD_USERNAME || ''
 const ADGUARD_PASSWORD = process.env.ADGUARD_PASSWORD || ''
 const ADGUARD_CONFIGURED = Boolean(ADGUARD_USERNAME && ADGUARD_PASSWORD)
 const ADGUARD_CACHE_MS = 15_000
-// Länger als das darf niemand den Schutz abschalten – ein Versehen soll nicht
-// den ganzen Abend gelten.
-const ADGUARD_MAX_PAUSE_MINUTES = 120
 
-async function adguardRequest(path, body) {
+async function adguardRequest(path) {
   const credentials = Buffer.from(`${ADGUARD_USERNAME}:${ADGUARD_PASSWORD}`).toString('base64')
   const response = await fetch(`${ADGUARD_URL}${path}`, {
-    method: body === undefined ? 'GET' : 'POST',
-    headers: {
-      Authorization: `Basic ${credentials}`,
-      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    headers: { Authorization: `Basic ${credentials}` },
     signal: AbortSignal.timeout(8000),
   })
   if (!response.ok) throw new Error(`AdGuard antwortete mit ${response.status}`)
-  // Das Schalten des Schutzes antwortet ohne Inhalt
-  return response.json().catch(() => null)
+  return response.json()
 }
 
 let adguardCache = { at: 0, data: null }
@@ -599,8 +590,8 @@ function clientAddress(req) {
   return address.replace(/^::ffff:/, '')
 }
 
-/** Die Startseite ist über DuckDNS ohne Anmeldung offen. Alles, was AdGuard
- *  verstellt, darf deshalb nur aus dem Heimnetz kommen. */
+/** AdGuards Oberfläche hängt am Port 81 des Servers und ist nur von zuhause
+ *  erreichbar – von außen zeigt die Kachel deshalb keinen Verweis dorthin. */
 function isLocal(req) {
   const address = clientAddress(req)
   if (address === '127.0.0.1' || address === '::1') return true
@@ -693,34 +684,9 @@ app.get('/api/adguard', async (req, res) => {
   if (!ADGUARD_CONFIGURED) return res.json({ configured: false })
 
   try {
-    res.json({ configured: true, canPause: isLocal(req), ...(await adguardSnapshot()) })
+    res.json({ configured: true, local: isLocal(req), ...(await adguardSnapshot()) })
   } catch (err) {
     res.status(502).json({ configured: true, error: err.message })
-  }
-})
-
-// Schutz pausieren oder wieder anschalten – schreibend, deshalb nur von zuhause.
-app.post('/api/adguard/protection', express.json(), async (req, res) => {
-  res.set('Cache-Control', 'no-store')
-  if (!ADGUARD_CONFIGURED) return res.status(503).json({ error: 'AdGuard ist nicht eingerichtet.' })
-  if (!isLocal(req)) return res.status(403).json({ error: 'Das geht nur aus dem Heimnetz.' })
-
-  const enabled = req.body?.enabled === true
-  const minutes = Number(req.body?.minutes)
-  if (!enabled && !(minutes > 0 && minutes <= ADGUARD_MAX_PAUSE_MINUTES)) {
-    return res.status(400).json({ error: 'Pause muss zwischen 1 und 120 Minuten liegen.' })
-  }
-
-  try {
-    await adguardRequest(
-      '/control/protection',
-      enabled ? { enabled: true } : { enabled: false, duration: Math.round(minutes * 60_000) },
-    )
-    // Der Cache hält sonst bis zu 15 Sekunden den alten Zustand fest
-    adguardCache = { at: 0, data: null }
-    res.json({ configured: true, canPause: true, ...(await adguardSnapshot()) })
-  } catch (err) {
-    res.status(502).json({ error: err.message })
   }
 })
 
