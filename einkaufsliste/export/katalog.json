@@ -3208,5 +3208,10 @@
     "name": "Gemüse wildcard",
     "aliases": [],
     "category_id": "obst_gemuese"
+  },
+  {
+    "name": "Kaffeebohnen",
+    "aliases": [],
+    "category_id": "backen_gewuerze"
   }
 ]
