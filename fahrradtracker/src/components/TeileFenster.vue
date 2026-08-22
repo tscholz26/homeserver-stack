@@ -115,6 +115,18 @@ function zeitraumDatum(teil: Teil, periodId: string, feld: 'from' | 'to', wert: 
   store.zeitraumSpeichern(teil.id, periodId, { [feld]: wert })
 }
 
+/** Umbenennen: ein leerer Name würde vom Server abgelehnt, deshalb steht dann
+ *  wieder die alte Bezeichnung im Feld. */
+function nameSpeichern(teil: Teil, feld: HTMLInputElement) {
+  const wert = feld.value.trim()
+  if (!wert) {
+    feld.value = teil.label
+    return
+  }
+  if (wert === teil.label) return
+  store.teilSpeichern(teil.id, { label: wert })
+}
+
 function notizSpeichern(teil: Teil, wert: string) {
   if (wert === teil.note) return
   store.teilSpeichern(teil.id, { note: wert })
@@ -233,6 +245,20 @@ function eigeneGrenzeSpeichern(teil: Teil, wert: string) {
           </button>
 
           <div v-if="offen === teil.id" class="details">
+            <!-- Die Bezeichnung steht oben, weil sie das Teil in allen Listen
+                 benennt – etwa „Kette 1“ gegenüber „Kette 2“. -->
+            <template v-if="darfAendern">
+              <label class="klein" :for="`name-${teil.id}`">Bezeichnung</label>
+              <input
+                :id="`name-${teil.id}`"
+                type="text"
+                maxlength="60"
+                :value="teil.label"
+                @change="nameSpeichern(teil, $event.target as HTMLInputElement)"
+                @keyup.enter="($event.target as HTMLInputElement).blur()"
+              />
+            </template>
+
             <!-- Die Nutzungszeiträume: mehrere Ein- und Ausbauten je Teil -->
             <p class="klein">Zeiträume</p>
             <ul class="perioden">
