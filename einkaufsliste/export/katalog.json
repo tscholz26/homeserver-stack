@@ -3218,5 +3218,10 @@
     "name": "1 bonusgemüse",
     "aliases": [],
     "category_id": "obst_gemuese"
+  },
+  {
+    "name": "Soja Geschnetzeltes",
+    "aliases": [],
+    "category_id": "fleisch_wurst"
   }
 ]
