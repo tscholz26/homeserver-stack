@@ -1372,5 +1372,36 @@
         "quantity": "1"
       }
     ]
+  },
+  {
+    "id": "502e48eb-a575-4056-b4f8-28f53aa77bf3",
+    "name": "Türkische Pasta",
+    "group": "frisch",
+    "ingredients": [
+      {
+        "name": "Gute Nudeln",
+        "quantity": "1"
+      },
+      {
+        "name": "Rinderhack",
+        "quantity": "400g"
+      },
+      {
+        "name": "Petersilie",
+        "quantity": "1/2 Bund"
+      },
+      {
+        "name": "Cherrytomaten",
+        "quantity": "200g"
+      },
+      {
+        "name": "Butter",
+        "quantity": "2EL"
+      },
+      {
+        "name": "Jogurth 10%",
+        "quantity": "200g"
+      }
+    ]
   }
 ]

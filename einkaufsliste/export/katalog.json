@@ -990,16 +990,6 @@
     "category_id": "tiefkuehl"
   },
   {
-    "name": "TK-Pizza",
-    "aliases": [
-      "Tiefkühlpizza",
-      "Pizza TK",
-      "Fertigpizza",
-      "Pizza eingefroren"
-    ],
-    "category_id": "tiefkuehl"
-  },
-  {
     "name": "Baguette",
     "aliases": [
       "Weißbrot",
@@ -3223,5 +3213,35 @@
     "name": "Soja Geschnetzeltes",
     "aliases": [],
     "category_id": "fleisch_wurst"
+  },
+  {
+    "name": "Bratensoße",
+    "aliases": [],
+    "category_id": "nudeln_reis"
+  },
+  {
+    "name": "Nudeln",
+    "aliases": [
+      "Gute Nudeln"
+    ],
+    "category_id": "nudeln_reis"
+  },
+  {
+    "name": "TK-Pizza",
+    "aliases": [
+      "Tiefkühlpizza",
+      "Pizza TK",
+      "Fertigpizza",
+      "Pizza eingefroren",
+      "Aldi tiefkühl pizza"
+    ],
+    "category_id": "tiefkuehl"
+  },
+  {
+    "name": "Burrata",
+    "aliases": [
+      "Aldi Burrata"
+    ],
+    "category_id": "milch_kuehlwaren"
   }
 ]
