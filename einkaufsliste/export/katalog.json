@@ -3243,5 +3243,10 @@
       "Aldi Burrata"
     ],
     "category_id": "milch_kuehlwaren"
+  },
+  {
+    "name": "Kroketten",
+    "aliases": [],
+    "category_id": "tiefkuehl"
   }
 ]
