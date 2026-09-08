@@ -834,37 +834,6 @@
     ]
   },
   {
-    "id": "msqkgyyn-f7b159a0",
-    "name": "Griechischer Salat",
-    "group": "frisch",
-    "ingredients": [
-      {
-        "name": "Tomaten",
-        "quantity": "2"
-      },
-      {
-        "name": "Gurke",
-        "quantity": "1"
-      },
-      {
-        "name": "Paprika",
-        "quantity": "1"
-      },
-      {
-        "name": "Feta",
-        "quantity": "1"
-      },
-      {
-        "name": "Oliven",
-        "quantity": "optional"
-      },
-      {
-        "name": "Olivenöl",
-        "quantity": ""
-      }
-    ]
-  },
-  {
     "id": "msqi07no-ea7bbcf1",
     "name": "Pflaumenklöße mit brauner Butter, Zimt und Zucker",
     "group": "sonstiges",
