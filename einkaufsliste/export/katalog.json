@@ -1170,18 +1170,6 @@
     "category_id": "nudeln_reis"
   },
   {
-    "name": "Pesto",
-    "aliases": [
-      "Basilikumpesto",
-      "Pesto rosso",
-      "Pesto verde",
-      "Pesto alla Genovese",
-      "Rucola-Pesto",
-      "Pesto Glas"
-    ],
-    "category_id": "nudeln_reis"
-  },
-  {
     "name": "Passierte Tomaten",
     "aliases": [
       "Tomatenpassata",
@@ -2220,14 +2208,6 @@
     "category_id": "milch_kuehlwaren"
   },
   {
-    "name": "Ricotta",
-    "aliases": [
-      "Ricotta Käse",
-      "Ricottafrischkäse"
-    ],
-    "category_id": "milch_kuehlwaren"
-  },
-  {
     "name": "Pudding",
     "aliases": [
       "Schokopudding",
@@ -3248,5 +3228,31 @@
     "name": "Kroketten",
     "aliases": [],
     "category_id": "tiefkuehl"
+  },
+  {
+    "name": "Pesto",
+    "aliases": [
+      "Basilikumpesto",
+      "Pesto rosso",
+      "Pesto verde",
+      "Pesto alla Genovese",
+      "Rucola-Pesto",
+      "Pesto Glas",
+      "pesto ricotta noci barilla"
+    ],
+    "category_id": "nudeln_reis"
+  },
+  {
+    "name": "Ricotta",
+    "aliases": [
+      "Ricotta Käse",
+      "Ricottafrischkäse"
+    ],
+    "category_id": "milch_kuehlwaren"
+  },
+  {
+    "name": "Snacks",
+    "aliases": [],
+    "category_id": "suesses_snacks"
   }
 ]
