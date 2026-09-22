@@ -772,7 +772,32 @@
     "id": "9fba2470-6deb-4a56-a06b-aa8c194686bc",
     "name": "Ofengemüse mit Gnocchi",
     "group": "frisch",
-    "ingredients": []
+    "ingredients": [
+      {
+        "name": "Pilze",
+        "quantity": ""
+      },
+      {
+        "name": "Feta",
+        "quantity": ""
+      },
+      {
+        "name": "Gnocchi",
+        "quantity": "1 Pkg"
+      },
+      {
+        "name": "Zucchini",
+        "quantity": ""
+      },
+      {
+        "name": "Brokkoli",
+        "quantity": ""
+      },
+      {
+        "name": "Cherrytomaten",
+        "quantity": ""
+      }
+    ]
   },
   {
     "id": "msqi07no-df885986",
@@ -1259,7 +1284,36 @@
     "id": "29c209c7-07d6-440b-a13e-51da464ad90b",
     "name": "Tortelliniauflauf",
     "group": "vorrat",
-    "ingredients": []
+    "ingredients": [
+      {
+        "name": "Tortellini",
+        "quantity": "1kg"
+      },
+      {
+        "name": "Passierte Tomaten",
+        "quantity": "3"
+      },
+      {
+        "name": "Streukäse",
+        "quantity": ""
+      },
+      {
+        "name": "Sahne",
+        "quantity": "200ml"
+      },
+      {
+        "name": "Zwiebel",
+        "quantity": "1"
+      },
+      {
+        "name": "Mozzarella",
+        "quantity": "2"
+      },
+      {
+        "name": "Cherrytomaten",
+        "quantity": ""
+      }
+    ]
   },
   {
     "id": "f7934f74-9a13-42b0-a3ff-fa0bbc54eb27",
@@ -1301,7 +1355,36 @@
     "id": "0b53bb29-d42a-48e4-9740-44f99e0914f5",
     "name": "Gefüllter Butternut Kürbis aus dem Ofen",
     "group": "saisonal",
-    "ingredients": []
+    "ingredients": [
+      {
+        "name": "Butternut Kürbis (möglichst schmal)",
+        "quantity": "1"
+      },
+      {
+        "name": "Creme Fraiche",
+        "quantity": "1"
+      },
+      {
+        "name": "Streukäse",
+        "quantity": ""
+      },
+      {
+        "name": "Kräuter? (Thymian)",
+        "quantity": ""
+      },
+      {
+        "name": "Speckwürfel",
+        "quantity": ""
+      },
+      {
+        "name": "Cherrytomaten",
+        "quantity": ""
+      },
+      {
+        "name": "Pilze",
+        "quantity": ""
+      }
+    ]
   },
   {
     "id": "576fb01e-e86f-4d5f-bf1b-64f94d0f4a70",
