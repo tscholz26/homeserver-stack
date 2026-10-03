@@ -1349,7 +1349,32 @@
     "id": "bff97421-90db-456d-9d60-6e2d463086e8",
     "name": "Kürbissuppe",
     "group": "saisonal",
-    "ingredients": []
+    "ingredients": [
+      {
+        "name": "Kürbis",
+        "quantity": ""
+      },
+      {
+        "name": "Schmand",
+        "quantity": ""
+      },
+      {
+        "name": "Röstzwiebeln",
+        "quantity": ""
+      },
+      {
+        "name": "Schinkenwürfel",
+        "quantity": ""
+      },
+      {
+        "name": "Kokosmilch",
+        "quantity": ""
+      },
+      {
+        "name": "Apfelsaft?",
+        "quantity": ""
+      }
+    ]
   },
   {
     "id": "0b53bb29-d42a-48e4-9740-44f99e0914f5",

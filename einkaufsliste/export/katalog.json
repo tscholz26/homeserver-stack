@@ -3254,5 +3254,15 @@
     "name": "Snacks",
     "aliases": [],
     "category_id": "suesses_snacks"
+  },
+  {
+    "name": "Pak choi",
+    "aliases": [],
+    "category_id": "obst_gemuese"
+  },
+  {
+    "name": "Fleischsalat",
+    "aliases": [],
+    "category_id": "fleisch_wurst"
   }
 ]
