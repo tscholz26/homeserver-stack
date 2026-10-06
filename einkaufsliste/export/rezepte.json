@@ -1480,5 +1480,44 @@
         "quantity": "200g"
       }
     ]
+  },
+  {
+    "id": "ae5b454f-17e7-4157-aac6-18a7fbb7fffc",
+    "name": "Steinpilz Risotto",
+    "group": "frisch",
+    "ingredients": [
+      {
+        "name": "Schalotten",
+        "quantity": "4"
+      },
+      {
+        "name": "Butter",
+        "quantity": "75g"
+      },
+      {
+        "name": "Sahne (optional)",
+        "quantity": "70-100ml"
+      },
+      {
+        "name": "Risottoreis",
+        "quantity": "500g"
+      },
+      {
+        "name": "Frische Champignons",
+        "quantity": "1/2 Packung"
+      },
+      {
+        "name": "Getrocknete Pilze",
+        "quantity": "30g"
+      },
+      {
+        "name": "Gemüsebrühe",
+        "quantity": "1,5-2L"
+      },
+      {
+        "name": "Weißwein",
+        "quantity": "250ml"
+      }
+    ]
   }
 ]
