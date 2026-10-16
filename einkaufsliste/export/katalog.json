@@ -1708,17 +1708,6 @@
     "category_id": "suesses_snacks"
   },
   {
-    "name": "Honig",
-    "aliases": [
-      "Bienenhonig",
-      "flüssiger Honig",
-      "Blütenhonig",
-      "Akazienhonig",
-      "Waldhonig"
-    ],
-    "category_id": "suesses_snacks"
-  },
-  {
     "name": "Studentenfutter",
     "aliases": [
       "Trailmix",
@@ -3264,5 +3253,21 @@
     "name": "Fleischsalat",
     "aliases": [],
     "category_id": "fleisch_wurst"
+  },
+  {
+    "name": "Honig",
+    "aliases": [
+      "Bienenhonig",
+      "flüssiger Honig",
+      "Blütenhonig",
+      "Akazienhonig",
+      "Waldhonig"
+    ],
+    "category_id": "backen_gewuerze"
+  },
+  {
+    "name": "Kamillentee",
+    "aliases": [],
+    "category_id": "backen_gewuerze"
   }
 ]
