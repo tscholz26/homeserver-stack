@@ -1130,7 +1130,72 @@
     "id": "55336775-33fb-4aee-91e0-92bc143a7c6f",
     "name": "Lasagne",
     "group": "frisch",
-    "ingredients": []
+    "ingredients": [
+      {
+        "name": "Lasagneplatten",
+        "quantity": "12"
+      },
+      {
+        "name": "Gemischtes Hack 60/40",
+        "quantity": "500g"
+      },
+      {
+        "name": "Rinderhack",
+        "quantity": "200g"
+      },
+      {
+        "name": "Gemüsebrühe",
+        "quantity": "500ml"
+      },
+      {
+        "name": "Passierte Tomaten",
+        "quantity": "500ml"
+      },
+      {
+        "name": "Pizzatomaten Dose",
+        "quantity": "1"
+      },
+      {
+        "name": "Rotwein (Merlot)",
+        "quantity": "250ml"
+      },
+      {
+        "name": "Zwiebeln",
+        "quantity": "3 große"
+      },
+      {
+        "name": "Möhren",
+        "quantity": "2 mittlere"
+      },
+      {
+        "name": "Sellerie",
+        "quantity": "2 große Stangen"
+      },
+      {
+        "name": "Rosmarin",
+        "quantity": "4-5 Zweige"
+      },
+      {
+        "name": "Thymian",
+        "quantity": "4-5 Zweige"
+      },
+      {
+        "name": "Emmentaler Streukäse",
+        "quantity": "250g"
+      },
+      {
+        "name": "Butter",
+        "quantity": "40g"
+      },
+      {
+        "name": "Mehl",
+        "quantity": "45g"
+      },
+      {
+        "name": "Milch",
+        "quantity": "?"
+      }
+    ]
   },
   {
     "id": "2112f5f1-17ce-48b9-b46f-6d7594ad76b6",
@@ -1331,7 +1396,28 @@
     "id": "msqhngzn-47c5a12f",
     "name": "Pinsa",
     "group": "frisch",
-    "ingredients": []
+    "ingredients": [
+      {
+        "name": "Pinsateig",
+        "quantity": ""
+      },
+      {
+        "name": "Walnüsse",
+        "quantity": ""
+      },
+      {
+        "name": "Ziegenkäserolle",
+        "quantity": ""
+      },
+      {
+        "name": "Honig",
+        "quantity": ""
+      },
+      {
+        "name": "Mozzarella",
+        "quantity": "1"
+      }
+    ]
   },
   {
     "id": "82bfd11a-3b01-4537-9134-e31fa85ba684",
@@ -1387,6 +1473,10 @@
       },
       {
         "name": "Creme Fraiche",
+        "quantity": "1"
+      },
+      {
+        "name": "Schmand",
         "quantity": "1"
       },
       {
@@ -1517,6 +1607,127 @@
       {
         "name": "Weißwein",
         "quantity": "250ml"
+      }
+    ]
+  },
+  {
+    "id": "f5ccc435-6c6c-4086-b09a-877047b0f9a0",
+    "name": "Gamja Jorim (Koreanische Kartoffeln)",
+    "group": "suesses",
+    "ingredients": [
+      {
+        "name": "Drillinge",
+        "quantity": "1 kg"
+      },
+      {
+        "name": "Sesamsaat",
+        "quantity": "2 EL"
+      },
+      {
+        "name": "Knoblauch",
+        "quantity": "3 Zehen"
+      },
+      {
+        "name": "Honig",
+        "quantity": "4 EL"
+      },
+      {
+        "name": "Sojasoße",
+        "quantity": "5 EL"
+      },
+      {
+        "name": "Essig",
+        "quantity": "1 TL"
+      },
+      {
+        "name": "Eier",
+        "quantity": "2"
+      },
+      {
+        "name": "Pilze",
+        "quantity": "optional"
+      },
+      {
+        "name": "Lauchzwiebeln",
+        "quantity": "optional"
+      }
+    ]
+  },
+  {
+    "id": "00e1fe47-b007-417e-af3d-6e8741fc6ff9",
+    "name": "Aubergine mit Goldenem Reis",
+    "group": "suesses",
+    "ingredients": [
+      {
+        "name": "Aubergine",
+        "quantity": "2"
+      },
+      {
+        "name": "Reis",
+        "quantity": "200 g"
+      },
+      {
+        "name": "Zitronen",
+        "quantity": "1"
+      },
+      {
+        "name": "Knoblauch",
+        "quantity": "2 Zehen"
+      },
+      {
+        "name": "Sojasoße",
+        "quantity": "1 EL"
+      },
+      {
+        "name": "Kurkuma",
+        "quantity": "1 TL"
+      },
+      {
+        "name": "Sonnenblumenkerne",
+        "quantity": "optional"
+      },
+      {
+        "name": "Lauchzwiebeln",
+        "quantity": ""
+      }
+    ]
+  },
+  {
+    "id": "3db3ab99-7419-4d54-a81f-42390c48c588",
+    "name": "One Pot Kürbis Pasta",
+    "group": "saisonal",
+    "ingredients": [
+      {
+        "name": "Nudeln",
+        "quantity": "500g"
+      },
+      {
+        "name": "Hokkaido",
+        "quantity": "700g"
+      },
+      {
+        "name": "Sahne",
+        "quantity": "500ml"
+      },
+      {
+        "name": "Gemüsebrühe",
+        "quantity": "2EL"
+      },
+      {
+        "name": "Getrocknete Tomaten (in Öl)",
+        "quantity": "150g"
+      },
+      {
+        "name": "Walnüsse",
+        "quantity": "80g"
+      },
+      {
+        "name": "Parmesan",
+        "quantity": "80g"
+      },
+      {
+        "name": "https://www.freundin.de/kochen-herbst-rezept-one-pot-kuerbis-pasta",
+        "quantity": ""
       }
     ]
   }

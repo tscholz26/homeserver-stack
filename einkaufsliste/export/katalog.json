@@ -1805,18 +1805,6 @@
     "category_id": "getraenke"
   },
   {
-    "name": "Tee",
-    "aliases": [
-      "Schwarztee",
-      "Grüntee",
-      "Kräutertee",
-      "Kamillentee",
-      "Pfefferminztee",
-      "Teebeutel"
-    ],
-    "category_id": "getraenke"
-  },
-  {
     "name": "Softdrinks",
     "aliases": [
       "Cola",
@@ -3274,5 +3262,43 @@
     "name": "Röstzwiebeln",
     "aliases": [],
     "category_id": "konserven"
+  },
+  {
+    "name": "Drillinge",
+    "aliases": [],
+    "category_id": "obst_gemuese"
+  },
+  {
+    "name": "Sesamsaat",
+    "aliases": [],
+    "category_id": "konserven"
+  },
+  {
+    "name": "Sonnenblumenkerne",
+    "aliases": [],
+    "category_id": "suesses_snacks"
+  },
+  {
+    "name": "Bavaria Blu",
+    "aliases": [],
+    "category_id": "milch_kuehlwaren"
+  },
+  {
+    "name": "Vivera",
+    "aliases": [],
+    "category_id": "fleisch_wurst"
+  },
+  {
+    "name": "Tee",
+    "aliases": [
+      "Schwarztee",
+      "Grüntee",
+      "Kräutertee",
+      "Kamillentee",
+      "Pfefferminztee",
+      "Teebeutel",
+      "Brennesseltee"
+    ],
+    "category_id": "getraenke"
   }
 ]
