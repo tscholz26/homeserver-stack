@@ -1180,6 +1180,10 @@
         "quantity": "4-5 Zweige"
       },
       {
+        "name": "Parmesan",
+        "quantity": "50g"
+      },
+      {
         "name": "Emmentaler Streukäse",
         "quantity": "250g"
       },
@@ -1193,7 +1197,7 @@
       },
       {
         "name": "Milch",
-        "quantity": "?"
+        "quantity": "500ml"
       }
     ]
   },
