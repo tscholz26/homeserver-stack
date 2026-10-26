@@ -3300,5 +3300,50 @@
       "Brennesseltee"
     ],
     "category_id": "getraenke"
+  },
+  {
+    "name": "Schweinebacke/Guanciale",
+    "aliases": [],
+    "category_id": "fleisch_wurst"
+  },
+  {
+    "name": "Götterspeise",
+    "aliases": [],
+    "category_id": "milch_kuehlwaren"
+  },
+  {
+    "name": "Ramen",
+    "aliases": [],
+    "category_id": "nudeln_reis"
+  },
+  {
+    "name": "Sekundenkleber",
+    "aliases": [],
+    "category_id": "drogerie"
+  },
+  {
+    "name": "Sriracha",
+    "aliases": [],
+    "category_id": "nudeln_reis"
+  },
+  {
+    "name": "Stahlschwamm",
+    "aliases": [],
+    "category_id": "drogerie"
+  },
+  {
+    "name": "Trichter",
+    "aliases": [],
+    "category_id": "drogerie"
+  },
+  {
+    "name": "Vanilleeis",
+    "aliases": [],
+    "category_id": "tiefkuehl"
+  },
+  {
+    "name": "Vanillesoße",
+    "aliases": [],
+    "category_id": "milch_kuehlwaren"
   }
 ]
