@@ -78,6 +78,14 @@
       {
         "name": "Burgersoße",
         "quantity": ""
+      },
+      {
+        "name": "Hackfleisch",
+        "quantity": "Optional"
+      },
+      {
+        "name": "Bürgerkäse",
+        "quantity": "Optional"
       }
     ]
   },
@@ -1205,7 +1213,48 @@
     "id": "2112f5f1-17ce-48b9-b46f-6d7594ad76b6",
     "name": "Caesars Salad mit Halloumiwürfeln (optional Pommes)",
     "group": "frisch",
-    "ingredients": []
+    "ingredients": [
+      {
+        "name": "Salatherzen",
+        "quantity": "2-3"
+      },
+      {
+        "name": "Rapsöl",
+        "quantity": "100ml"
+      },
+      {
+        "name": "Parmesan",
+        "quantity": "50g"
+      },
+      {
+        "name": "Sardellen",
+        "quantity": "15g"
+      },
+      {
+        "name": "Zitronensaft",
+        "quantity": "2 EL"
+      },
+      {
+        "name": "Knoblauch",
+        "quantity": "1 Zehe"
+      },
+      {
+        "name": "Senf",
+        "quantity": "1 TL"
+      },
+      {
+        "name": "Eigelb",
+        "quantity": "1"
+      },
+      {
+        "name": "Halloumi",
+        "quantity": "1"
+      },
+      {
+        "name": "Kartoffeln für Pommes",
+        "quantity": ""
+      }
+    ]
   },
   {
     "id": "5d0160bc-f9d6-4d31-83f8-385bdf05f7a7",
@@ -1427,7 +1476,40 @@
     "id": "82bfd11a-3b01-4537-9134-e31fa85ba684",
     "name": "Linsencurry und selbstgemachtes Naan",
     "group": "vorrat",
-    "ingredients": []
+    "ingredients": [
+      {
+        "name": "Getrocknete Rote Linsen",
+        "quantity": "250g"
+      },
+      {
+        "name": "Gemüsebrühe",
+        "quantity": "600ml"
+      },
+      {
+        "name": "Dosentomaten",
+        "quantity": "1"
+      },
+      {
+        "name": "Knoblauch",
+        "quantity": "2 Zehen"
+      },
+      {
+        "name": "Ingwer",
+        "quantity": ""
+      },
+      {
+        "name": "Indische Gewürze",
+        "quantity": "2 EL"
+      },
+      {
+        "name": "Weizenmehl",
+        "quantity": "250g"
+      },
+      {
+        "name": "Naturjoghurt",
+        "quantity": "150ml"
+      }
+    ]
   },
   {
     "id": "c5de8d6d-99ab-4ae7-8fc3-cb9e15c38e67",
@@ -1732,6 +1814,142 @@
       {
         "name": "https://www.freundin.de/kochen-herbst-rezept-one-pot-kuerbis-pasta",
         "quantity": ""
+      }
+    ]
+  },
+  {
+    "id": "b196afa2-4f0a-4010-a89d-f22d72997c68",
+    "name": "Gefüllte Süßkartoffel Rezept Chantal",
+    "group": "frisch",
+    "ingredients": [
+      {
+        "name": "Süßkartoffel",
+        "quantity": "1 große"
+      },
+      {
+        "name": "Veggie Hack",
+        "quantity": ""
+      },
+      {
+        "name": "Avocado",
+        "quantity": ""
+      },
+      {
+        "name": "Petersilie",
+        "quantity": ""
+      },
+      {
+        "name": "Cherrytomaten",
+        "quantity": ""
+      },
+      {
+        "name": "Jogurth 10%",
+        "quantity": ""
+      }
+    ]
+  },
+  {
+    "id": "655893fa-a22d-47ba-bfbb-ec532d678231",
+    "name": "Tiktok Kartoffeln",
+    "group": "vorrat",
+    "ingredients": [
+      {
+        "name": "Drillinge",
+        "quantity": "1 kg"
+      },
+      {
+        "name": "Knoblauch",
+        "quantity": "2 Zehen"
+      },
+      {
+        "name": "Olivenöl",
+        "quantity": "8 EL"
+      },
+      {
+        "name": "Naturjoghurt",
+        "quantity": "4 EL"
+      },
+      {
+        "name": "Frischkäse",
+        "quantity": "4 EL"
+      },
+      {
+        "name": "Petersilie",
+        "quantity": "Handvoll"
+      },
+      {
+        "name": "Bio Zitrone",
+        "quantity": "1"
+      }
+    ]
+  },
+  {
+    "id": "3d2d9125-46ad-481e-ae14-486d35a49c30",
+    "name": "Vodka Pasta",
+    "group": "frisch",
+    "ingredients": [
+      {
+        "name": "Gute Pasta",
+        "quantity": ""
+      },
+      {
+        "name": "Tomatenmark",
+        "quantity": "250g"
+      },
+      {
+        "name": "Sahne",
+        "quantity": "200ml"
+      },
+      {
+        "name": "Vodka",
+        "quantity": "3 cl"
+      },
+      {
+        "name": "Knoblauch",
+        "quantity": "1"
+      },
+      {
+        "name": "Zwiebel",
+        "quantity": "1"
+      },
+      {
+        "name": "Parmesan",
+        "quantity": "Optional"
+      },
+      {
+        "name": "Garnelen",
+        "quantity": ""
+      }
+    ]
+  },
+  {
+    "id": "d5d2994a-eef3-4e92-b867-f619663f3d7d",
+    "name": "Chinesische Scherennudeln",
+    "group": "frisch",
+    "ingredients": [
+      {
+        "name": "Weizenmehl",
+        "quantity": "300g"
+      },
+      {
+        "name": "Wasser",
+        "quantity": "150ml"
+      },
+      {
+        "name": "Lauchzwiebeln",
+        "quantity": "6-10"
+      },
+      {
+        "name": "Sojasoße",
+        "quantity": "50-75ml"
+      },
+      {
+        "name": "Zucker",
+        "quantity": "1-2 EL"
+      },
+      {
+        "name": "Sesam?",
+        "quantity": "Optional"
       }
     ]
   }

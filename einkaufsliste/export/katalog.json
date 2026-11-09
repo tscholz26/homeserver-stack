@@ -3345,5 +3345,10 @@
     "name": "Vanillesoße",
     "aliases": [],
     "category_id": "milch_kuehlwaren"
+  },
+  {
+    "name": "Fit",
+    "aliases": [],
+    "category_id": "drogerie"
   }
 ]
