@@ -13,10 +13,11 @@ function artikel(done = false, quantity = ''): Item {
     matchedName: 'Duschgel',
     done,
     addedAt: '2026-08-11T10:00:00.000Z',
+    rezepte: [],
   }
 }
 
-function zeile(done = false, quantity = '') {
+function zeile(done = false, quantity = '', gerichte: string[] = []) {
   return mount(ArtikelZeile, {
     props: {
       item: artikel(done, quantity),
@@ -24,6 +25,7 @@ function zeile(done = false, quantity = '') {
       catalog: [],
       catalogNames: [],
       sortierbar: true,
+      gerichte,
     },
   })
 }
@@ -114,6 +116,41 @@ describe('Mengen-Stepper', () => {
     // Abgehakt wird nichts mehr geplant – da ist der Stepper nur im Weg
     const w = zeile(true, '2 Packungen')
     expect(w.findAll('.stufe')).toHaveLength(0)
+    w.unmount()
+  })
+})
+
+describe('Wofür der Artikel da ist', () => {
+  it('zeigt die Gerichte beim ersten Tipp und blendet sie beim zweiten aus', async () => {
+    const w = zeile(false, '', ['Flammkuchen', 'Halloumi Burger'])
+    expect(w.find('.gericht-marke').exists()).toBe(true)
+    expect(w.find('.fuer').exists()).toBe(false)
+
+    await w.find('.text').trigger('click')
+    expect(w.find('.fuer').text()).toContain('Flammkuchen')
+    expect(w.find('.fuer').text()).toContain('Halloumi Burger')
+    // Der Tipp zeigt nur – bearbeitet wird erst auf ausdrücklichen Wunsch
+    expect(w.find('.bearbeiten').exists()).toBe(false)
+
+    await w.find('.text').trigger('click')
+    expect(w.find('.fuer').exists()).toBe(false)
+    w.unmount()
+  })
+
+  it('führt von dort in die Bearbeitung', async () => {
+    const w = zeile(false, '', ['Flammkuchen'])
+    await w.find('.text').trigger('click')
+    await w.find('.fuer .schalter').trigger('click')
+    expect(w.find('.bearbeiten').exists()).toBe(true)
+    w.unmount()
+  })
+
+  it('bleibt ohne Gerichte beim gewohnten Tipp zum Bearbeiten', async () => {
+    const w = zeile()
+    expect(w.find('.gericht-marke').exists()).toBe(false)
+    await w.find('.text').trigger('click')
+    expect(w.find('.fuer').exists()).toBe(false)
+    expect(w.find('.bearbeiten').exists()).toBe(true)
     w.unmount()
   })
 })

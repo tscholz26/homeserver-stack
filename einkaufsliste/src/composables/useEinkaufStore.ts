@@ -16,6 +16,8 @@ export interface Item {
   matchedName: string
   done: boolean
   addedAt: string
+  /** Für welche Gerichte der Artikel gebraucht wird – meist leer */
+  rezepte: { id: string; name: string }[]
 }
 
 export interface List {
@@ -343,6 +345,7 @@ function createStore() {
       matchedName: match?.name ?? '',
       done: false,
       addedAt: new Date().toISOString(),
+      rezepte: [],
     }
 
     list.items.push(item)
@@ -553,6 +556,9 @@ function createStore() {
   ) {
     const items = []
     const quantities = []
+    // Sofort sichtbar, wofür die Artikel da sind; der Server macht dasselbe
+    const rezept = state.recipes.find((r) => r.id === recipeId)
+    const verweis = rezept ? { id: rezept.id, name: rezept.name } : null
 
     for (const zeile of zeilen) {
       const vorhanden = zeile.mergeIn
@@ -563,6 +569,9 @@ function createStore() {
         // geändert haben, während das Fenster offen war.
         const zusammen = mengeZusammenfassen(vorhanden.quantity, zeile.quantity)
         vorhanden.quantity = zusammen
+        if (verweis && !vorhanden.rezepte.some((r) => r.id === verweis.id)) {
+          vorhanden.rezepte.push(verweis)
+        }
         quantities.push({ itemId: vorhanden.id, quantity: zusammen })
       } else {
         const item: Item = {
@@ -574,6 +583,7 @@ function createStore() {
           matchedName: zeile.matchedName,
           done: false,
           addedAt: new Date().toISOString(),
+          rezepte: verweis ? [verweis] : [],
         }
         list.items.push(item)
         items.push(item)
@@ -582,6 +592,14 @@ function createStore() {
 
     if (recipeId) state.zuletzt[recipeId] = new Date().toISOString()
     return sendChange(`/lists/${list.id}/add-batch`, 'POST', { items, quantities, recipeId })
+  }
+
+  /**
+   * Die Gerichte zu einem Artikel, mit dem heutigen Namen des Rezepts. Ist es
+   * inzwischen gelöscht, bleibt der Name von damals stehen.
+   */
+  function gerichteFuer(item: Item): string[] {
+    return (item.rezepte ?? []).map((v) => state.recipes.find((r) => r.id === v.id)?.name ?? v.name)
   }
 
   // ── Kategorien & Reihenfolge ───────────────────────────────────────────────
@@ -760,6 +778,7 @@ function createStore() {
     recipeCount,
     removeRecipe,
     addRecipeToList,
+    gerichteFuer,
     categoryById,
     categoryOrderFor,
     groupsFor,

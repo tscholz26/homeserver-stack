@@ -75,6 +75,14 @@ function normalizeZuletzt(z) {
   )
 }
 
+/** Rezepte, für die ein Artikel auf der Liste steht – Name als Rückfall. */
+function normalizeRezeptVerweise(v) {
+  if (!Array.isArray(v)) return []
+  return v
+    .filter((r) => r && typeof r.id === 'string' && typeof r.name === 'string')
+    .map((r) => ({ id: r.id, name: r.name }))
+}
+
 function normalizeItem(i) {
   return {
     id: i.id,
@@ -87,6 +95,9 @@ function normalizeItem(i) {
     matchedName: typeof i.matchedName === 'string' ? i.matchedName : '',
     done: i.done === true,
     addedAt: typeof i.addedAt === 'string' ? i.addedAt : new Date().toISOString(),
+    // Für welche Gerichte der Artikel gebraucht wird. Meist leer: das meiste
+    // auf der Liste ist von Hand eingetragen und gehört zu keinem Rezept.
+    rezepte: normalizeRezeptVerweise(i.rezepte),
   }
 }
 
@@ -802,16 +813,25 @@ app.post('/api/lists/:listId/add-batch', (req, res) => {
   mutateList(req, res, (list, state) => {
     // Kam das von einem Rezept, ist es jetzt „zuletzt gewählt“ – davon hängt
     // ab, was beim nächsten Planen oben steht
-    if (recipeId && buch.recipes.some((r) => r.id === recipeId)) {
-      state.zuletzt[recipeId] = new Date().toISOString()
+    const rezept = recipeId ? buch.recipes.find((r) => r.id === recipeId) : undefined
+    if (rezept) state.zuletzt[rezept.id] = new Date().toISOString()
+    // Jeder Artikel aus dem Rezept weiß danach, wofür er auf der Liste steht –
+    // auch einer, in den die Zutat nur hineingerechnet wurde
+    const verweis = rezept ? { id: rezept.id, name: rezept.name } : null
+    const verknuepfe = (item) => {
+      if (verweis && !item.rezepte.some((r) => r.id === verweis.id)) item.rezepte.push(verweis)
     }
+
     for (const q of quantities) {
       const item = list.items.find((x) => x.id === q.itemId)
-      if (item) item.quantity = q.quantity.trim()
+      if (!item) continue
+      item.quantity = q.quantity.trim()
+      verknuepfe(item)
     }
     for (const i of items) {
       if (list.items.some((x) => x.id === i.id)) continue
-      const item = normalizeItem({ ...i, name: i.name.trim(), done: false })
+      const item = normalizeItem({ ...i, name: i.name.trim(), done: false, rezepte: [] })
+      verknuepfe(item)
       list.items.push(item)
       if (list.type === 'kategorisiert' && !item.matched) {
         const key = normalize(item.name)

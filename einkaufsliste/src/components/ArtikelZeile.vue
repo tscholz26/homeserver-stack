@@ -12,6 +12,8 @@ const props = defineProps<{
   catalogNames: string[]
   /** Flache Listen lassen sich von Hand sortieren – dann gibt es einen Griff. */
   sortierbar?: boolean
+  /** Gerichte, für die der Artikel auf der Liste steht – meist keine */
+  gerichte?: string[]
 }>()
 
 const emit = defineEmits<{
@@ -56,6 +58,20 @@ function stufen(richtung: 1 | -1) {
 }
 
 const offen = ref(false)
+
+// ── Wofür steht das hier? ─────────────────────────────────────────────────────
+// Gehört der Artikel zu Gerichten, zeigt ein Tipp auf den Namen, zu welchen;
+// ein zweiter Tipp blendet es wieder aus. Bearbeitet wird dann über den Knopf
+// in dieser Zeile oder über die Menge. Ohne Gerichte klappt der Tipp wie
+// bisher gleich die Bearbeitung auf.
+const fuerOffen = ref(false)
+const gerichte = computed(() => props.gerichte ?? [])
+
+function tippAufName() {
+  if (gerichte.value.length) fuerOffen.value = !fuerOffen.value
+  else oeffnen()
+}
+
 const name = ref('')
 const quantity = ref('')
 const categoryId = ref('')
@@ -72,6 +88,7 @@ function oeffnen() {
   categoryId.value = props.item.categoryId
   aliasOffen.value = false
   aliasZiel.value = ''
+  fuerOffen.value = false
   offen.value = true
   nextTick(() => nameFeld.value?.focus())
 }
@@ -143,10 +160,23 @@ function alsSchreibweise(artikel: string) {
         <span class="box" :class="{ an: item.done }" aria-hidden="true"></span>
       </button>
 
-      <button type="button" class="text" @click="oeffnen">
+      <button
+        type="button"
+        class="text"
+        :aria-expanded="gerichte.length ? fuerOffen : undefined"
+        @click="tippAufName"
+      >
         {{ item.name }}
         <!-- Nicht im Katalog gefunden: unten zuordenbar -->
         <span v-if="!item.matched" class="badge" title="Nicht zugeordnet">◌</span>
+        <!-- Gehört zu einem Gericht: ein Tipp verrät, zu welchem -->
+        <span
+          v-if="gerichte.length"
+          class="gericht-marke"
+          :title="`Für ${gerichte.length === 1 ? 'ein Gericht' : `${gerichte.length} Gerichte`}`"
+        >
+          🍲<sup v-if="gerichte.length > 1">{{ gerichte.length }}</sup>
+        </span>
       </button>
 
       <!-- Menge und Stepper sind ein Feld: − │ 250 g │ +. Ohne Angabe bleibt
@@ -259,6 +289,19 @@ function alsSchreibweise(artikel: string) {
         <button type="submit" class="ok">Speichern</button>
       </div>
     </form>
+
+    <!-- Steht außerhalb von v-if/v-else der Zeile: sonst hinge das v-else der
+         Bearbeitung an dieser Bedingung statt an der Zeile -->
+    <div v-if="!offen && fuerOffen && gerichte.length" class="fuer">
+      <span class="fuer-text">
+        für
+        <template v-for="(g, index) in gerichte" :key="index">
+          <strong>{{ g }}</strong
+          ><template v-if="index < gerichte.length - 1"> · </template>
+        </template>
+      </span>
+      <button type="button" class="schalter" @click="oeffnen">Bearbeiten</button>
+    </div>
   </li>
 </template>
 
@@ -339,6 +382,50 @@ function alsSchreibweise(artikel: string) {
   margin-left: 0.25rem;
   color: var(--amber);
   font-size: 0.9rem;
+}
+
+.gericht-marke {
+  margin-left: 0.3rem;
+  font-size: 0.78rem;
+  opacity: 0.75;
+}
+
+.gericht-marke sup {
+  margin-left: 0.05rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+/* Unter der Zeile, eingerückt bis zum Namen: gehört sichtbar zu diesem Artikel */
+.fuer {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-top: -0.3rem;
+  padding: 0 0.9rem 0.6rem 3.05rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.fuer-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.fuer strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.fuer .schalter {
+  flex-shrink: 0;
+}
+
+.erledigt .fuer {
+  opacity: 0.6;
 }
 
 /* Menge und Knöpfe sind ein Bedienfeld, kein Trio: ein Rahmen um alles. */

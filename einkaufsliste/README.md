@@ -36,6 +36,13 @@ Handys gleichzeitig abgehakt. Erreichbar unter
   wird „Pizzateig“ samt Rückfrage, ob der Artikel ins passende Regal soll. Über
   „Schreibweise für ein anderes Wort“ lässt sich der Name stattdessen an einen
   vorhandenen Artikel hängen
+- **Wofür steht das da?** Artikel, die über ein Rezept auf die Liste kamen,
+  tragen ein kleines 🍲 (mit Zahl, wenn es mehrere Gerichte sind). Ein Tipp auf
+  den Namen zeigt darunter „für Flammkuchen · Halloumi Burger“, ein zweiter Tipp
+  blendet es aus; bearbeitet wird dann über „Bearbeiten“ oder die Menge. Von Hand
+  eingetragene Artikel gehören zu keinem Gericht – bei ihnen öffnet der Tipp wie
+  gewohnt gleich die Bearbeitung. Wird eine Zutat in einen vorhandenen Artikel
+  hineingerechnet, bekommt der das Gericht dazu
 - **Handsortierung** in Listen ohne Kategorien: Artikel am Griff ⠿ an die
   richtige Stelle ziehen (SortableJS, damit es auch auf dem Handy geht)
 - **Abhaken ohne Netz**: hinten im Laden bricht die Verbindung weg. Ein Haken
