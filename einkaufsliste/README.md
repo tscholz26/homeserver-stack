@@ -48,8 +48,9 @@ Handys gleichzeitig abgehakt. Erreichbar unter
   sammelt sich das Abgehakte dann am Ende der ganzen Liste statt am Fuß jeder
   Kategorie
 - **Rezepte**: „🍲 Rezept zum Einkauf hinzufügen“ auf dem Listenbildschirm
-  öffnet das Rezeptbuch (nach Gruppen: frisch gekocht, aus dem Vorrat,
-  saisonal). Ein Tipp zeigt die Zutaten – dort wird abgewählt, was schon zu
+  öffnet das Rezeptbuch (nach Gruppen: Nudeln & Pasta, Suppen & Eintöpfe,
+  Salate …). Ob ein Gericht **frisch** gekocht wird oder aus dem **Vorrat**
+  kommt, steht unabhängig davon am Rezept (🥗 / 🥫). Ein Tipp zeigt die Zutaten – dort wird abgewählt, was schon zu
   Hause ist, und die Menge für **diesen einen Einkauf** angepasst. Das Rezept
   selbst bleibt davon unberührt; über den Stift ✎ wird es dauerhaft geändert
   oder neu angelegt
@@ -209,9 +210,15 @@ Das Rezeptbuch steht in [export/rezepte.json](export/rezepte.json) – wie
 Katalog und Märkte eine schlichte Liste:
 
 ```jsonc
-[{ "name": "Porridge", "group": "vorrat",
+[{ "name": "Porridge", "group": "suesses", "haltbarkeit": "vorrat",
    "ingredients": [{ "name": "Haferflocken", "quantity": "500 g" }] }]
 ```
+
+`haltbarkeit` ist `"frisch"` (Zutaten schnell verbrauchen), `"vorrat"` (hält
+sich länger) oder leer für „noch nicht festgelegt“ – und hängt nicht an der
+Gruppe. Früher waren „Frisch“ und „Vorrat“ selbst Gruppen; fehlt die Angabe in
+der Datei, liest der Server sie einmalig aus den alten Gruppen-IDs `frisch` und
+`vorrat` und schreibt sie fest (`haltbarkeitVon` in [server.js](server.js)).
 
 Die **Gruppen** stehen in [export/rezeptgruppen.json](export/rezeptgruppen.json)
 und werden im selben Modus gepflegt: anlegen, umbenennen, Zeichen ändern,
@@ -220,7 +227,9 @@ Server sagt, wie viele es sind. Beim Umbenennen bleibt die `id`, an der die
 Rezepte hängen.
 
 Die Reihenfolge in der Datei ist die Reihenfolge im Rezeptbuch. Umsortiert und
-gelöscht wird über den ⠿-Knopf oben im Rezeptfenster („Rezeptbuch ordnen“);
+gelöscht wird über den ⠿-Knopf oben im Rezeptfenster („Rezeptbuch ordnen“).
+Dort steht unter jedem Rezept auch seine Gruppe und Frisch/Vorrat zum direkten
+Umstellen – viele Rezepte lassen sich so in einem Zug einsortieren;
 gelöscht wird erst nach Rückfrage, und ohne Seed gibt es nichts, was ein
 gelöschtes Rezept zurückholt.
 

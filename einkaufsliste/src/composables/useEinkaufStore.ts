@@ -1,6 +1,7 @@
 import { computed, reactive, ref } from 'vue'
 import { findCatalogMatch, type CatalogEntry } from '@/utils/matching'
 import { mengeZusammenfassen } from '@/utils/mengen'
+import type { Haltbarkeit } from '@/utils/haltbarkeit'
 
 export type ListType = 'kategorisiert' | 'flach'
 
@@ -50,6 +51,8 @@ export interface Recipe {
   id: string
   name: string
   group: string
+  /** Unabhängig von der Gruppe: wie schnell die Zutaten verbraucht sein müssen */
+  haltbarkeit: Haltbarkeit
   ingredients: RecipeIngredient[]
 }
 
@@ -502,8 +505,8 @@ function createStore() {
     return sendChange('/recipes/order', 'PUT', { ids: neu.map((r) => r.id) })
   }
 
-  function addRecipe(name: string, group: string, ingredients: RecipeIngredient[] = []) {
-    return sendChange('/recipes', 'POST', { id: createId(), name: name.trim(), group, ingredients })
+  function addRecipe(rezept: Omit<Recipe, 'id'>) {
+    return sendChange('/recipes', 'POST', { ...rezept, id: createId(), name: rezept.name.trim() })
   }
 
   function saveRecipe(id: string, changes: Partial<Omit<Recipe, 'id'>>) {

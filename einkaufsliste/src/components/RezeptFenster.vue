@@ -7,7 +7,9 @@ import {
   type Recipe,
   type RecipeIngredient,
 } from '@/composables/useEinkaufStore'
+import HaltbarkeitWahl from '@/components/HaltbarkeitWahl.vue'
 import { planeRezept } from '@/utils/rezept'
+import { haltbarkeitInfo, type Haltbarkeit } from '@/utils/haltbarkeit'
 import { mengeZusammenfassen } from '@/utils/mengen'
 
 const props = defineProps<{ list: List }>()
@@ -89,13 +91,15 @@ const entwurf = reactive<{
   id: string | null
   name: string
   group: string
+  haltbarkeit: Haltbarkeit
   zutaten: RecipeIngredient[]
-}>({ id: null, name: '', group: 'frisch', zutaten: [] })
+}>({ id: null, name: '', group: '', haltbarkeit: '', zutaten: [] })
 
 function bearbeiten(rezept: Recipe) {
   entwurf.id = rezept.id
   entwurf.name = rezept.name
   entwurf.group = rezept.group
+  entwurf.haltbarkeit = rezept.haltbarkeit
   entwurf.zutaten = rezept.ingredients.map((z) => ({ ...z }))
   aktiv.value = rezept
   modus.value = 'bearbeiten'
@@ -104,7 +108,8 @@ function bearbeiten(rezept: Recipe) {
 function neuesRezept() {
   entwurf.id = null
   entwurf.name = ''
-  entwurf.group = store.state.recipeGroups[0]?.id ?? 'frisch'
+  entwurf.group = store.state.recipeGroups[0]?.id ?? ''
+  entwurf.haltbarkeit = ''
   entwurf.zutaten = [{ name: '', quantity: '' }]
   aktiv.value = null
   modus.value = 'bearbeiten'
@@ -196,9 +201,13 @@ async function rezeptSpeichern() {
     .map((z) => ({ name: z.name.trim(), quantity: z.quantity.trim() }))
     .filter((z) => z.name)
 
-  const ok = entwurf.id
-    ? await store.saveRecipe(entwurf.id, { name, group: entwurf.group, ingredients: zutaten })
-    : await store.addRecipe(name, entwurf.group, zutaten)
+  const rezept = {
+    name,
+    group: entwurf.group,
+    haltbarkeit: entwurf.haltbarkeit,
+    ingredients: zutaten,
+  }
+  const ok = entwurf.id ? await store.saveRecipe(entwurf.id, rezept) : await store.addRecipe(rezept)
   if (ok === true) modus.value = 'auswahl'
 }
 
@@ -286,14 +295,20 @@ function zurueck() {
           </p>
 
           <p v-if="verwalten" class="hinweis">
-            Am Griff ⠿ in die gewünschte Reihenfolge ziehen. Gelöschte Rezepte sind weg – es gibt
-            keine Vorlage, aus der sie zurückkämen.
+            Unter jedem Rezept stehen seine Gruppe und ob es frisch gekocht wird oder aus dem Vorrat
+            kommt – beides gilt sofort. Am Griff ⠿ in die gewünschte Reihenfolge ziehen. Gelöschte
+            Rezepte sind weg – es gibt keine Vorlage, aus der sie zurückkämen.
           </p>
 
           <section v-for="g in gruppen" :key="g.group.id">
             <h3>{{ g.group.emoji }} {{ g.group.label }}</h3>
             <ul :ref="(el) => setGruppenListe(g.group.id, el)">
-              <li v-for="r in g.recipes" :key="r.id" class="rezept-zeile">
+              <li
+                v-for="r in g.recipes"
+                :key="r.id"
+                class="rezept-zeile"
+                :class="{ ordnen: verwalten }"
+              >
                 <span v-if="verwalten" class="griff" title="Rezept verschieben">⠿</span>
 
                 <button
@@ -303,6 +318,13 @@ function zurueck() {
                   @click="oeffneEinkauf(r)"
                 >
                   <span class="name">{{ r.name }}</span>
+                  <span
+                    v-if="!verwalten && haltbarkeitInfo(r.haltbarkeit)"
+                    class="haltbar"
+                    :title="haltbarkeitInfo(r.haltbarkeit)?.lang"
+                  >
+                    {{ haltbarkeitInfo(r.haltbarkeit)?.emoji }}
+                  </span>
                   <span class="anzahl">{{ r.ingredients.length }} Zutaten</span>
                 </button>
 
@@ -323,6 +345,26 @@ function zurueck() {
                 >
                   🗑
                 </button>
+
+                <!-- Einsortieren ohne Umweg über das Bearbeiten: bei sechzig
+                     Rezepten wäre jeder zusätzliche Tipp einer zu viel -->
+                <div v-if="verwalten" class="einordnen">
+                  <select
+                    :value="r.group"
+                    :aria-label="`Gruppe von ${r.name}`"
+                    @change="
+                      store.saveRecipe(r.id, { group: ($event.target as HTMLSelectElement).value })
+                    "
+                  >
+                    <option v-for="gr in store.state.recipeGroups" :key="gr.id" :value="gr.id">
+                      {{ gr.emoji }} {{ gr.label }}
+                    </option>
+                  </select>
+                  <HaltbarkeitWahl
+                    :model-value="r.haltbarkeit"
+                    @update:model-value="store.saveRecipe(r.id, { haltbarkeit: $event })"
+                  />
+                </div>
               </li>
             </ul>
           </section>
@@ -448,6 +490,8 @@ function zurueck() {
               {{ g.emoji }} {{ g.label }}
             </option>
           </select>
+          <!-- Unabhängig von der Gruppe: auch Pasta kann aus dem Vorrat kommen -->
+          <HaltbarkeitWahl v-model="entwurf.haltbarkeit" class="haltbarkeit" />
 
           <ul ref="zutatenListe" class="zutaten">
             <li v-for="(z, index) in entwurf.zutaten" :key="index" class="zutat-zeile">
@@ -587,6 +631,34 @@ section ul li {
 
 .rezept:disabled {
   cursor: default;
+}
+
+section ul li.ordnen {
+  flex-wrap: wrap;
+}
+
+.einordnen {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0 0 0.6rem;
+}
+
+.einordnen select {
+  flex: 1;
+  margin-top: 0;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.85rem;
+}
+
+.haltbarkeit {
+  margin-top: 0.5rem;
+}
+
+.haltbar {
+  flex-shrink: 0;
+  font-size: 0.85rem;
 }
 
 .gruppen {

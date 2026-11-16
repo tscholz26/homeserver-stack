@@ -27,8 +27,7 @@ const SEED_CATEGORIES = JSON.parse(
 // Nur als Notnagel für einen völlig leeren Server: sonst kommen die Gruppen aus
 // export/rezeptgruppen.json und werden in der App gepflegt.
 const START_GRUPPEN = [
-  { id: 'frisch', emoji: '🥗', label: 'Frisch gekocht' },
-  { id: 'vorrat', emoji: '🥫', label: 'Aus dem Vorrat' },
+  { id: 'gerichte', emoji: '🍽️', label: 'Gerichte' },
   { id: 'sonstiges', emoji: '❓', label: 'Sonstiges' },
 ]
 
@@ -112,13 +111,27 @@ function normalizeGroup(g) {
   }
 }
 
+// Frisch oder Vorrat ist eine Eigenschaft des Rezepts und keine Gruppe mehr:
+// auch ein Nudelgericht kann aus dem Vorrat kommen. Leer heißt „noch nicht
+// festgelegt“.
+const HALTBARKEIT = new Set(['frisch', 'vorrat'])
+
+function haltbarkeitVon(r) {
+  if (HALTBARKEIT.has(r.haltbarkeit)) return r.haltbarkeit
+  // Übernahme aus der Zeit, als „frisch“ und „vorrat“ noch Gruppen waren: fehlt
+  // die Angabe ganz, verrät die alte Gruppe sie. Danach steht sie in der Datei.
+  if (r.haltbarkeit === undefined && HALTBARKEIT.has(r.group)) return r.group
+  return ''
+}
+
 function normalizeRecipe(r) {
   return {
     id: r.id,
     name: r.name,
     // Zeigt ein Rezept auf eine Gruppe, die es nicht (mehr) gibt, landet es in
     // der ersten – sichtbar bleiben ist besser als unsichtbar werden.
-    group: istGruppe(r.group) ? r.group : (buch.recipeGroups[0]?.id ?? 'frisch'),
+    group: istGruppe(r.group) ? r.group : (buch.recipeGroups[0]?.id ?? 'sonstiges'),
+    haltbarkeit: haltbarkeitVon(r),
     ingredients: Array.isArray(r.ingredients)
       ? r.ingredients.map(normalizeIngredient).filter((z) => z.name)
       : [],
@@ -608,6 +621,9 @@ app.post('/api/lists/:listId/finish', (req, res) => {
 function pruefeRezept(r) {
   if (!r || typeof r.name !== 'string' || !r.name.trim()) return 'Name fehlt'
   if (r.group !== undefined && !istGruppe(r.group)) return 'Unbekannte Gruppe'
+  if (r.haltbarkeit !== undefined && r.haltbarkeit !== '' && !HALTBARKEIT.has(r.haltbarkeit)) {
+    return 'Haltbarkeit ist „frisch“, „vorrat“ oder leer'
+  }
   if (r.ingredients !== undefined && !Array.isArray(r.ingredients)) {
     return 'Zutaten müssen eine Liste sein'
   }
