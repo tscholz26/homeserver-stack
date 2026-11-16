@@ -66,6 +66,16 @@ export interface RecipeGroup {
   label: string
 }
 
+/** Ein geplantes Gericht in „Diese Woche“ */
+export interface WochenEintrag {
+  id: string
+  /** Leer oder ins Leere zeigend, wenn das Rezept inzwischen gelöscht ist */
+  recipeId: string
+  name: string
+  /** Wann es auf die Liste kam */
+  addedAt: string
+}
+
 export interface UnmatchedEntry {
   id: string
   name: string
@@ -84,6 +94,7 @@ export interface AppState {
   storeProfiles: StoreProfile[]
   /** Rezept-id → wann es zuletzt auf die Liste kam (ISO) */
   zuletzt: Record<string, string>
+  woche: WochenEintrag[]
 }
 
 export interface CategoryGroup {
@@ -123,6 +134,7 @@ function createStore() {
     unmatched: [],
     storeProfiles: [],
     zuletzt: {},
+    woche: [],
   })
 
   const API_BASE = `${import.meta.env.BASE_URL}api`
@@ -138,6 +150,7 @@ function createStore() {
     state.unmatched = data.unmatched ?? []
     state.storeProfiles = data.storeProfiles ?? []
     state.zuletzt = data.zuletzt ?? {}
+    state.woche = data.woche ?? []
     // Der Serverstand weiß noch nichts von Haken, die hier auf Netz warten
     applyOutbox()
   }
@@ -602,6 +615,19 @@ function createStore() {
     return (item.rezepte ?? []).map((v) => state.recipes.find((r) => r.id === v.id)?.name ?? v.name)
   }
 
+  // ── Diese Woche ────────────────────────────────────────────────────────────
+  /** Gekocht (oder doch nicht): raus aus der Woche. */
+  function removeWochenEintrag(id: string) {
+    state.woche = state.woche.filter((e) => e.id !== id)
+    return sendChange(`/woche/${id}`, 'DELETE')
+  }
+
+  /** „Rückgängig“: derselbe Eintrag mit seiner id und seinem Datum zurück. */
+  function restoreWochenEintrag(eintrag: WochenEintrag) {
+    if (!state.woche.some((e) => e.id === eintrag.id)) state.woche.push(eintrag)
+    return sendChange('/woche', 'POST', eintrag)
+  }
+
   // ── Kategorien & Reihenfolge ───────────────────────────────────────────────
   const categoryById = computed(() => {
     const map: Record<string, Category> = {}
@@ -779,6 +805,8 @@ function createStore() {
     removeRecipe,
     addRecipeToList,
     gerichteFuer,
+    removeWochenEintrag,
+    restoreWochenEintrag,
     categoryById,
     categoryOrderFor,
     groupsFor,

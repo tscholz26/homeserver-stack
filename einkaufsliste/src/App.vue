@@ -58,6 +58,10 @@ const ort = computed(() => (route.path.startsWith('/rezepte') ? 'rezepte' : rout
            stehen im Einkauf schon die Listen als Pillen. -->
       <nav class="menu">
         <RouterLink to="/" class="ort" :class="{ aktiv: ort === '/' }">Einkauf</RouterLink>
+        <RouterLink to="/woche" class="ort" :class="{ aktiv: ort === '/woche' }">
+          Diese Woche
+          <span v-if="store.state.woche.length" class="zahl">{{ store.state.woche.length }}</span>
+        </RouterLink>
         <RouterLink to="/rezepte" class="ort" :class="{ aktiv: ort === 'rezepte' }">
           Rezeptbuch
         </RouterLink>
@@ -131,6 +135,22 @@ h1 {
   text-align: center;
   text-decoration: none;
   white-space: nowrap;
+}
+
+.zahl {
+  display: inline-block;
+  min-width: 1.15rem;
+  margin-left: 0.2rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 16%, transparent);
+  font-size: 0.72rem;
+  line-height: 1.15rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ort.aktiv .zahl {
+  background: color-mix(in srgb, var(--violet) 18%, transparent);
 }
 
 .ort.aktiv {

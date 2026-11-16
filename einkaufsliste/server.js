@@ -62,7 +62,27 @@ function defaultState() {
     unmatched: [],
     // Rezept-id → wann es zuletzt auf die Liste kam
     zuletzt: {},
+    // „Diese Woche“: geplante Gerichte, bis sie von Hand entfernt werden
+    woche: [],
   }
+}
+
+function normalizeWochenEintrag(e) {
+  if (!e || typeof e.id !== 'string' || typeof e.name !== 'string' || !e.name.trim()) return null
+  return {
+    id: e.id,
+    // Das Rezept kann später gelöscht werden – der Name bleibt dann stehen
+    recipeId: typeof e.recipeId === 'string' ? e.recipeId : '',
+    name: e.name.trim(),
+    addedAt:
+      typeof e.addedAt === 'string' && !Number.isNaN(Date.parse(e.addedAt))
+        ? e.addedAt
+        : new Date().toISOString(),
+  }
+}
+
+function normalizeWoche(w) {
+  return Array.isArray(w) ? w.map(normalizeWochenEintrag).filter(Boolean) : []
 }
 
 /** Nur Einträge der Form { "<rezept-id>": "<ISO-Datum>" } überleben. */
@@ -187,6 +207,7 @@ function readState() {
     lists: Array.isArray(parsed.lists) ? parsed.lists.map(normalizeList) : [],
     unmatched: Array.isArray(parsed.unmatched) ? parsed.unmatched : [],
     zuletzt: normalizeZuletzt(parsed.zuletzt),
+    woche: normalizeWoche(parsed.woche),
   }
 }
 
@@ -340,6 +361,7 @@ function publicState(state) {
     unmatched: state.unmatched,
     storeProfiles: buch.storeProfiles,
     zuletzt: state.zuletzt,
+    woche: state.woche,
   }
 }
 
@@ -814,7 +836,13 @@ app.post('/api/lists/:listId/add-batch', (req, res) => {
     // Kam das von einem Rezept, ist es jetzt „zuletzt gewählt“ – davon hängt
     // ab, was beim nächsten Planen oben steht
     const rezept = recipeId ? buch.recipes.find((r) => r.id === recipeId) : undefined
-    if (rezept) state.zuletzt[rezept.id] = new Date().toISOString()
+    if (rezept) {
+      const jetzt = new Date().toISOString()
+      state.zuletzt[rezept.id] = jetzt
+      // Ein Rezept auf der Liste ist ein Gericht für diese Woche. Zweimal
+      // hinzugefügt heißt zweimal geplant – entfernt wird beides von Hand.
+      state.woche.push({ id: createId(), recipeId: rezept.id, name: rezept.name, addedAt: jetzt })
+    }
     // Jeder Artikel aus dem Rezept weiß danach, wofür er auf der Liste steht –
     // auch einer, in den die Zutat nur hineingerechnet wurde
     const verweis = rezept ? { id: rezept.id, name: rezept.name } : null
@@ -849,6 +877,25 @@ app.post('/api/lists/:listId/add-batch', (req, res) => {
         }
       }
     }
+  })
+})
+
+// ── Diese Woche ───────────────────────────────────────────────────────────────
+// Gerichte kommen über ein Rezept auf der Liste herein (add-batch) und gehen nur
+// von Hand wieder – „gekocht“. POST gibt es für „Rückgängig“: derselbe Eintrag
+// kommt mit seiner id und seinem Datum zurück.
+app.post('/api/woche', (req, res) => {
+  const eintrag = normalizeWochenEintrag(req.body)
+  if (!eintrag) return res.status(400).json({ error: 'Invalid payload' })
+  mutate(req, res, (state) => {
+    if (state.woche.some((e) => e.id === eintrag.id)) return
+    state.woche.push(eintrag)
+  })
+})
+
+app.delete('/api/woche/:id', (req, res) => {
+  mutate(req, res, (state) => {
+    state.woche = state.woche.filter((e) => e.id !== req.params.id)
   })
 })
 
