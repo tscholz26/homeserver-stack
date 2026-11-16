@@ -10,8 +10,8 @@
       "fisch",
       "fleisch_wurst",
       "milch_kuehlwaren",
-      "nudeln_reis",
       "backen_gewuerze",
+      "nudeln_reis",
       "konserven",
       "suesses_snacks",
       "drogerie",
@@ -56,6 +56,26 @@
       "brot_backwaren",
       "nudeln_reis",
       "konserven",
+      "drogerie"
+    ]
+  },
+  {
+    "id": "68db253d-9c86-45c6-8916-5ffd459ee875",
+    "name": "Aldi Nonnenstraße",
+    "listId": "msoyr62z-72e0a599",
+    "categoryOrder": [
+      "brot_backwaren",
+      "obst_gemuese",
+      "konserven",
+      "backen_gewuerze",
+      "suesses_snacks",
+      "convenience_kuehl",
+      "nudeln_reis",
+      "fleisch_wurst",
+      "fisch",
+      "milch_kuehlwaren",
+      "getraenke",
+      "tiefkuehl",
       "drogerie"
     ]
   }

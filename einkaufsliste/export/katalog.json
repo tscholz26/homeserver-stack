@@ -3350,5 +3350,15 @@
     "name": "Fit",
     "aliases": [],
     "category_id": "drogerie"
+  },
+  {
+    "name": "Edamame",
+    "aliases": [],
+    "category_id": "tiefkuehl"
+  },
+  {
+    "name": "Mirin",
+    "aliases": [],
+    "category_id": "nudeln_reis"
   }
 ]
