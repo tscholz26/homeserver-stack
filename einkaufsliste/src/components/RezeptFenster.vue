@@ -11,6 +11,7 @@ import HaltbarkeitWahl from '@/components/HaltbarkeitWahl.vue'
 import NotizText from '@/components/NotizText.vue'
 import { planeRezept } from '@/utils/rezept'
 import { haltbarkeitInfo, type Haltbarkeit } from '@/utils/haltbarkeit'
+import { nachZuletzt, wieLangeHer } from '@/utils/zuletzt'
 import { mengeZusammenfassen } from '@/utils/mengen'
 
 const props = defineProps<{
@@ -61,13 +62,27 @@ const suche = ref('')
 const verwalten = ref(false)
 
 // ── Schritt 1: welches Rezept? ────────────────────────────────────────────────
+// Innerhalb jeder Gruppe steht oben, was am längsten nicht auf der Liste war –
+// beim Planen der Woche fällt der Blick so zuerst auf das, was man vergessen
+// hätte. Beim Ordnen gilt die Reihenfolge des Rezeptbuchs, sonst würde das
+// Ziehen am Griff nichts sichtbar ändern.
 const gruppen = computed(() => {
   const q = suche.value.trim().toLowerCase()
-  if (!q) return store.recipesByGroup.value
   return store.recipesByGroup.value
-    .map((g) => ({ ...g, recipes: g.recipes.filter((r) => r.name.toLowerCase().includes(q)) }))
+    .map((g) => {
+      const passend = q ? g.recipes.filter((r) => r.name.toLowerCase().includes(q)) : g.recipes
+      return {
+        ...g,
+        recipes: verwalten.value ? passend : nachZuletzt(passend, store.state.zuletzt),
+      }
+    })
     .filter((g) => g.recipes.length > 0)
 })
+
+function zuletztText(rezeptId: string) {
+  const wann = store.state.zuletzt[rezeptId]
+  return wann ? `zuletzt ${wieLangeHer(wann)}` : ''
+}
 
 // ── Schritt 2: was davon soll auf die Liste? ──────────────────────────────────
 interface Zeile {
@@ -127,6 +142,7 @@ async function hinzufuegen() {
       matchedName: z.matchedName,
       mergeIn: z.getrennt ? null : z.vorhandenId,
     })),
+    aktiv.value?.id,
   )
   if (!props.eingebettet) {
     emit('close')
@@ -400,7 +416,12 @@ function zurueck() {
                 <span v-if="verwalten" class="griff" title="Rezept verschieben">⠿</span>
 
                 <button type="button" class="rezept" :disabled="verwalten" @click="waehle(r)">
-                  <span class="name">{{ r.name }}</span>
+                  <span class="name">
+                    {{ r.name }}
+                    <small v-if="!verwalten && zuletztText(r.id)" class="zuletzt">
+                      {{ zuletztText(r.id) }}
+                    </small>
+                  </span>
                   <span
                     v-if="!verwalten && haltbarkeitInfo(r.haltbarkeit)"
                     class="haltbar"
@@ -967,6 +988,13 @@ section ul li.ordnen {
   min-width: 0;
   font-size: 1rem;
   overflow-wrap: anywhere;
+}
+
+.zuletzt {
+  display: block;
+  margin-top: 0.1rem;
+  color: var(--muted);
+  font-size: 0.74rem;
 }
 
 .anzahl {

@@ -53,7 +53,10 @@ Handys gleichzeitig abgehakt. Erreichbar unter
   kommt, steht unabhängig davon am Rezept (🥗 / 🥫). Ein Tipp zeigt die Zutaten – dort wird abgewählt, was schon zu
   Hause ist, und die Menge für **diesen einen Einkauf** angepasst. Das Rezept
   selbst bleibt davon unberührt; über den Stift ✎ wird es dauerhaft geändert
-  oder neu angelegt
+  oder neu angelegt. **Innerhalb jeder Gruppe steht oben, was am längsten nicht
+  auf der Liste war** – nie gewählte Rezepte zuerst, darunter „zuletzt vor 6
+  Wochen“ bis „zuletzt heute“. Nur beim Ordnen (⠿) gilt die Reihenfolge des
+  Rezeptbuchs
 - **Rezeptbuch** als eigener Bereich oben („Einkauf | Rezeptbuch“): zum
   Nachschlagen beim Kochen. Ein Rezept zeigt Gruppe, Frisch/Vorrat, Zutaten und
   **Notizen** (Zubereitung, Portionen, ein Link zum Original wird antippbar).
@@ -101,7 +104,7 @@ Fünf Dateien, jede mit genau einer Aufgabe – alle auf dem Host, keine im Imag
 
 | Datei | Inhalt | im git |
 | --- | --- | --- |
-| `data/state.json` | die Einkaufslisten und die Historie nicht zugeordneter Namen | nein |
+| `data/state.json` | die Einkaufslisten, die Historie nicht zugeordneter Namen und wann welches Rezept zuletzt gewählt wurde (`zuletzt`) | nein |
 | `export/katalog.json` | der Artikelkatalog | **ja** |
 | `export/maerkte.json` | die Märkte (Kategorie-Reihenfolge je Filiale) | **ja** |
 | `export/rezepte.json` | das Rezeptbuch | **ja** |
@@ -165,7 +168,7 @@ selbst sind ersetzbar, alles andere liegt im git. Das alte Verzeichnis
 | POST | `/api/lists/:id/items/:itemId/check` | `{ done }` setzen |
 | DELETE | `/api/lists/:id/items/:itemId` | Artikel entfernen |
 | PUT | `/api/lists/:id/order` | neue Reihenfolge der Artikel (Handsortierung) |
-| POST | `/api/lists/:id/add-batch` | ganzes Rezept: neue Artikel und fortgeschriebene Mengen |
+| POST | `/api/lists/:id/add-batch` | ganzes Rezept: neue Artikel und fortgeschriebene Mengen; mit `recipeId` gilt das Rezept als zuletzt gewählt |
 | POST / PUT / DELETE | `/api/recipes[/:id]` | Rezept anlegen / ändern / löschen |
 | PUT | `/api/recipes/order` | Reihenfolge im Rezeptbuch |
 | POST / PUT / DELETE | `/api/recipe-groups[/:id]` | Gruppe anlegen / umbenennen / löschen |

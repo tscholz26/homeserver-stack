@@ -60,7 +60,19 @@ function defaultState() {
     ],
     // Namen, die einmal eingetippt und nie zugeordnet wurden
     unmatched: [],
+    // Rezept-id → wann es zuletzt auf die Liste kam
+    zuletzt: {},
   }
+}
+
+/** Nur Einträge der Form { "<rezept-id>": "<ISO-Datum>" } überleben. */
+function normalizeZuletzt(z) {
+  if (!z || typeof z !== 'object' || Array.isArray(z)) return {}
+  return Object.fromEntries(
+    Object.entries(z).filter(
+      ([, wann]) => typeof wann === 'string' && !Number.isNaN(Date.parse(wann)),
+    ),
+  )
 }
 
 function normalizeItem(i) {
@@ -154,14 +166,16 @@ function normalizeProfile(p) {
 // Wirft bei einer kaputten Datei, statt auf einen leeren Stand zurückzufallen –
 // ein Lesefehler darf nie dazu führen, dass die Daten mit nichts überschrieben
 // werden.
-// In state.json stehen nur noch die Einkaufslisten und die Historie der nicht
-// zugeordneten Namen – alles Weitere lebt in den Dateien unter export/.
+// In state.json stehen die Einkaufslisten, die Historie der nicht
+// zugeordneten Namen und wann welches Rezept zuletzt gewählt wurde – alles
+// Weitere lebt in den Dateien unter export/.
 function readState() {
   if (!existsSync(STATE_FILE)) return defaultState()
   const parsed = JSON.parse(readFileSync(STATE_FILE, 'utf8'))
   return {
     lists: Array.isArray(parsed.lists) ? parsed.lists.map(normalizeList) : [],
     unmatched: Array.isArray(parsed.unmatched) ? parsed.unmatched : [],
+    zuletzt: normalizeZuletzt(parsed.zuletzt),
   }
 }
 
@@ -314,6 +328,7 @@ function publicState(state) {
     recipeGroups: buch.recipeGroups,
     unmatched: state.unmatched,
     storeProfiles: buch.storeProfiles,
+    zuletzt: state.zuletzt,
   }
 }
 
@@ -751,8 +766,9 @@ app.put('/api/recipes/:id', (req, res) => {
 })
 
 app.delete('/api/recipes/:id', (req, res) => {
-  mutate(req, res, () => {
+  mutate(req, res, (state) => {
     buch.recipes = buch.recipes.filter((x) => x.id !== req.params.id)
+    delete state.zuletzt[req.params.id]
   })
 })
 
@@ -762,8 +778,11 @@ app.delete('/api/recipes/:id', (req, res) => {
  * die Liste nicht halb gefüllt dasteht, wenn unterwegs die Verbindung abreißt.
  */
 app.post('/api/lists/:listId/add-batch', (req, res) => {
-  const { items, quantities } = req.body || {}
+  const { items, quantities, recipeId } = req.body || {}
   if (!Array.isArray(items) || !Array.isArray(quantities)) {
+    return res.status(400).json({ error: 'Invalid payload' })
+  }
+  if (recipeId !== undefined && typeof recipeId !== 'string') {
     return res.status(400).json({ error: 'Invalid payload' })
   }
   for (const i of items) {
@@ -781,6 +800,11 @@ app.post('/api/lists/:listId/add-batch', (req, res) => {
   }
 
   mutateList(req, res, (list, state) => {
+    // Kam das von einem Rezept, ist es jetzt „zuletzt gewählt“ – davon hängt
+    // ab, was beim nächsten Planen oben steht
+    if (recipeId && buch.recipes.some((r) => r.id === recipeId)) {
+      state.zuletzt[recipeId] = new Date().toISOString()
+    }
     for (const q of quantities) {
       const item = list.items.find((x) => x.id === q.itemId)
       if (item) item.quantity = q.quantity.trim()

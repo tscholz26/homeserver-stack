@@ -80,6 +80,8 @@ export interface AppState {
   recipeGroups: RecipeGroup[]
   unmatched: UnmatchedEntry[]
   storeProfiles: StoreProfile[]
+  /** Rezept-id → wann es zuletzt auf die Liste kam (ISO) */
+  zuletzt: Record<string, string>
 }
 
 export interface CategoryGroup {
@@ -118,6 +120,7 @@ function createStore() {
     recipeGroups: [],
     unmatched: [],
     storeProfiles: [],
+    zuletzt: {},
   })
 
   const API_BASE = `${import.meta.env.BASE_URL}api`
@@ -132,6 +135,7 @@ function createStore() {
     state.recipeGroups = data.recipeGroups ?? []
     state.unmatched = data.unmatched ?? []
     state.storeProfiles = data.storeProfiles ?? []
+    state.zuletzt = data.zuletzt ?? {}
     // Der Serverstand weiß noch nichts von Haken, die hier auf Netz warten
     applyOutbox()
   }
@@ -544,6 +548,8 @@ function createStore() {
       matchedName: string
       mergeIn: string | null
     }[],
+    /** Kam das von einem Rezept? Dann gilt es ab jetzt als zuletzt gewählt. */
+    recipeId?: string,
   ) {
     const items = []
     const quantities = []
@@ -574,7 +580,8 @@ function createStore() {
       }
     }
 
-    return sendChange(`/lists/${list.id}/add-batch`, 'POST', { items, quantities })
+    if (recipeId) state.zuletzt[recipeId] = new Date().toISOString()
+    return sendChange(`/lists/${list.id}/add-batch`, 'POST', { items, quantities, recipeId })
   }
 
   // ── Kategorien & Reihenfolge ───────────────────────────────────────────────
