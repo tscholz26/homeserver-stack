@@ -132,6 +132,8 @@ function normalizeRecipe(r) {
     // der ersten – sichtbar bleiben ist besser als unsichtbar werden.
     group: istGruppe(r.group) ? r.group : (buch.recipeGroups[0]?.id ?? 'sonstiges'),
     haltbarkeit: haltbarkeitVon(r),
+    // Freitext: Zubereitung, Portionen, Link zur Quelle
+    notes: typeof r.notes === 'string' ? r.notes.trim() : '',
     ingredients: Array.isArray(r.ingredients)
       ? r.ingredients.map(normalizeIngredient).filter((z) => z.name)
       : [],
@@ -624,6 +626,7 @@ function pruefeRezept(r) {
   if (r.haltbarkeit !== undefined && r.haltbarkeit !== '' && !HALTBARKEIT.has(r.haltbarkeit)) {
     return 'Haltbarkeit ist „frisch“, „vorrat“ oder leer'
   }
+  if (r.notes !== undefined && typeof r.notes !== 'string') return 'Notizen müssen Text sein'
   if (r.ingredients !== undefined && !Array.isArray(r.ingredients)) {
     return 'Zutaten müssen eine Liste sein'
   }

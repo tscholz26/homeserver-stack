@@ -54,6 +54,12 @@ Handys gleichzeitig abgehakt. Erreichbar unter
   Hause ist, und die Menge für **diesen einen Einkauf** angepasst. Das Rezept
   selbst bleibt davon unberührt; über den Stift ✎ wird es dauerhaft geändert
   oder neu angelegt
+- **Rezeptbuch** als eigener Bereich oben („Einkauf | Rezeptbuch“): zum
+  Nachschlagen beim Kochen. Ein Rezept zeigt Gruppe, Frisch/Vorrat, Zutaten und
+  **Notizen** (Zubereitung, Portionen, ein Link zum Original wird antippbar).
+  „Zum Einkauf hinzufügen“ führt in denselben Schritt wie das Fenster auf der
+  Liste. Das aufgeschlagene Rezept steht in der Adresse (`/rezepte/<id>`), die
+  Zurück-Geste des Handys führt also zur Übersicht
 - **Regale live sortieren**: während des Einkaufs steht unter der Liste leise
   „🛒 Markt · Regale sortieren“. Das Fenster zeigt zuerst nur die Kategorien,
   die heute wirklich auf der Liste stehen (mit Anzahl); am Griff ⠿ verschoben
@@ -214,7 +220,7 @@ Katalog und Märkte eine schlichte Liste:
    "ingredients": [{ "name": "Haferflocken", "quantity": "500 g" }] }]
 ```
 
-`haltbarkeit` ist `"frisch"` (Zutaten schnell verbrauchen), `"vorrat"` (hält
+`notes` ist Freitext und darf fehlen. `haltbarkeit` ist `"frisch"` (Zutaten schnell verbrauchen), `"vorrat"` (hält
 sich länger) oder leer für „noch nicht festgelegt“ – und hängt nicht an der
 Gruppe. Früher waren „Frisch“ und „Vorrat“ selbst Gruppen; fehlt die Angabe in
 der Datei, liest der Server sie einmalig aus den alten Gruppen-IDs `frisch` und

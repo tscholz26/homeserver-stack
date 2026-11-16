@@ -53,6 +53,8 @@ export interface Recipe {
   group: string
   /** Unabhängig von der Gruppe: wie schnell die Zutaten verbraucht sein müssen */
   haltbarkeit: Haltbarkeit
+  /** Freitext: Zubereitung, Portionen, Link zur Quelle */
+  notes: string
   ingredients: RecipeIngredient[]
 }
 
@@ -284,6 +286,17 @@ function createStore() {
 
   const activeList = computed(
     () => state.lists.find((l) => l.id === activeListId.value) ?? state.lists[0] ?? null,
+  )
+
+  /**
+   * Wohin ein Rezept aus dem Rezeptbuch geht: auf die gerade gewählte Liste,
+   * wenn sie Kategorien hat – sonst auf die erste, die welche hat. Rezepte
+   * gehören zu den Lebensmitteln, nicht in die Drogerie.
+   */
+  const einkaufsListe = computed(() =>
+    activeList.value?.type === 'kategorisiert'
+      ? activeList.value
+      : (state.lists.find((l) => l.type === 'kategorisiert') ?? null),
   )
 
   function selectList(listId: string) {
@@ -713,6 +726,7 @@ function createStore() {
     state,
     activeList,
     activeListId,
+    einkaufsListe,
     selectList,
     addList,
     renameList,

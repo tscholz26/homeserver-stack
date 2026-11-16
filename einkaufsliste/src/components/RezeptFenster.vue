@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onUpdated, reactive, ref, useTemplateRef } from 'vue'
+import { computed, onBeforeUnmount, onUpdated, reactive, ref, useTemplateRef, watch } from 'vue'
 import Sortable from 'sortablejs'
 import {
   useEinkaufStore,
@@ -8,18 +8,54 @@ import {
   type RecipeIngredient,
 } from '@/composables/useEinkaufStore'
 import HaltbarkeitWahl from '@/components/HaltbarkeitWahl.vue'
+import NotizText from '@/components/NotizText.vue'
 import { planeRezept } from '@/utils/rezept'
 import { haltbarkeitInfo, type Haltbarkeit } from '@/utils/haltbarkeit'
 import { mengeZusammenfassen } from '@/utils/mengen'
 
-const props = defineProps<{ list: List }>()
-const emit = defineEmits<{ close: [] }>()
+const props = defineProps<{
+  /** Liste, auf die die Zutaten wandern – null, wenn es keine mit Kategorien gibt */
+  list: List | null
+  /** Als Seite statt als Fenster: das Rezeptbuch zum Nachschlagen und Pflegen */
+  eingebettet?: boolean
+  /** Nur auf der Seite: das aufgeschlagene Rezept, wie es in der Adresse steht */
+  rezeptId?: string | null
+}>()
+const emit = defineEmits<{ close: []; zeige: [rezeptId: string | null] }>()
 
 const store = useEinkaufStore()
 
-type Modus = 'auswahl' | 'einkauf' | 'bearbeiten'
+type Modus = 'auswahl' | 'ansehen' | 'einkauf' | 'bearbeiten'
 const modus = ref<Modus>('auswahl')
-const aktiv = ref<Recipe | null>(null)
+// Gemerkt wird die id: nach jeder Änderung schickt der Server den ganzen Stand
+// neu, ein festgehaltenes Rezept-Objekt wäre dann das von vorhin.
+const aktivId = ref<string | null>(null)
+const aktiv = computed(() => store.state.recipes.find((r) => r.id === aktivId.value) ?? null)
+// Kurze Rückmeldung auf der Seite – das Fenster schließt sich stattdessen
+const meldung = ref('')
+
+// Auf dem anderen Gerät gelöscht: dann gibt es nichts mehr anzusehen
+watch(aktiv, (rezept) => {
+  if (rezept || (modus.value !== 'ansehen' && modus.value !== 'einkauf')) return
+  modus.value = 'auswahl'
+  if (props.eingebettet) emit('zeige', null)
+})
+
+// Auf der Seite bestimmt die Adresse, welches Rezept aufgeschlagen ist
+watch(
+  () => props.rezeptId,
+  (id) => {
+    if (!props.eingebettet) return
+    const gibtEs = Boolean(id) && store.state.recipes.some((r) => r.id === id)
+    aktivId.value = gibtEs ? id! : null
+    modus.value = gibtEs ? 'ansehen' : 'auswahl'
+  },
+  { immediate: true },
+)
+
+const aktivGruppe = computed(() =>
+  store.state.recipeGroups.find((g) => g.id === aktiv.value?.group),
+)
 const suche = ref('')
 // Im Verwaltungsmodus wird sortiert und gelöscht statt eingekauft
 const verwalten = ref(false)
@@ -47,8 +83,16 @@ interface Zeile {
 
 const zeilen = ref<Zeile[]>([])
 
+/** Im Fenster geht es gleich an die Zutaten, auf der Seite erst zum Rezept. */
+function waehle(rezept: Recipe) {
+  meldung.value = ''
+  if (props.eingebettet) emit('zeige', rezept.id)
+  else oeffneEinkauf(rezept)
+}
+
 function oeffneEinkauf(rezept: Recipe) {
-  aktiv.value = rezept
+  if (!props.list) return
+  aktivId.value = rezept.id
   zeilen.value = planeRezept(rezept.ingredients, props.list.items, store.state.catalog).map(
     (z) => ({
       name: z.name,
@@ -72,8 +116,9 @@ function vorschau(zeile: Zeile) {
 
 async function hinzufuegen() {
   const gewaehlt = zeilen.value.filter((z) => z.mit)
-  if (!gewaehlt.length) return
-  await store.addRecipeToList(
+  if (!props.list || !gewaehlt.length) return
+  const rezeptName = aktiv.value?.name ?? ''
+  const ok = await store.addRecipeToList(
     props.list,
     gewaehlt.map((z) => ({
       name: z.name,
@@ -83,7 +128,15 @@ async function hinzufuegen() {
       mergeIn: z.getrennt ? null : z.vorhandenId,
     })),
   )
-  emit('close')
+  if (!props.eingebettet) {
+    emit('close')
+    return
+  }
+  if (ok) {
+    const anzahl = gewaehlt.length === 1 ? '1 Zutat steht' : `${gewaehlt.length} Zutaten stehen`
+    meldung.value = `✓ ${anzahl} für „${rezeptName}“ auf „${props.list.name}“.`
+  }
+  zurAuswahl()
 }
 
 // ── Schritt 3: das Rezept selbst ──────────────────────────────────────────────
@@ -92,16 +145,18 @@ const entwurf = reactive<{
   name: string
   group: string
   haltbarkeit: Haltbarkeit
+  notes: string
   zutaten: RecipeIngredient[]
-}>({ id: null, name: '', group: '', haltbarkeit: '', zutaten: [] })
+}>({ id: null, name: '', group: '', haltbarkeit: '', notes: '', zutaten: [] })
 
 function bearbeiten(rezept: Recipe) {
   entwurf.id = rezept.id
   entwurf.name = rezept.name
   entwurf.group = rezept.group
   entwurf.haltbarkeit = rezept.haltbarkeit
+  entwurf.notes = rezept.notes
   entwurf.zutaten = rezept.ingredients.map((z) => ({ ...z }))
-  aktiv.value = rezept
+  aktivId.value = rezept.id
   modus.value = 'bearbeiten'
 }
 
@@ -110,8 +165,10 @@ function neuesRezept() {
   entwurf.name = ''
   entwurf.group = store.state.recipeGroups[0]?.id ?? ''
   entwurf.haltbarkeit = ''
+  entwurf.notes = ''
   entwurf.zutaten = [{ name: '', quantity: '' }]
-  aktiv.value = null
+  aktivId.value = null
+  meldung.value = ''
   modus.value = 'bearbeiten'
 }
 
@@ -205,10 +262,13 @@ async function rezeptSpeichern() {
     name,
     group: entwurf.group,
     haltbarkeit: entwurf.haltbarkeit,
+    notes: entwurf.notes.trim(),
     ingredients: zutaten,
   }
   const ok = entwurf.id ? await store.saveRecipe(entwurf.id, rezept) : await store.addRecipe(rezept)
-  if (ok === true) modus.value = 'auswahl'
+  if (ok !== true) return
+  // Auf der Seite zurück zum Rezept, das gerade geändert wurde
+  modus.value = props.eingebettet && entwurf.id ? 'ansehen' : 'auswahl'
 }
 
 // ── Gruppen ───────────────────────────────────────────────────────────────────
@@ -253,22 +313,40 @@ async function rezeptWeg(rezept: Recipe) {
 async function rezeptLoeschen() {
   if (!entwurf.id || !confirm(`Rezept „${entwurf.name}“ löschen?`)) return
   await store.removeRecipe(entwurf.id)
+  zurAuswahl()
+}
+
+function zurAuswahl() {
   modus.value = 'auswahl'
+  aktivId.value = null
+  if (props.eingebettet) emit('zeige', null)
 }
 
 function zurueck() {
-  modus.value = 'auswahl'
-  aktiv.value = null
+  // Auf der Seite führt der Weg zurück über das Rezept, im Fenster zur Auswahl
+  if (props.eingebettet && aktiv.value && modus.value !== 'ansehen') {
+    modus.value = 'ansehen'
+    return
+  }
+  zurAuswahl()
 }
 </script>
 
 <template>
-  <div class="overlay" @click.self="emit('close')">
-    <div class="fenster card" role="dialog" aria-modal="true">
+  <div :class="eingebettet ? 'seite' : 'overlay'" @click.self="eingebettet || emit('close')">
+    <div
+      class="fenster card"
+      :role="eingebettet ? undefined : 'dialog'"
+      :aria-modal="eingebettet ? undefined : 'true'"
+    >
       <!-- ── Schritt 1: Rezept aussuchen ───────────────────────────────────── -->
       <template v-if="modus === 'auswahl'">
         <header>
-          <h2>{{ verwalten ? 'Rezeptbuch ordnen' : 'Rezept zum Einkauf' }}</h2>
+          <h2>
+            {{
+              verwalten ? 'Rezeptbuch ordnen' : eingebettet ? 'Rezeptbuch' : 'Rezept zum Einkauf'
+            }}
+          </h2>
           <button
             type="button"
             class="stift"
@@ -279,7 +357,15 @@ function zurueck() {
           >
             ⠿
           </button>
-          <button type="button" class="zu" title="Schließen" @click="emit('close')">×</button>
+          <button
+            v-if="!eingebettet"
+            type="button"
+            class="zu"
+            title="Schließen"
+            @click="emit('close')"
+          >
+            ×
+          </button>
         </header>
 
         <div class="inhalt">
@@ -289,6 +375,8 @@ function zurueck() {
             placeholder="Rezept suchen …"
             aria-label="Rezept suchen"
           />
+
+          <p v-if="meldung" class="meldung">{{ meldung }}</p>
 
           <p v-if="!gruppen.length" class="leer">
             {{ store.state.recipes.length ? 'Nichts gefunden.' : 'Noch keine Rezepte angelegt.' }}
@@ -311,12 +399,7 @@ function zurueck() {
               >
                 <span v-if="verwalten" class="griff" title="Rezept verschieben">⠿</span>
 
-                <button
-                  type="button"
-                  class="rezept"
-                  :disabled="verwalten"
-                  @click="oeffneEinkauf(r)"
-                >
+                <button type="button" class="rezept" :disabled="verwalten" @click="waehle(r)">
                   <span class="name">{{ r.name }}</span>
                   <span
                     v-if="!verwalten && haltbarkeitInfo(r.haltbarkeit)"
@@ -325,6 +408,7 @@ function zurueck() {
                   >
                     {{ haltbarkeitInfo(r.haltbarkeit)?.emoji }}
                   </span>
+                  <span v-if="r.notes && !verwalten" class="haltbar" title="Mit Notizen">📝</span>
                   <span class="anzahl">{{ r.ingredients.length }} Zutaten</span>
                 </button>
 
@@ -419,6 +503,49 @@ function zurueck() {
         </footer>
       </template>
 
+      <!-- ── Das Rezept zum Nachlesen (nur auf der Seite) ───────────────────── -->
+      <template v-else-if="modus === 'ansehen' && aktiv">
+        <header>
+          <button type="button" class="zurueck" title="Zurück" @click="zurueck">←</button>
+          <h2>{{ aktiv.name }}</h2>
+          <button type="button" class="stift" title="Rezept bearbeiten" @click="bearbeiten(aktiv)">
+            ✎
+          </button>
+        </header>
+
+        <div class="inhalt">
+          <p class="meta">
+            <template v-if="aktivGruppe">{{ aktivGruppe.emoji }} {{ aktivGruppe.label }}</template>
+            <template v-if="haltbarkeitInfo(aktiv.haltbarkeit)">
+              · {{ haltbarkeitInfo(aktiv.haltbarkeit)?.emoji }}
+              {{ haltbarkeitInfo(aktiv.haltbarkeit)?.lang }}
+            </template>
+          </p>
+
+          <h3>Zutaten</h3>
+          <ul class="zutaten lesen">
+            <li v-for="(z, index) in aktiv.ingredients" :key="index">
+              <span class="zutat-name">{{ z.name }}</span>
+              <span class="zutat-menge">{{ z.quantity }}</span>
+            </li>
+          </ul>
+          <p v-if="!aktiv.ingredients.length" class="hinweis">Noch keine Zutaten eingetragen.</p>
+
+          <h3>Notizen</h3>
+          <NotizText v-if="aktiv.notes" :text="aktiv.notes" />
+          <p v-else class="hinweis">
+            Noch keine Notizen. Über den Stift ✎ lassen sich Zubereitung, Portionen oder ein Link
+            zum Original ergänzen.
+          </p>
+        </div>
+
+        <footer v-if="list">
+          <button type="button" class="primaer" @click="oeffneEinkauf(aktiv)">
+            Zum Einkauf hinzufügen
+          </button>
+        </footer>
+      </template>
+
       <!-- ── Schritt 2: Zutaten für diesen Einkauf ──────────────────────────── -->
       <template v-else-if="modus === 'einkauf' && aktiv">
         <header>
@@ -427,13 +554,27 @@ function zurueck() {
           <button type="button" class="stift" title="Rezept bearbeiten" @click="bearbeiten(aktiv)">
             ✎
           </button>
-          <button type="button" class="zu" title="Schließen" @click="emit('close')">×</button>
+          <button
+            v-if="!eingebettet"
+            type="button"
+            class="zu"
+            title="Schließen"
+            @click="emit('close')"
+          >
+            ×
+          </button>
         </header>
 
         <div class="inhalt">
           <p class="hinweis">
             Abwählen, was schon zu Hause ist. Das ändert nur diesen Einkauf, nicht das Rezept.
           </p>
+
+          <!-- Steht in den Notizen „reicht für zwei“, hilft das genau hier -->
+          <details v-if="aktiv.notes" class="notiz-klappe">
+            <summary>📝 Notizen zum Rezept</summary>
+            <NotizText :text="aktiv.notes" />
+          </details>
 
           <ul class="zutaten">
             <li v-for="(z, index) in zeilen" :key="index" :class="{ aus: !z.mit }">
@@ -476,7 +617,15 @@ function zurueck() {
         <header>
           <button type="button" class="zurueck" @click="zurueck">←</button>
           <h2>{{ entwurf.id ? 'Rezept bearbeiten' : 'Neues Rezept' }}</h2>
-          <button type="button" class="zu" title="Schließen" @click="emit('close')">×</button>
+          <button
+            v-if="!eingebettet"
+            type="button"
+            class="zu"
+            title="Schließen"
+            @click="emit('close')"
+          >
+            ×
+          </button>
         </header>
 
         <div class="inhalt">
@@ -514,6 +663,13 @@ function zurueck() {
             </li>
           </ul>
           <button type="button" class="ghost" @click="zutatDazu">+ Zutat</button>
+
+          <textarea
+            v-model="entwurf.notes"
+            rows="5"
+            placeholder="Notizen: Zubereitung, Portionen, Link zum Original …"
+            aria-label="Notizen"
+          ></textarea>
         </div>
 
         <footer class="zwei">
@@ -554,6 +710,76 @@ function zurueck() {
   width: min(34rem, 100%);
   max-height: 86vh;
   overflow: hidden;
+}
+
+/* Als Seite: kein Schleier, keine eigene Scrollfläche – die Seite scrollt, und
+   die Fußleiste mit dem nächsten Schritt bleibt am unteren Rand stehen. */
+.seite {
+  margin-top: 0.8rem;
+  padding-bottom: 1rem;
+}
+
+.seite .fenster {
+  width: 100%;
+  max-height: none;
+  overflow: visible;
+}
+
+.seite .inhalt {
+  overflow: visible;
+}
+
+.seite footer {
+  position: sticky;
+  bottom: 0;
+  padding-bottom: max(0.7rem, env(safe-area-inset-bottom));
+  border-radius: 0 0 1.1rem 1.1rem;
+  background: white;
+}
+
+.meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.83rem;
+}
+
+.meldung {
+  margin: 0.6rem 0 0;
+  padding: 0.5rem 0.7rem;
+  border-radius: 0.7rem;
+  background: color-mix(in srgb, var(--green) 10%, white);
+  color: var(--green);
+  font-size: 0.85rem;
+}
+
+.zutaten.lesen li {
+  justify-content: space-between;
+  flex-wrap: nowrap;
+}
+
+.zutat-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.zutat-menge {
+  flex-shrink: 0;
+  max-width: 50%;
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-align: right;
+}
+
+.notiz-klappe {
+  margin: 0.2rem 0 0.6rem;
+}
+
+.notiz-klappe summary {
+  padding: 0.2rem 0;
+  color: var(--violet);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 header {
@@ -603,13 +829,22 @@ footer .primaer {
 }
 
 input,
-select {
+select,
+textarea {
   width: 100%;
   min-width: 0;
   padding: 0.55rem 0.65rem;
   border: 1px solid var(--line);
   border-radius: 0.6rem;
   background: white;
+}
+
+textarea {
+  display: block;
+  min-height: 6rem;
+  margin-top: 0.7rem;
+  line-height: 1.45;
+  resize: vertical;
 }
 
 select {

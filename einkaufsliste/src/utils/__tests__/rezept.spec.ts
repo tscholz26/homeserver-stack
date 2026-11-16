@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { planeRezept, type ListenArtikel } from '@/utils/rezept'
+import { planeRezept, textMitLinks, type ListenArtikel } from '@/utils/rezept'
 import type { CatalogEntry } from '@/utils/matching'
 
 const katalog: CatalogEntry[] = [
@@ -56,5 +56,31 @@ describe('planeRezept', () => {
 
     expect(zeile?.vorhandenId).toBe('a1')
     expect(zeile?.categoryId).toBe('sonstiges')
+  })
+})
+
+describe('textMitLinks', () => {
+  it('lässt Text ohne Adresse unverändert', () => {
+    expect(textMitLinks('Reicht für zwei.\n200 °C, 20 Minuten')).toEqual([
+      { text: 'Reicht für zwei.\n200 °C, 20 Minuten' },
+    ])
+  })
+
+  it('macht aus einer Adresse einen Link und lässt das Satzzeichen draußen', () => {
+    expect(textMitLinks('Original: https://example.org/rezept?id=3. Doppelte Menge!')).toEqual([
+      { text: 'Original: ' },
+      { text: 'https://example.org/rezept?id=3', url: 'https://example.org/rezept?id=3' },
+      { text: '. Doppelte Menge!' },
+    ])
+  })
+
+  it('verlinkt nur http und https', () => {
+    expect(textMitLinks('javascript:alert(1) und ftp://x')).toEqual([
+      { text: 'javascript:alert(1) und ftp://x' },
+    ])
+  })
+
+  it('kommt mit leerem Text zurecht', () => {
+    expect(textMitLinks('')).toEqual([])
   })
 })

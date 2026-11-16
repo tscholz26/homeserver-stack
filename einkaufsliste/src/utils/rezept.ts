@@ -69,3 +69,21 @@ export function planeRezept(
     }
   })
 }
+
+/**
+ * Zerlegt Freitext in Text und Links, damit ein eingefügter Verweis auf das
+ * Originalrezept antippbar wird. Nur http(s) – alles andere bleibt Text.
+ */
+export function textMitLinks(text: string): { text: string; url?: string }[] {
+  const teile: { text: string; url?: string }[] = []
+  let pos = 0
+  for (const treffer of text.matchAll(/https?:\/\/[^\s<>"]+/g)) {
+    // Satzzeichen am Ende gehören zum Satz, nicht zur Adresse
+    const url = treffer[0].replace(/[.,;:!?)\]]+$/, '')
+    if (treffer.index > pos) teile.push({ text: text.slice(pos, treffer.index) })
+    teile.push({ text: url, url })
+    pos = treffer.index + url.length
+  }
+  if (pos < text.length) teile.push({ text: text.slice(pos) })
+  return teile
+}

@@ -1,7 +1,14 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { useEinkaufStore } from '@/composables/useEinkaufStore'
 
 const store = useEinkaufStore()
+
+// Selbst bestimmt statt über router-link-active: ein aufgeschlagenes Rezept
+// (/rezepte/…) gehört weiter zum Rezeptbuch.
+const route = useRoute()
+const ort = computed(() => (route.path.startsWith('/rezepte') ? 'rezepte' : route.path))
 </script>
 
 <template>
@@ -27,28 +34,34 @@ const store = useEinkaufStore()
 
       <div class="row">
         <h1>Einkaufsliste</h1>
-        <nav class="menu">
-          <RouterLink to="/" class="tab-link" title="Einkaufen">Einkauf</RouterLink>
-          <RouterLink to="/verwaltung" class="tab-link" title="Verwaltung">
-            <svg
-              viewBox="0 0 24 24"
-              width="17"
-              height="17"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <circle cx="12" cy="12" r="3.2" />
-              <path
-                d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"
-              />
-            </svg>
-          </RouterLink>
-        </nav>
+        <RouterLink to="/verwaltung" class="tab-link" title="Verwaltung">
+          <svg
+            viewBox="0 0 24 24"
+            width="17"
+            height="17"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="3.2" />
+            <path
+              d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"
+            />
+          </svg>
+        </RouterLink>
       </div>
+
+      <!-- Die Orte der App. Bewusst ein Feld und keine Pillen: darunter
+           stehen im Einkauf schon die Listen als Pillen. -->
+      <nav class="menu">
+        <RouterLink to="/" class="ort" :class="{ aktiv: ort === '/' }">Einkauf</RouterLink>
+        <RouterLink to="/rezepte" class="ort" :class="{ aktiv: ort === 'rezepte' }">
+          Rezeptbuch
+        </RouterLink>
+      </nav>
     </header>
 
     <p v-if="store.error.value" class="fehler" @click="store.error.value = ''">
@@ -98,9 +111,31 @@ h1 {
 }
 
 .menu {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 0.2rem;
+  margin-top: 0.5rem;
+  padding: 0.2rem;
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  background: var(--card);
+}
+
+.ort {
+  padding: 0.4rem 0.3rem;
+  border-radius: 0.65rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.ort.aktiv {
+  background: color-mix(in srgb, var(--violet) 12%, white);
+  color: var(--violet);
 }
 
 .tab-link {
