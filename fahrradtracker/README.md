@@ -31,9 +31,11 @@ Profile, mehrere Räder, erreichbar unter
   es ausdrücklich anklickt
 - **Ampel**: grün / gelb / rot, die Schwellen (Standard 70 % und 100 %) stehen
   in der Verwaltung und nicht im Code
-- **Räder mit Nutzungszeitraum**: „Scott bis zum 05.09., danach die
-  Specialized“ – der Zeitraum entscheidet, auf welches Rad eine Fahrt gebucht
-  wird. Zwei Räder eines Profils dürfen sich deshalb nicht überschneiden
+- **Standardräder**: „ab 07.10. draußen das Propel, auf der Rolle weiter das
+  Scott“ – je Art eine kleine Zeitleiste entscheidet, auf welches Rad eine
+  Fahrt gebucht wird. Abweichungen (ein Regentag mit dem alten Rad) werden an
+  der Fahrt selbst umgestellt. Ein Rad hat nur ein „genutzt ab“; davor bekommt
+  es keine Fahrt
 - **Aufbauten**: dasselbe Rad draußen und auf der Rolle. Teile hängen an
   Aufbauten, nicht am Rad als Ganzem – die Kette an beiden, jede Kassette an
   ihrem. So verschleißt eine Rollenfahrt genau die Teile, die dabei mitlaufen
@@ -77,7 +79,8 @@ stehen PIN-Hashes, Wahoo-Tokens und die geholten Fahrten drin.
 | `data/users.json` | Profile: Name, Farbe, PIN als scrypt-Hash mit eigenem Salt |
 | `data/wahoo.json` | je Profil die OAuth-Tokens, Wahoo-User-Id und der letzte Sync |
 | `data/sessions.json` | angemeldete Geräte (nur der SHA-256-Hash des Tokens) |
-| `data/bikes.json` | Räder mit Besitzer, zugeteilten Sportarten und Grenzwerten je Kategorie |
+| `data/bikes.json` | Räder mit Besitzer, „genutzt ab“ und Grenzwerten je Kategorie |
+| `data/standards.json` | Standardräder: ab welchem Tag welches Rad für draußen bzw. die Rolle gilt |
 | `data/component-types.json` | Kategorien: Name, Symbol, Farbe, Standard-Grenzwert |
 | `data/components.json` | die Instanzen samt ihren Nutzungszeiträumen |
 | `data/rides.json` | alle Fahrten – geholte wie von Hand eingetragene |
@@ -102,21 +105,31 @@ Takt der Fahrten.
 
 ### Welche Fahrt gehört zu welchem Rad?
 
-Über das **Datum**. Jedes Rad hat einen Nutzungszeitraum, und eine Fahrt gehört
-zu dem Rad, dessen Zeitraum ihren Kalendertag enthält:
+Über die **Standardräder** des Profils – je Art (draußen / Rolle) eine
+Zeitleiste unter **Räder → Standardräder**. Es gilt der jüngste Eintrag, der
+nicht nach der Fahrt liegt:
 
 ```
-Scott Speedster    2025-05-01 → 2026-09-05
-Specialized        2026-09-06 → offen
+Draußen   ab 2025-08-01  Scott Speedster
+          ab 2026-10-07  Giant Propel
+Rolle     ab 2025-08-01  Scott Speedster
 ```
 
-Eine Fahrt am 20.08.2026 geht damit auf den Scott, eine am 10.09.2026 auf die
-Specialized. Zwei Zeiträume eines Profils dürfen sich nicht überschneiden – der
-Server lehnt das ab, sonst wäre die Zuordnung mehrdeutig. Findet sich für einen
-Tag kein Rad, bleibt die Fahrt **unzugeordnet**: Sie steht in der Liste und in
-einem Banner, statt still bei irgendeinem Rad zu landen. Von Hand lässt sich
-jede Fahrt einem anderen Rad zuweisen; diese Entscheidung überlebt jeden
-weiteren Sync.
+Eine Fahrt draußen am 20.09.2026 geht damit aufs Scott, eine am 10.10.2026 aufs
+Propel; Rollenfahrten bleiben beim Scott. Für eine Tour mit dem anderen Rad
+(Bikepacking) trägt man zwei Wechsel ein – ab dem ersten Tag das Scott, ab dem
+Tag danach wieder das Propel. Für **einzelne Ausnahmen** stellt man das Rad an
+der Fahrt um; die Liste zeigt sie als „Ausnahme“, und diese Entscheidung
+überlebt jeden weiteren Sync.
+
+Jedes Rad hat ein **„genutzt ab“**. Davor bekommt es keine Fahrt – weder über
+einen Standard-Eintrag noch von Hand; der Server lehnt beides ab. Findet sich
+für einen Tag kein Standardrad, bleibt die Fahrt **unzugeordnet**: Sie steht in
+der Liste und in einem Banner, statt still bei irgendeinem Rad zu landen.
+
+Beim ersten Start nach der Umstellung baut der Server die Zeitleiste aus den
+alten Nutzungszeiträumen: je Rad ein Eintrag „draußen ab seinem Start“ und,
+wenn es eine Rolle hat, „Rolle ab seinem Start“. Das „genutzt bis“ fällt weg.
 
 ### Aufbauten: dasselbe Rad drinnen und draußen
 
@@ -264,7 +277,8 @@ antwortet mit dem kompletten neuen Stand.
 | POST | `/api/logout` | Sitzung dieses Geräts beenden |
 | GET | `/api/state` | kompletter Stand inklusive gerechneter Kilometer |
 | PUT | `/api/profile` · `/api/profile/pin` | Name und Farbe · PIN ändern |
-| POST / PUT / DELETE | `/api/bikes[/:id]` | Rad anlegen / ändern / löschen (mit Nutzungszeitraum) |
+| POST / PUT / DELETE | `/api/bikes[/:id]` | Rad anlegen (wahlweise gleich als Standard) / ändern / löschen |
+| POST / PUT / DELETE | `/api/standards[/:id]` | Standardrad-Eintrag anlegen / verschieben / löschen |
 | PUT | `/api/bikes/:id/limits/:typeId` | Grenzwert für eine Kategorie an diesem Rad (`null` = Standard) |
 | POST | `/api/bikes/:id/setups` | Aufbau anlegen (`outdoor` / `indoor`) |
 | PUT / DELETE | `/api/setups/:setupId` | Aufbau umbenennen / löschen |
@@ -275,7 +289,7 @@ antwortet mit dem kompletten neuen Stand.
 | POST | `/api/components/:id/status` | eingelagert ⇄ entsorgt, ohne an den Zeiträumen zu rühren |
 | PUT / DELETE | `/api/components/:id/periods/:periodId` | Zeitraum korrigieren / löschen |
 | POST | `/api/rides` | Fahrt von Hand eintragen |
-| PUT | `/api/rides/:id` | Rad korrigieren (jede Fahrt), Werte ändern (nur von Hand eingetragene) |
+| PUT | `/api/rides/:id` | Ausnahme setzen (jede Fahrt), Werte ändern (nur von Hand eingetragene) |
 | DELETE | `/api/rides/:id` | von Hand eingetragene Fahrt löschen |
 | PUT | `/api/settings/thresholds` | Ampel-Schwellen |
 | POST | `/api/sync` | jetzt holen (`{ voll: true }` = ganze Historie) |

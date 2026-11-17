@@ -4,13 +4,16 @@
  *
  * Die Kette lautet:
  *
- *     Fahrt → Rad (über das Datum) → Aufbau (drinnen/draußen) → Teile
+ *     Fahrt → Rad (Standardrad an dem Tag, oder von Hand) → Aufbau → Teile
  *
- * Ein Rad hat einen Nutzungszeitraum; welche Fahrt zu welchem Rad gehört,
- * entscheidet deshalb ihr Kalendertag und nicht eine Auswahl von Hand. Ein Rad
- * hat einen oder mehrere Aufbauten („Draußen“, „Rolle“), und ein Teil hängt an
- * beliebig vielen Aufbauten – so verschleißt dieselbe Kette drinnen wie
- * draußen, während jede Kassette nur an ihrem eigenen Aufbau zählt.
+ * Welches Rad eine Fahrt bekommt, entscheiden die **Standardräder** des
+ * Profils: je Art (draußen / Rolle) eine kleine Zeitleiste – „ab 07.10.2026
+ * draußen das Propel“, „ab 01.08.2025 auf der Rolle das Scott“. Der jüngste
+ * Eintrag, der vor der Fahrt liegt, gilt. Was davon abweicht – ein Regentag
+ * mit dem alten Rad –, wird an der Fahrt selbst umgestellt. Ein Rad hat einen
+ * oder mehrere Aufbauten („Draußen“, „Rolle“), und ein Teil hängt an beliebig
+ * vielen Aufbauten – so verschleißt dieselbe Kette drinnen wie draußen,
+ * während jede Kassette nur an ihrem eigenen Aufbau zählt.
  */
 
 // ── Anbieter ─────────────────────────────────────────────────────────────────
@@ -158,27 +161,28 @@ export function istDublette(fahrt, bestand) {
   )
 }
 
-/** Liegt ein Tag im Nutzungszeitraum eines Rades? `to: null` heißt „bis heute“. */
-export function imZeitraum(datum, von, bis) {
-  if (!von || datum < von) return false
-  return !bis || datum <= bis
-}
+export const ARTEN = ['outdoor', 'indoor']
 
 /**
- * Zwei Nutzungszeiträume, die sich überschneiden, machen die Zuordnung
- * mehrdeutig – deshalb lässt der Server sie gar nicht erst zu.
+ * Das Standardrad eines Profils für eine Art an einem Tag: der jüngste
+ * Eintrag der Zeitleiste, der nicht nach dem Tag liegt. Ein Eintrag zählt
+ * erst ab „genutzt ab“ seines Rades – ein Rad, das man noch nicht besaß, kann
+ * keine Fahrt bekommen haben; dann gilt der Eintrag davor.
  */
-export function ueberschneidetSich(a, b) {
-  const aBis = a.to ?? '9999-12-31'
-  const bBis = b.to ?? '9999-12-31'
-  return a.from <= bBis && b.from <= aBis
+export function standardFuer(standards, bikes, ownerId, kind, datum) {
+  let bester = null
+  let rad = null
+  for (const s of standards ?? []) {
+    if (s.ownerId !== ownerId || s.kind !== kind || s.from > datum) continue
+    if (bester && s.from < bester.from) continue
+    const bike = bikes.find((b) => b.id === s.bikeId)
+    if (!bike || (bike.from && bike.from > datum)) continue
+    bester = s
+    rad = bike
+  }
+  return rad
 }
 
-/**
- * Ein Zuordner für einen Stand: löst für jede Fahrt Rad und Aufbau auf.
- * Nichts davon wird gespeichert – wer einen Nutzungszeitraum korrigiert,
- * verschiebt damit sofort alle betroffenen Fahrten.
- */
 /**
  * Wie stark eine Fahrt an diesem Aufbau zählt. Auf der Rolle verschleißt eine
  * Stunde nicht dasselbe wie draußen – kein Dreck, keine Nässe, gleichmäßiger
@@ -189,14 +193,22 @@ export function faktorVon(aufbau) {
   return Number.isFinite(wert) && wert > 0 ? wert : 1
 }
 
-export function zuordner(bikes, setups) {
+/**
+ * Ein Zuordner für einen Stand: löst für jede Fahrt Rad und Aufbau auf.
+ * Nichts davon wird gespeichert – wer einen Standard-Wechsel verschiebt,
+ * verschiebt damit sofort alle betroffenen Fahrten.
+ */
+export function zuordner(bikes, setups, standards = []) {
+  function standard(fahrt) {
+    const kind = fahrt.indoor ? 'indoor' : 'outdoor'
+    return standardFuer(standards, bikes, fahrt.ownerId, kind, fahrt.date)
+  }
+
   function rad(fahrt) {
     if (fahrt.override?.bikeId) {
       return bikes.find((b) => b.id === fahrt.override.bikeId) ?? null
     }
-    return (
-      bikes.find((b) => b.ownerId === fahrt.ownerId && imZeitraum(fahrt.date, b.from, b.to)) ?? null
-    )
+    return standard(fahrt)
   }
 
   function aufbau(fahrt, radDazu = rad(fahrt)) {
@@ -212,6 +224,8 @@ export function zuordner(bikes, setups) {
   function loese(fahrt) {
     const radDazu = rad(fahrt)
     const aufbauDazu = aufbau(fahrt, radDazu)
+    // Was ohne Ausnahme gälte – damit die Liste sagen kann, wovon abgewichen wird
+    const standardRad = fahrt.override?.bikeId ? standard(fahrt) : radDazu
     // Eine von Hand eingetragene Distanz schlägt die gemeldete: Sie ist die
     // Antwort auf Fahrten, für die der Anbieter keine Kilometer kennt, und
     // überlebt jeden weiteren Sync.
@@ -230,6 +244,8 @@ export function zuordner(bikes, setups) {
       verschleissKm: Math.round(km * faktor * 100) / 100,
       bikeId: radDazu?.id ?? null,
       bikeName: radDazu?.name ?? '',
+      standardBikeId: standardRad?.id ?? null,
+      standardBikeName: standardRad?.name ?? '',
       setupId: aufbauDazu?.id ?? null,
       setupName: aufbauDazu?.name ?? '',
       // Ohne Rad oder ohne passenden Aufbau zählt sie nirgends mit – das soll
@@ -238,7 +254,7 @@ export function zuordner(bikes, setups) {
     }
   }
 
-  return { rad, aufbau, loese }
+  return { rad, aufbau, standard, loese }
 }
 
 /**
@@ -652,7 +668,8 @@ export function statistik(fahrten, { bikes = [], heute = '' } = {}) {
   const spitze = (karte, feld) => {
     let best = null
     for (const [schluessel, e] of karte) {
-      if (!best || e.km > best.km) best = { [feld]: schluessel, km: runde(e.km), fahrten: e.fahrten }
+      if (!best || e.km > best.km)
+        best = { [feld]: schluessel, km: runde(e.km), fahrten: e.fahrten }
     }
     return best
   }

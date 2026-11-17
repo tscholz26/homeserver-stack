@@ -1,21 +1,32 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useTracker } from '@/composables/useTracker'
-import type { Bike, Kategorie } from '@/composables/useTracker'
+import type { Art, Bike, Kategorie, Standard } from '@/composables/useTracker'
 import { datumText, heute, kmText } from '@/utils/verschleiss'
 import TeileFenster from '@/components/TeileFenster.vue'
 
 /**
- * Die Räder mit ihren Nutzungszeiträumen und Aufbauten. Der Zeitraum ist hier
- * kein Beiwerk: Er entscheidet, auf welches Rad eine Fahrt gebucht wird, und
- * deshalb dürfen sich zwei Räder desselben Profils nicht überlappen – der
- * Server lehnt das ab.
+ * Die Räder mit ihren Aufbauten – und darüber die Standardräder: welches Rad ab
+ * wann für draußen und für die Rolle gilt. Daran hängt, auf welches Rad eine
+ * Fahrt gebucht wird; Ausnahmen werden an der Fahrt selbst umgestellt.
  */
 const store = useTracker()
 
+const ARTEN: { kind: Art; label: string; icon: string }[] = [
+  { kind: 'outdoor', label: 'Draußen', icon: '🌤' },
+  { kind: 'indoor', label: 'Rolle', icon: '🏠' },
+]
+
 const teileFenster = ref<{ bike: Bike; typ: Kategorie } | null>(null)
 const neuOffen = ref(false)
-const neu = ref({ name: '', manufacturer: '', model: '', from: heute() })
+const leeresRad = () => ({
+  name: '',
+  manufacturer: '',
+  model: '',
+  from: heute(),
+  standard: ['outdoor'] as Art[],
+})
+const neu = ref(leeresRad())
 
 const meine = computed(() =>
   [...store.state.bikes]
@@ -40,22 +51,13 @@ async function anlegen() {
   const ok = await store.radAnlegen({ ...neu.value, name: neu.value.name.trim() })
   if (ok) {
     neuOffen.value = false
-    neu.value = { name: '', manufacturer: '', model: '', from: heute() }
+    neu.value = leeresRad()
   }
 }
 
 function feld(bike: Bike, feldName: 'name' | 'manufacturer' | 'model' | 'from', wert: string) {
   if (bike[feldName] === wert) return
   store.radSpeichern(bike.id, { [feldName]: wert })
-}
-
-/** „genutzt bis“ leer = das Rad fahre ich gerade. */
-function bisSetzen(bike: Bike, wert: string) {
-  store.radSpeichern(bike.id, { to: wert || null })
-}
-
-function inNutzung(bike: Bike) {
-  return !bike.to || bike.to >= heute()
 }
 
 function teileAm(bike: Bike) {
@@ -65,6 +67,41 @@ function teileAm(bike: Bike) {
 function kategorienAm(bike: Bike) {
   return store.kategorienAm(bike.id)
 }
+
+// ── Standardräder ────────────────────────────────────────────────────────────
+const ich = computed(() => store.state.me?.id ?? '')
+
+function radName(id: string) {
+  return store.state.bikes.find((b) => b.id === id)?.name ?? '?'
+}
+
+/** Wofür dieses Rad heute das Standardrad ist – die Pillen am Rad. */
+function standardHeuteFuer(bike: Bike) {
+  return ARTEN.filter((a) => store.standardHeute(bike.ownerId, a.kind)?.bikeId === bike.id)
+}
+
+/** Einträge, die noch kommen, sind schon gültig – nur eben erst ab ihrem Tag. */
+function zukunft(eintrag: Standard) {
+  return eintrag.from > heute()
+}
+
+const verlaufOffen = ref(false)
+const wechsel = ref<{ kind: Art; bikeId: string; from: string }>({
+  kind: 'outdoor',
+  bikeId: '',
+  from: heute(),
+})
+
+async function wechselEintragen() {
+  if (!wechsel.value.bikeId) return
+  const ok = await store.standardSetzen(wechsel.value)
+  if (ok) wechsel.value = { ...wechsel.value, bikeId: '', from: heute() }
+}
+
+function eintragAendern(eintrag: Standard, changes: { bikeId?: string; from?: string }) {
+  if (changes.from === '' || changes.bikeId === '') return
+  store.standardSpeichern(eintrag.id, changes)
+}
 </script>
 
 <template>
@@ -72,17 +109,112 @@ function kategorienAm(bike: Bike) {
     <header class="kopf">
       <div>
         <p class="cap">Deine Räder</p>
-        <h2>Was wann gefahren wurde</h2>
+        <h2>Welches Rad wofür</h2>
       </div>
       <button type="button" class="primaer" @click="neuOffen = !neuOffen">
         {{ neuOffen ? 'Abbrechen' : '+ Rad' }}
       </button>
     </header>
 
-    <p class="hinweis">
-      Der Nutzungszeitraum entscheidet, auf welches Rad eine Fahrt gebucht wird – zwei Räder dürfen
-      sich deshalb nicht überschneiden. „Genutzt bis“ leer lassen heißt: das fahre ich gerade.
-    </p>
+    <!-- Standardräder: je Art eine Zeitleiste, der jüngste Eintrag gilt -->
+    <section v-if="meine.length" class="standard card">
+      <p class="klein oben">Standardräder</p>
+      <ul class="jetzt">
+        <li v-for="a in ARTEN" :key="a.kind">
+          <span class="art" :class="a.kind">{{ a.icon }}</span>
+          <span class="artname">{{ a.label }}</span>
+          <template v-if="store.standardHeute(ich, a.kind)">
+            <strong>{{ radName(store.standardHeute(ich, a.kind)!.bikeId) }}</strong>
+            <small>seit {{ datumText(store.standardHeute(ich, a.kind)!.from) }}</small>
+          </template>
+          <em v-else>keins – solche Fahrten bleiben ohne Rad</em>
+        </li>
+      </ul>
+
+      <button type="button" class="still schmal" @click="verlaufOffen = !verlaufOffen">
+        {{ verlaufOffen ? 'Zuklappen' : 'Wechsel & Verlauf' }}
+      </button>
+
+      <div v-if="verlaufOffen" class="verlauf">
+        <form class="wechsel" @submit.prevent="wechselEintragen">
+          <div class="schalter">
+            <button
+              v-for="a in ARTEN"
+              :key="a.kind"
+              type="button"
+              :class="{ an: wechsel.kind === a.kind }"
+              @click="wechsel.kind = a.kind"
+            >
+              {{ a.icon }} {{ a.label }}
+            </button>
+          </div>
+          <div class="reihe">
+            <label class="klein">
+              ab
+              <input v-model="wechsel.from" type="date" required />
+            </label>
+            <label class="klein">
+              Rad
+              <select v-model="wechsel.bikeId" required>
+                <option value="" disabled>wählen …</option>
+                <option
+                  v-for="b in meine"
+                  :key="b.id"
+                  :value="b.id"
+                  :disabled="b.from > wechsel.from"
+                >
+                  {{ b.name }}{{ b.from > wechsel.from ? ` (erst ab ${datumText(b.from)})` : '' }}
+                </option>
+              </select>
+            </label>
+          </div>
+          <button type="submit" class="primaer schmal" :disabled="!wechsel.bikeId">
+            Wechsel eintragen
+          </button>
+        </form>
+
+        <div v-for="a in ARTEN" :key="a.kind" class="leiste">
+          <p class="klein">{{ a.icon }} {{ a.label }}</p>
+          <ul>
+            <li
+              v-for="e in store.standardsVon(ich, a.kind)"
+              :key="e.id"
+              :class="{ gilt: store.standardHeute(ich, a.kind)?.id === e.id, kommt: zukunft(e) }"
+            >
+              <input
+                type="date"
+                :value="e.from"
+                @change="eintragAendern(e, { from: ($event.target as HTMLInputElement).value })"
+              />
+              <select
+                :value="e.bikeId"
+                @change="eintragAendern(e, { bikeId: ($event.target as HTMLSelectElement).value })"
+              >
+                <option v-for="b in meine" :key="b.id" :value="b.id">{{ b.name }}</option>
+              </select>
+              <button
+                type="button"
+                class="weg"
+                title="Eintrag löschen"
+                @click="store.standardLoeschen(e.id)"
+              >
+                ✕
+              </button>
+            </li>
+            <li v-if="!store.standardsVon(ich, a.kind).length" class="leerzeile">
+              noch kein Eintrag
+            </li>
+          </ul>
+        </div>
+
+        <p class="fussnote">
+          Es gilt immer der jüngste Eintrag vor einer Fahrt. Für eine Tour mit dem anderen Rad –
+          Bikepacking etwa – zwei Wechsel eintragen: ab dem ersten Tag das andere Rad, ab dem Tag
+          danach wieder das gewohnte. Für einzelne Fahrten (ein Regentag) stellst du das Rad direkt
+          an der Fahrt um.
+        </p>
+      </div>
+    </section>
 
     <form v-if="neuOffen" class="neuform card" @submit.prevent="anlegen">
       <input v-model="neu.name" placeholder="Name, z. B. Scott Speedster" />
@@ -94,6 +226,12 @@ function kategorienAm(bike: Bike) {
         Genutzt ab
         <input v-model="neu.from" type="date" />
       </label>
+      <div class="haken">
+        <label v-for="a in ARTEN" :key="a.kind">
+          <input v-model="neu.standard" type="checkbox" :value="a.kind" />
+          ab dann Standard {{ a.kind === 'indoor' ? 'auf der Rolle' : 'draußen' }}
+        </label>
+      </div>
       <button type="submit" class="primaer">Anlegen →</button>
     </form>
 
@@ -107,9 +245,11 @@ function kategorienAm(bike: Bike) {
           />
           <p class="km">{{ kmText(bike.totalKm) }} gefahren</p>
         </div>
-        <span class="status" :class="{ aktuell: inNutzung(bike) }">
-          {{ inNutzung(bike) ? 'aktuell' : 'ausgemustert' }}
-        </span>
+        <div class="pillen">
+          <span v-for="a in standardHeuteFuer(bike)" :key="a.kind" class="status aktuell">
+            Standard {{ a.label.toLowerCase() }}
+          </span>
+        </div>
       </header>
 
       <div class="reihe">
@@ -129,27 +269,15 @@ function kategorienAm(bike: Bike) {
         </label>
       </div>
 
-      <div class="reihe">
-        <label class="klein">
-          Genutzt ab
-          <input
-            type="date"
-            :value="bike.from"
-            @change="feld(bike, 'from', ($event.target as HTMLInputElement).value)"
-          />
-        </label>
-        <label class="klein">
-          Genutzt bis
-          <input
-            type="date"
-            :value="bike.to ?? ''"
-            @change="bisSetzen(bike, ($event.target as HTMLInputElement).value)"
-          />
-        </label>
-      </div>
-      <p class="zeitraum">
-        {{ datumText(bike.from) }} → {{ bike.to ? datumText(bike.to) : 'heute' }}
-      </p>
+      <label class="klein">
+        Genutzt ab
+        <input
+          type="date"
+          :value="bike.from"
+          @change="feld(bike, 'from', ($event.target as HTMLInputElement).value)"
+        />
+      </label>
+      <p class="fussnote">Davor bekommt das Rad keine Fahrt – auch nicht von Hand.</p>
 
       <!-- Aufbauten: dasselbe Rad draußen und auf der Rolle -->
       <p class="klein">Aufbauten</p>
@@ -209,10 +337,10 @@ function kategorienAm(bike: Bike) {
         + Aufbau „Rolle“
       </button>
       <p class="fussnote">
-        Fahrten drinnen zählen auf den Rollen-Aufbau. Welche Teile daran hängen, entscheidest du je
-        Teil – die Kette meist an beiden, die Kassette nur an einem. Der Faktor rechts gewichtet den
-        Verschleiß: 0,95 heißt, 100 km auf der Rolle zählen als 95 km. Er wirkt sofort auf alle
-        Fahrten, auch auf die schon eingetragenen.
+        Rollenfahrten dieses Rades zählen auf den Rollen-Aufbau. Welche Teile daran hängen,
+        entscheidest du je Teil – die Kette meist an beiden, die Kassette nur an einem. Der Faktor
+        rechts gewichtet den Verschleiß: 0,95 heißt, 100 km auf der Rolle zählen als 95 km. Er wirkt
+        sofort auf alle Fahrten, auch auf die schon eingetragenen.
       </p>
 
       <!-- Teile dieses Rades, Einstieg wie auf dem Dashboard -->
@@ -260,7 +388,7 @@ function kategorienAm(bike: Bike) {
         <li v-for="bike in fremde" :key="bike.id">
           <span>
             {{ bike.name }}
-            <small>{{ datumText(bike.from) }} → {{ bike.to ? datumText(bike.to) : 'heute' }}</small>
+            <small>seit {{ datumText(bike.from) }}</small>
           </span>
           <span class="besitzer" :style="{ color: store.nutzer(bike.ownerId)?.color }">
             {{ store.nutzer(bike.ownerId)?.name }}
@@ -396,10 +524,162 @@ input {
   margin-top: 0.2rem;
 }
 
-.zeitraum {
-  margin: 0.35rem 0 0;
-  font-size: 0.85rem;
+.pillen {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+}
+
+.standard {
+  margin: 0.8rem 0 0.9rem;
+}
+
+.klein.oben {
+  margin-top: 0;
+}
+
+.jetzt {
+  list-style: none;
+  margin: 0.45rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.jetzt li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.92rem;
+}
+
+.artname {
+  width: 4.2rem;
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
   font-weight: 600;
+}
+
+.jetzt strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jetzt small {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.jetzt em {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.verlauf {
+  margin-top: 0.7rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--line);
+}
+
+.wechsel {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.schalter {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.schalter button {
+  flex: 1;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: white;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.schalter button.an {
+  border-color: var(--violet);
+  background: color-mix(in srgb, var(--violet) 10%, white);
+  color: var(--violet);
+}
+
+.leiste ul {
+  list-style: none;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.leiste li {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding-left: 0.5rem;
+  border-left: 3px solid transparent;
+}
+
+.leiste li.gilt {
+  border-left-color: var(--green);
+}
+
+.leiste li.kommt {
+  border-left-color: var(--amber);
+}
+
+.leiste li input {
+  flex: 0 0 9.5rem;
+}
+
+.leiste li select {
+  flex: 1;
+  min-width: 0;
+}
+
+.leerzeile {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+select {
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 0.7rem;
+  background: white;
+  font: inherit;
+}
+
+.klein select {
+  margin-top: 0.2rem;
+}
+
+.haken {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0.3rem 0;
+  font-size: 0.85rem;
+}
+
+.haken label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.haken input {
+  width: auto;
 }
 
 .aufbauten {

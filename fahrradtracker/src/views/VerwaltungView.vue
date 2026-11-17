@@ -295,9 +295,9 @@ const FARBEN = ['#7c3aed', '#0891b2', '#c2740a', '#15803d', '#be185d', '#4338ca'
       <p class="hinweis">
         Neue Fahrten meldet die Quelle per Webhook; zusätzlich fragt der Server alle
         {{ store.state.settings.syncIntervalHours }} Stunden selbst nach. „Alles neu holen“ liest ab
-        dem ältesten Datum, das die App kennt – dem frühesten Nutzungszeitraum deiner Räder,
-        mindestens aber ein Jahr zurück. Doppelt zählt dabei nichts: Jede Fahrt wird an ihrer Id
-        beim Anbieter wiedererkannt.
+        dem ältesten Datum, das die App kennt – dem frühesten „genutzt ab“ deiner Räder, mindestens
+        aber ein Jahr zurück. Doppelt zählt dabei nichts: Jede Fahrt wird an ihrer Id beim Anbieter
+        wiedererkannt.
       </p>
       <div class="knoepfe">
         <button

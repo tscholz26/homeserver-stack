@@ -31,6 +31,14 @@ function kacheln(bike: Bike) {
   })
 }
 
+/** „Standard draußen“ / „Standard Rolle“ – wofür das Rad heute gilt. */
+function standardText(bike: Bike) {
+  const arten = (['outdoor', 'indoor'] as const)
+    .filter((k) => store.standardHeute(bike.ownerId, k)?.bikeId === bike.id)
+    .map((k) => (k === 'indoor' ? 'Rolle' : 'draußen'))
+  return arten.length ? `Standard ${arten.join(' & ')}` : ''
+}
+
 /** Kategorien, die an diesem Rad noch fehlen – Auswahl hinter „+ Teil“. */
 function fehlendeKategorien(bike: Bike) {
   const da = new Set(store.kategorienAm(bike.id).map((t) => t.id))
@@ -70,7 +78,7 @@ function oeffne(bike: Bike, typ: Kategorie) {
     </nav>
 
     <p v-if="!store.state.bikes.length" class="leer">
-      Noch kein Rad angelegt – unter „Räder“ anlegen, mit dem Zeitraum, in dem du es fährst.
+      Noch kein Rad angelegt – unter „Räder“ anlegen und als Standardrad eintragen.
     </p>
 
     <p v-else-if="!raeder.length" class="leer">Für dieses Profil ist noch kein Rad angelegt.</p>
@@ -84,7 +92,7 @@ function oeffne(bike: Bike, typ: Kategorie) {
           <h2>{{ bike.name }}</h2>
         </div>
         <span class="zeitraum">
-          {{ datumText(bike.from) }} → {{ bike.to ? datumText(bike.to) : 'heute' }}
+          {{ standardText(bike) || `seit ${datumText(bike.from)}` }}
         </span>
       </header>
 

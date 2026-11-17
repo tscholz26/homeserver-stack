@@ -135,7 +135,7 @@ function kmSpeichern(fahrt: Fahrt, wert: string) {
   if (km > 0) store.fahrtSpeichern(fahrt.id, { km })
 }
 
-/** Rad von Hand setzen; leer heißt „wieder nach Datum entscheiden“. */
+/** Rad von Hand setzen; leer heißt „wieder das Standardrad“. */
 function radSetzen(fahrt: Fahrt, bikeId: string) {
   store.fahrtSpeichern(fahrt.id, { bikeId: bikeId || null, setupId: null })
 }
@@ -209,8 +209,15 @@ function distanzKorrigieren(fahrt: Fahrt, wert: string) {
         <label class="klein">
           Rad
           <select v-model="neu.bikeId">
-            <option value="">nach Datum</option>
-            <option v-for="b in meineRaeder" :key="b.id" :value="b.id">{{ b.name }}</option>
+            <option value="">Standardrad</option>
+            <option
+              v-for="b in meineRaeder"
+              :key="b.id"
+              :value="b.id"
+              :disabled="b.from > neu.date"
+            >
+              {{ b.name }}
+            </option>
           </select>
         </label>
       </div>
@@ -347,8 +354,8 @@ function distanzKorrigieren(fahrt: Fahrt, wert: string) {
                 {{ fahrt.bikeName
                 }}<template v-if="fahrt.setupName"> / {{ fahrt.setupName }}</template>
               </template>
-              <template v-else>kein Rad für dieses Datum</template>
-              <span v-if="fahrt.override" class="hand">von Hand zugeordnet</span>
+              <template v-else>kein Standardrad für diesen Tag</template>
+              <span v-if="fahrt.override" class="hand">Ausnahme</span>
             </p>
           </div>
           <span class="km">{{ kmText(fahrt.km) }}</span>
@@ -361,8 +368,15 @@ function distanzKorrigieren(fahrt: Fahrt, wert: string) {
               :value="fahrt.override?.bikeId ?? ''"
               @change="radSetzen(fahrt, ($event.target as HTMLSelectElement).value)"
             >
-              <option value="">nach Datum ({{ fahrt.bikeName || 'keins' }})</option>
-              <option v-for="b in meineRaeder" :key="b.id" :value="b.id">{{ b.name }}</option>
+              <option value="">Standardrad ({{ fahrt.standardBikeName || 'keins' }})</option>
+              <option
+                v-for="b in meineRaeder"
+                :key="b.id"
+                :value="b.id"
+                :disabled="b.from > fahrt.date"
+              >
+                {{ b.name }}{{ b.from > fahrt.date ? ` (erst ab ${datumText(b.from)})` : '' }}
+              </option>
             </select>
           </label>
 

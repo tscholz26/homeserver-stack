@@ -15,7 +15,7 @@ services:
       - .env
 
     environment:
-      # Die Nutzungszeiträume von Rädern und Teilen sind Kalendertage. Ohne
+      # Standardrad-Wechsel und Teile-Zeiträume sind Kalendertage. Ohne
       # gesetzte Zeitzone landete eine Fahrt am späten Abend auf dem falschen
       # Tag – und damit womöglich am falschen Rad.
       TZ: Europe/Berlin

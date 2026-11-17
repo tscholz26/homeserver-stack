@@ -1,4 +1,5 @@
 import { computed, reactive, ref } from 'vue'
+import { heute } from '@/utils/verschleiss'
 import type { Thresholds } from '@/utils/verschleiss'
 
 export type Status = 'aktiv' | 'eingelagert' | 'entsorgt'
@@ -39,13 +40,23 @@ export interface Bike {
   name: string
   manufacturer: string
   model: string
-  /** Nutzungszeitraum – er entscheidet, welche Fahrt auf welches Rad geht */
+  /** Genutzt ab – davor kann das Rad keine Fahrt bekommen haben */
   from: string
-  to: string | null
   /** Grenzwerte für dieses Rad je Kategorie – schlägt den Standard der Kategorie */
   limits: Record<string, number>
   /** Kilometer über alle Aufbauten, kommt gerechnet vom Server */
   totalKm: number
+}
+
+export type Art = 'outdoor' | 'indoor'
+
+/** Ab diesem Tag ist dieses Rad das Standardrad für draußen bzw. die Rolle. */
+export interface Standard {
+  id: string
+  ownerId: string
+  kind: Art
+  bikeId: string
+  from: string
 }
 
 /** Ein Rad, wie es an einem Tag zusammengesetzt ist: draußen oder auf der Rolle. */
@@ -84,6 +95,9 @@ export interface Fahrt {
   /** Vom Server aufgelöst – nichts davon steht in der Datei */
   bikeId: string | null
   bikeName: string
+  /** Das Rad, das ohne Ausnahme gälte */
+  standardBikeId: string | null
+  standardBikeName: string
   setupId: string | null
   setupName: string
   unassigned: boolean
@@ -156,7 +170,8 @@ export type RadDaten = {
   manufacturer?: string
   model?: string
   from?: string
-  to?: string | null
+  /** Nur beim Anlegen: ab „genutzt ab“ Standardrad für diese Arten */
+  standard?: Art[]
 }
 
 /** Vom Server gerechnet – Grundlage des Kilometer-Dashboards. */
@@ -180,6 +195,7 @@ export interface AppState {
   users: Profil[]
   bikes: Bike[]
   setups: Aufbau[]
+  standards: Standard[]
   componentTypes: Kategorie[]
   components: Teil[]
   rides: Fahrt[]
@@ -218,6 +234,7 @@ function createStore() {
     componentTypes: [],
     components: [],
     setups: [],
+    standards: [],
     rides: [],
     stats: {
       km: 0,
@@ -390,6 +407,37 @@ function createStore() {
 
   function radSpeichern(id: string, changes: RadDaten) {
     return aendern(`/bikes/${id}`, 'PUT', changes)
+  }
+
+  // ── Standardräder ──────────────────────────────────────────────────────────
+  function standardSetzen(daten: { kind: Art; bikeId: string; from: string }) {
+    return aendern('/standards', 'POST', daten)
+  }
+
+  function standardSpeichern(id: string, changes: { bikeId?: string; from?: string }) {
+    return aendern(`/standards/${id}`, 'PUT', changes)
+  }
+
+  function standardLoeschen(id: string) {
+    return aendern(`/standards/${id}`, 'DELETE')
+  }
+
+  /** Die Zeitleiste eines Profils für eine Art, neuester Eintrag zuerst. */
+  function standardsVon(ownerId: string, kind: Art) {
+    return state.standards
+      .filter((s) => s.ownerId === ownerId && s.kind === kind)
+      .sort((a, b) => b.from.localeCompare(a.from))
+  }
+
+  /** Der Eintrag, der heute gilt – dasselbe wie im Server, nur für „heute“. */
+  function standardHeute(ownerId: string, kind: Art) {
+    const tag = heute()
+    return (
+      standardsVon(ownerId, kind).find((s) => {
+        const rad = state.bikes.find((b) => b.id === s.bikeId)
+        return s.from <= tag && rad && rad.from <= tag
+      }) ?? null
+    )
   }
 
   // ── Aufbauten ──────────────────────────────────────────────────────────────
@@ -602,8 +650,11 @@ function createStore() {
     localStorage.setItem(FILTER_KEY, userId)
   }
 
+  /** Neuestes Rad zuerst – das, was man gerade fährt, steht oben. */
   const sichtbareRaeder = computed(() =>
-    state.bikes.filter((b) => !filter.value || b.ownerId === filter.value),
+    state.bikes
+      .filter((b) => !filter.value || b.ownerId === filter.value)
+      .sort((a, b) => b.from.localeCompare(a.from)),
   )
 
   function eigenesRad(bike: Bike) {
@@ -698,6 +749,11 @@ function createStore() {
     aufbauSpeichern,
     aufbauLoeschen,
     aufbautenVon,
+    standardSetzen,
+    standardSpeichern,
+    standardLoeschen,
+    standardsVon,
+    standardHeute,
     fahrtAnlegen,
     fahrtSpeichern,
     fahrtLoeschen,

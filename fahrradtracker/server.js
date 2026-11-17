@@ -20,8 +20,8 @@ import {
   kmFuerRad,
   kmImZeitraum,
   statistik,
+  ARTEN,
   synchronisiereFenster,
-  ueberschneidetSich,
   zuordner,
 } from './shared/fahrten.js'
 import { MAIL_CONFIGURED, schickeMeldungen, schickeProbe } from './mail.js'
@@ -64,6 +64,7 @@ const WAHOO_FILE = join(DATA_DIR, 'wahoo.json')
 const ICU_FILE = join(DATA_DIR, 'intervals.json')
 const BIKES_FILE = join(DATA_DIR, 'bikes.json')
 const SETUPS_FILE = join(DATA_DIR, 'setups.json')
+const STANDARDS_FILE = join(DATA_DIR, 'standards.json')
 const TYPES_FILE = join(DATA_DIR, 'component-types.json')
 const COMPONENTS_FILE = join(DATA_DIR, 'components.json')
 const RIDES_FILE = join(DATA_DIR, 'rides.json')
@@ -111,6 +112,7 @@ const db = {
   intervals: [],
   bikes: [],
   setups: [],
+  standards: [],
   types: [],
   components: [],
   rides: [],
@@ -124,6 +126,9 @@ function ladeAlles() {
   db.intervals = lies(ICU_FILE, [])
   db.bikes = lies(BIKES_FILE, [])
   db.setups = lies(SETUPS_FILE, [])
+  // `null` heißt: die Datei gab es noch nie – dann baut migriere() sie aus den
+  // alten Nutzungszeiträumen der Räder
+  db.standards = lies(STANDARDS_FILE, null)
   db.types =
     lies(TYPES_FILE, null) ?? JSON.parse(readFileSync(join(SEED_DIR, 'teile.json'), 'utf8'))
   db.components = lies(COMPONENTS_FILE, [])
@@ -142,6 +147,7 @@ const DATEIEN = {
   intervals: ICU_FILE,
   bikes: BIKES_FILE,
   setups: SETUPS_FILE,
+  standards: STANDARDS_FILE,
   types: TYPES_FILE,
   components: COMPONENTS_FILE,
   rides: RIDES_FILE,
@@ -171,13 +177,9 @@ function migriere() {
   let geaendert = new Set()
 
   for (const bike of db.bikes) {
-    // Räder haben jetzt einen Nutzungszeitraum statt einer Anbieter-Zuordnung
+    // „Genutzt ab“: vorher kann das Rad keine Fahrt bekommen haben
     if (!bike.from) {
       bike.from = (bike.createdAt ?? new Date().toISOString()).slice(0, 10)
-      geaendert.add('bikes')
-    }
-    if (bike.to === undefined) {
-      bike.to = null
       geaendert.add('bikes')
     }
     for (const feld of ['manufacturer', 'model']) {
@@ -196,6 +198,38 @@ function migriere() {
     if (!db.setups.some((auf) => auf.bikeId === bike.id && auf.kind === 'outdoor')) {
       db.setups.push({ id: createId(), bikeId: bike.id, name: 'Draußen', kind: 'outdoor' })
       geaendert.add('setups')
+    }
+  }
+
+  // Standardräder statt Nutzungszeiträumen: Früher hatte jedes Rad ein „von –
+  // bis“, und an einem Tag galt genau ein Rad für alles. Daraus wird je Rad ein
+  // Eintrag „ab seinem Start draußen“ und – wenn es eine Rolle hat – „ab seinem
+  // Start auf der Rolle“. Ein späteres Rad ohne Rolle lässt die Rolle damit
+  // beim alten, und genau das ist gewollt.
+  if (!Array.isArray(db.standards)) {
+    db.standards = []
+    const reihe = [...db.bikes].sort((a, b) => a.from.localeCompare(b.from))
+    for (const bike of reihe) {
+      for (const kind of ARTEN) {
+        if (!db.setups.some((auf) => auf.bikeId === bike.id && auf.kind === kind)) continue
+        db.standards.push({
+          id: createId(),
+          ownerId: bike.ownerId,
+          kind,
+          bikeId: bike.id,
+          from: bike.from,
+        })
+      }
+    }
+    geaendert.add('standards')
+    console.log(
+      `[fahrradtracker] ${db.standards.length} Standardrad-Einträge aus den Zeiträumen gebaut`,
+    )
+  }
+  for (const bike of db.bikes) {
+    if ('to' in bike) {
+      delete bike.to
+      geaendert.add('bikes')
     }
   }
 
@@ -323,6 +357,7 @@ function runBackup() {
       users: db.users,
       bikes: db.bikes,
       setups: db.setups,
+      standards: db.standards,
       componentTypes: db.types,
       components: db.components,
       rides: db.rides,
@@ -797,7 +832,7 @@ setInterval(syncFaellige, 60 * 60 * 1000)
 // Die Kette steht in shared/fahrten.js: Fahrt → Rad (über das Datum) → Aufbau
 // (drinnen/draußen) → die Teile dieses Aufbaus.
 function geloesteFahrten() {
-  const { loese } = zuordner(db.bikes, db.setups)
+  const { loese } = zuordner(db.bikes, db.setups, db.standards)
   return db.rides.filter((r) => !r.deleted).map(loese)
 }
 
@@ -1000,6 +1035,7 @@ function publicState(user) {
     users: db.users.map(profil),
     bikes: db.bikes.map((b) => ({ ...b, totalKm: kmFuerRad(b.id, fahrten) })),
     setups: db.setups.map((auf) => ({ ...auf, ...kmFuerAufbau(auf.id, fahrten) })),
+    standards: db.standards,
     componentTypes: db.types,
     components: db.components.map((c) => komponenteMitKm(c, fahrten)),
     rides: sichtbar,
@@ -1178,41 +1214,83 @@ app.get('/api/state', auth, (req, res) => {
 // ── Räder ────────────────────────────────────────────────────────────────────
 // Sichtbar sind alle Räder für alle; ändern darf sie nur, wem sie gehören.
 //
-// Ein Rad hat einen Nutzungszeitraum. Er entscheidet, welche Fahrt auf welches
-// Rad geht – deshalb dürfen sich die Zeiträume eines Profils nicht
-// überschneiden, sonst wäre die Zuordnung mehrdeutig. `to: null` heißt „das
-// fahre ich gerade“.
+// Ein Rad hat nur noch ein „genutzt ab“. Welche Fahrt es bekommt, sagen die
+// Standardräder (weiter unten) und die Ausnahmen an der Fahrt – das Datum hier
+// ist die Grenze nach vorn: Vor dem Kauf kann es keine Fahrt gegeben haben.
 function radDaten(body, bisher = {}) {
-  const daten = {
+  return {
     name: body?.name !== undefined ? text(body.name, 60) : bisher.name,
     manufacturer:
       body?.manufacturer !== undefined ? text(body.manufacturer, 60) : (bisher.manufacturer ?? ''),
     model: body?.model !== undefined ? text(body.model, 60) : (bisher.model ?? ''),
     from: body?.from !== undefined ? String(body.from ?? '').slice(0, 10) : bisher.from,
-    to: body?.to !== undefined ? (body.to ? String(body.to).slice(0, 10) : null) : bisher.to,
   }
-  return daten
 }
 
-function pruefeRad(daten, bikeId, ownerId) {
+function pruefeRad(daten, bikeId) {
   if (!daten.name) return 'Bitte einen Namen eintragen.'
   if (!istDatum(daten.from)) return 'Bitte ein gültiges „genutzt ab“ eintragen.'
-  if (daten.to !== null && !istDatum(daten.to)) return 'Das „genutzt bis“ ist kein gültiges Datum.'
-  if (daten.to !== null && daten.to < daten.from) return 'Das Ende liegt vor dem Anfang.'
+  if (!bikeId) return null
 
-  const kollision = db.bikes.find(
-    (b) => b.id !== bikeId && b.ownerId === ownerId && ueberschneidetSich(b, daten),
+  // Was schon vor dem neuen Datum auf das Rad zeigt, würde sonst still ins
+  // Leere fallen – lieber sagen, was im Weg steht.
+  const frueherStandard = db.standards
+    .filter((st) => st.bikeId === bikeId && st.from < daten.from)
+    .sort((a, b) => a.from.localeCompare(b.from))[0]
+  if (frueherStandard) {
+    return `Das Rad ist schon ab ${deutsch(frueherStandard.from)} als Standard eingetragen – erst den Eintrag verschieben.`
+  }
+  const frueheFahrten = db.rides.filter(
+    (r) => !r.deleted && r.override?.bikeId === bikeId && r.date < daten.from,
   )
-  if (kollision) {
-    return `Der Zeitraum überschneidet sich mit „${kollision.name}“ – ein Tag, ein Rad.`
+  if (frueheFahrten.length) {
+    return `${frueheFahrten.length === 1 ? 'Eine Fahrt' : `${frueheFahrten.length} Fahrten`} vor diesem Datum ${frueheFahrten.length === 1 ? 'ist' : 'sind'} dem Rad von Hand zugeordnet.`
   }
   return null
 }
 
+/** `2026-10-07` → `07.10.2026` für Meldungen. */
+function deutsch(datum) {
+  const [j, m, t] = String(datum).split('-')
+  return `${t}.${m}.${j}`
+}
+
+/** Sorgt dafür, dass ein Rad den Aufbau dieser Art hat – ohne ihn zählte dort nichts. */
+function aufbauSicher(bike, kind) {
+  if (db.setups.some((auf) => auf.bikeId === bike.id && auf.kind === kind)) return false
+  db.setups.push({
+    id: createId(),
+    bikeId: bike.id,
+    name: kind === 'indoor' ? 'Rolle' : 'Draußen',
+    kind,
+    factor: 1,
+  })
+  return true
+}
+
+/**
+ * Ein Standard-Eintrag: ab diesem Tag ist dieses Rad das für draußen bzw. die
+ * Rolle. Je Profil, Art und Tag gibt es höchstens einen – ein zweiter am selben
+ * Tag ersetzt den ersten.
+ */
+function setzeStandard(ownerId, kind, bike, from, ausser = null) {
+  db.standards = db.standards.filter(
+    (st) => st.id === ausser || !(st.ownerId === ownerId && st.kind === kind && st.from === from),
+  )
+  const eintrag = { id: ausser ?? createId(), ownerId, kind, bikeId: bike.id, from }
+  if (ausser) {
+    const i = db.standards.findIndex((st) => st.id === ausser)
+    db.standards[i] = eintrag
+  } else {
+    db.standards.push(eintrag)
+  }
+  aufbauSicher(bike, kind)
+}
+
 app.post('/api/bikes', auth, (req, res) => {
   antworte(req, res, () => {
-    const daten = radDaten(req.body, { from: heute(), to: null })
-    const fehler = pruefeRad(daten, null, req.user.id)
+    const daten = radDaten(req.body, { from: heute() })
+    const fehler = pruefeRad(daten, null)
     if (fehler) return { reject: { status: 400, error: fehler } }
 
     const bike = {
@@ -1224,8 +1302,13 @@ app.post('/api/bikes', auth, (req, res) => {
     }
     db.bikes.push(bike)
     // Ohne Aufbau hätte eine Fahrt nichts, woran ihre Teile hängen könnten
-    db.setups.push({ id: createId(), bikeId: bike.id, name: 'Draußen', kind: 'outdoor' })
-    sichere('bikes', 'setups')
+    aufbauSicher(bike, 'outdoor')
+    // Gleich beim Anlegen sagen, wofür es ab jetzt das Standardrad ist
+    const arten = Array.isArray(req.body?.standard) ? req.body.standard : []
+    for (const kind of ARTEN.filter((k) => arten.includes(k))) {
+      setzeStandard(req.user.id, kind, bike, bike.from)
+    }
+    sichere('bikes', 'setups', 'standards')
   })
 })
 
@@ -1234,7 +1317,7 @@ app.put('/api/bikes/:id', auth, (req, res) => {
   if (!bike) return
   antworte(req, res, () => {
     const daten = radDaten(req.body, bike)
-    const fehler = pruefeRad(daten, bike.id, bike.ownerId)
+    const fehler = pruefeRad(daten, bike.id)
     if (fehler) return { reject: { status: 400, error: fehler } }
     Object.assign(bike, daten)
     sichere('bikes')
@@ -1258,7 +1341,9 @@ app.delete('/api/bikes/:id', auth, (req, res) => {
     for (const fahrt of db.rides) {
       if (fahrt.override?.bikeId === bike.id) fahrt.override = null
     }
-    sichere('bikes', 'setups', 'components', 'rides')
+    // Seine Standard-Einträge gehen mit; davor gilt dann wieder der vorige
+    db.standards = db.standards.filter((st) => st.bikeId !== bike.id)
+    sichere('bikes', 'setups', 'components', 'rides', 'standards')
   })
 })
 
@@ -1353,11 +1438,83 @@ app.delete('/api/setups/:setupId', auth, (req, res) => {
         reject: { status: 409, error: 'Der Aufbau „draußen“ bleibt – ohne ihn zählt nichts.' },
       }
     }
+    if (db.standards.some((st) => st.bikeId === aufbau.bikeId && st.kind === 'indoor')) {
+      return {
+        reject: {
+          status: 409,
+          error:
+            'Das Rad ist als Standard für die Rolle eingetragen – erst diesen Eintrag löschen.',
+        },
+      }
+    }
     db.setups = db.setups.filter((a) => a.id !== aufbau.id)
     for (const teil of db.components) {
       teil.setupIds = (teil.setupIds ?? []).filter((id) => id !== aufbau.id)
     }
     sichere('setups', 'components')
+  })
+})
+
+// ── Standardräder ────────────────────────────────────────────────────────────
+// Je Profil und Art (draußen / Rolle) eine Zeitleiste: „ab 07.10.2026 draußen
+// das Propel“. Der jüngste Eintrag vor einer Fahrt gilt. Für eine Tour mit dem
+// anderen Rad trägt man zwei Wechsel ein – ab Start, ab Ende zurück –, für
+// einen einzelnen Tag stellt man die Fahrt selbst um.
+function standardDaten(req, bisher = {}) {
+  const kind = req.body?.kind !== undefined ? String(req.body.kind) : bisher.kind
+  const bikeId = req.body?.bikeId !== undefined ? String(req.body.bikeId) : bisher.bikeId
+  const from = req.body?.from !== undefined ? String(req.body.from).slice(0, 10) : bisher.from
+  if (!ARTEN.includes(kind)) return { fehler: 'Unbekannte Art.' }
+  if (!istDatum(from)) return { fehler: 'Kein gültiges Datum.' }
+  const bike = db.bikes.find((b) => b.id === bikeId && b.ownerId === req.user.id)
+  if (!bike) return { fehler: 'Rad nicht gefunden.' }
+  if (from < bike.from) {
+    return {
+      fehler: `„${bike.name}“ ist erst ab ${deutsch(bike.from)} eingetragen – früher geht nicht.`,
+    }
+  }
+  return { kind, bike, from }
+}
+
+app.post('/api/standards', auth, (req, res) => {
+  antworte(req, res, () => {
+    const { kind, bike, from, fehler } = standardDaten(req)
+    if (fehler) return { reject: { status: 400, error: fehler } }
+    setzeStandard(req.user.id, kind, bike, from)
+    sichere('standards', 'setups')
+  })
+})
+
+function eigenerStandard(req, res) {
+  const eintrag = db.standards.find((st) => st.id === req.params.id)
+  if (!eintrag) {
+    res.status(404).json({ error: 'Eintrag nicht gefunden.' })
+    return null
+  }
+  if (eintrag.ownerId !== req.user.id) {
+    res.status(403).json({ error: 'Der Eintrag gehört jemand anderem.' })
+    return null
+  }
+  return eintrag
+}
+
+app.put('/api/standards/:id', auth, (req, res) => {
+  const eintrag = eigenerStandard(req, res)
+  if (!eintrag) return
+  antworte(req, res, () => {
+    const { kind, bike, from, fehler } = standardDaten(req, eintrag)
+    if (fehler) return { reject: { status: 400, error: fehler } }
+    setzeStandard(req.user.id, kind, bike, from, eintrag.id)
+    sichere('standards', 'setups')
+  })
+})
+
+app.delete('/api/standards/:id', auth, (req, res) => {
+  const eintrag = eigenerStandard(req, res)
+  if (!eintrag) return
+  antworte(req, res, () => {
+    db.standards = db.standards.filter((st) => st.id !== eintrag.id)
+    sichere('standards')
   })
 })
 
@@ -1679,17 +1836,26 @@ function eigeneFahrt(req, res) {
   return fahrt
 }
 
-/** Rad und Aufbau von Hand festlegen – schlägt die Zuordnung über das Datum. */
-function ueberschreibung(body, ownerId) {
+/** Rad und Aufbau von Hand festlegen – die Ausnahme vom Standardrad. */
+function ueberschreibung(body, ownerId, datum) {
   const bikeId = body?.bikeId ? String(body.bikeId) : null
   const setupId = body?.setupId ? String(body.setupId) : null
   if (!bikeId && !setupId) return { override: null }
 
   const bike = db.bikes.find((b) => b.id === bikeId && b.ownerId === ownerId)
   if (bikeId && !bike) return { fehler: 'Rad nicht gefunden.' }
+  // Ein Rad, das man an dem Tag noch nicht hatte, kann es nicht gewesen sein
+  if (bike && datum < bike.from) {
+    return { fehler: `„${bike.name}“ gibt es erst ab ${deutsch(bike.from)}.` }
+  }
   if (setupId) {
     const aufbau = db.setups.find((a) => a.id === setupId)
     if (!aufbau) return { fehler: 'Aufbau nicht gefunden.' }
+    const besitzer = db.bikes.find((b) => b.id === aufbau.bikeId)
+    if (besitzer?.ownerId !== ownerId) return { fehler: 'Aufbau nicht gefunden.' }
+    if (datum < besitzer.from) {
+      return { fehler: `„${besitzer.name}“ gibt es erst ab ${deutsch(besitzer.from)}.` }
+    }
     if (bike && aufbau.bikeId !== bike.id) {
       return { fehler: 'Der Aufbau gehört nicht zu diesem Rad.' }
     }
@@ -1706,8 +1872,8 @@ app.post('/api/rides', auth, (req, res) => {
     if (!istDatum(datum)) return { reject: { status: 400, error: 'Kein gültiges Datum.' } }
     if (!(km > 0)) return { reject: { status: 400, error: 'Bitte eine Distanz über 0 eintragen.' } }
 
-    const { override, fehler } = ueberschreibung(req.body, req.user.id)
-    if (fehler) return { reject: { status: 404, error: fehler } }
+    const { override, fehler } = ueberschreibung(req.body, req.user.id, datum)
+    if (fehler) return { reject: { status: 400, error: fehler } }
 
     const zeit = String(req.body?.time ?? '').slice(0, 5)
     db.rides.push({
@@ -1807,8 +1973,10 @@ app.put('/api/rides/:id', auth, (req, res) => {
     // nur bei den von Hand eingetragenen – alles andere käme beim nächsten
     // Sync ohnehin wieder zurück.
     if (req.body?.bikeId !== undefined || req.body?.setupId !== undefined) {
-      const { override, fehler } = ueberschreibung(req.body, req.user.id)
-      if (fehler) return { reject: { status: 404, error: fehler } }
+      const datum =
+        fahrt.source === 'MANUAL' && istDatum(req.body?.date) ? req.body.date : fahrt.date
+      const { override, fehler } = ueberschreibung(req.body, req.user.id, datum)
+      if (fehler) return { reject: { status: 400, error: fehler } }
       fahrt.override = override
     }
 

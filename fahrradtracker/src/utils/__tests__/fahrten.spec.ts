@@ -5,26 +5,25 @@ import {
   ausIntervals,
   ausWahoo,
   istDublette,
-  imZeitraum,
   istRadfahrt,
   kmFuerRad,
   kmImZeitraum,
   statistik,
   synchronisiereFenster,
-  ueberschneidetSich,
+  standardFuer,
   zuordner,
 } from '../../../shared/fahrten.js'
 
-// Scott bis zum 05.09.2026, danach die Specialized – offenes Ende
-const scott = {
-  id: 'scott',
-  ownerId: 'u1',
-  name: 'Scott Speedster',
-  from: '2025-05-01',
-  to: '2026-09-05',
-}
-const spezi = { id: 'spezi', ownerId: 'u1', name: 'Specialized', from: '2026-09-06', to: null }
+// Das Scott seit Mai 2025, ab dem 06.09.2026 draußen die Specialized – auf
+// der Rolle bleibt das Scott
+const scott = { id: 'scott', ownerId: 'u1', name: 'Scott Speedster', from: '2025-05-01' }
+const spezi = { id: 'spezi', ownerId: 'u1', name: 'Specialized', from: '2026-09-01' }
 const bikes = [scott, spezi]
+const standards = [
+  { id: 'st1', ownerId: 'u1', kind: 'outdoor', bikeId: 'scott', from: '2025-05-01' },
+  { id: 'st2', ownerId: 'u1', kind: 'indoor', bikeId: 'scott', from: '2025-05-01' },
+  { id: 'st3', ownerId: 'u1', kind: 'outdoor', bikeId: 'spezi', from: '2026-09-06' },
+]
 
 const setups = [
   { id: 's-out', bikeId: 'scott', name: 'Draußen', kind: 'outdoor' },
@@ -94,23 +93,45 @@ describe('ausIntervals', () => {
   })
 })
 
-describe('Nutzungszeiträume', () => {
-  it('kennt das offene Ende', () => {
-    expect(imZeitraum('2026-12-24', '2026-09-06', null)).toBe(true)
-    expect(imZeitraum('2026-09-05', '2026-09-06', null)).toBe(false)
+describe('Standardräder', () => {
+  it('nimmt den jüngsten Eintrag vor dem Tag', () => {
+    expect(standardFuer(standards, bikes, 'u1', 'outdoor', '2026-09-05')?.id).toBe('scott')
+    expect(standardFuer(standards, bikes, 'u1', 'outdoor', '2026-09-06')?.id).toBe('spezi')
+    expect(standardFuer(standards, bikes, 'u1', 'indoor', '2026-12-24')?.id).toBe('scott')
   })
 
-  it('erkennt Überschneidungen', () => {
-    expect(ueberschneidetSich(scott, spezi)).toBe(false)
-    expect(ueberschneidetSich(scott, { from: '2026-09-01', to: null })).toBe(true)
-    expect(ueberschneidetSich({ from: '2025-01-01', to: null }, spezi)).toBe(true)
+  it('kennt nichts vor dem ersten Eintrag und nichts für andere Profile', () => {
+    expect(standardFuer(standards, bikes, 'u1', 'outdoor', '2025-04-30')).toBeNull()
+    expect(standardFuer(standards, bikes, 'u2', 'outdoor', '2026-09-10')).toBeNull()
+  })
+
+  it('springt für eine Tour hin und wieder zurück', () => {
+    const tour = [
+      ...standards,
+      { id: 't1', ownerId: 'u1', kind: 'outdoor', bikeId: 'scott', from: '2027-06-01' },
+      { id: 't2', ownerId: 'u1', kind: 'outdoor', bikeId: 'spezi', from: '2027-06-15' },
+    ]
+    expect(standardFuer(tour, bikes, 'u1', 'outdoor', '2027-05-31')?.id).toBe('spezi')
+    expect(standardFuer(tour, bikes, 'u1', 'outdoor', '2027-06-10')?.id).toBe('scott')
+    expect(standardFuer(tour, bikes, 'u1', 'outdoor', '2027-06-15')?.id).toBe('spezi')
+  })
+
+  it('lässt kein Rad vor seinem „genutzt ab“ gelten', () => {
+    const zuFrueh = [
+      ...standards,
+      { id: 'x', ownerId: 'u1', kind: 'outdoor', bikeId: 'spezi', from: '2026-08-01' },
+    ]
+    // Der Eintrag zeigt auf ein Rad, das es erst ab dem 01.09. gibt – davor
+    // gilt der vorige
+    expect(standardFuer(zuFrueh, bikes, 'u1', 'outdoor', '2026-08-15')?.id).toBe('scott')
+    expect(standardFuer(zuFrueh, bikes, 'u1', 'outdoor', '2026-09-02')?.id).toBe('spezi')
   })
 })
 
-describe('Zuordnung über das Datum', () => {
-  const { loese } = zuordner(bikes, setups)
+describe('Zuordnung über die Standardräder', () => {
+  const { loese } = zuordner(bikes, setups, standards)
 
-  it('schiebt die Fahrt auf das Rad, das an dem Tag gefahren wurde', () => {
+  it('schiebt die Fahrt auf das Standardrad des Tages', () => {
     expect(loese(fahrt({ date: '2026-08-20' })).bikeId).toBe('scott')
     expect(loese(fahrt({ date: '2026-09-10' })).bikeId).toBe('spezi')
   })
@@ -120,9 +141,14 @@ describe('Zuordnung über das Datum', () => {
     expect(loese(fahrt({ date: '2026-09-06' })).bikeId).toBe('spezi')
   })
 
-  it('wählt den Aufbau nach drinnen/draußen', () => {
+  it('wählt Rad und Aufbau nach drinnen/draußen', () => {
     expect(loese(fahrt({ indoor: false })).setupId).toBe('s-out')
     expect(loese(fahrt({ indoor: true })).setupId).toBe('s-in')
+    // Draußen das neue Rad, auf der Rolle weiter das alte
+    const rolle = loese(fahrt({ date: '2026-11-01', indoor: true }))
+    expect(rolle.bikeId).toBe('scott')
+    expect(rolle.setupId).toBe('s-in')
+    expect(loese(fahrt({ date: '2026-11-01' })).setupId).toBe('p-out')
   })
 
   it('meldet Fahrten ohne Rad als unzugeordnet, statt sie irgendwo zu verbuchen', () => {
@@ -131,22 +157,26 @@ describe('Zuordnung über das Datum', () => {
     expect(alt.unassigned).toBe(true)
   })
 
-  it('meldet auch eine Rollenfahrt ohne Rollen-Aufbau als unzugeordnet', () => {
-    const drinnen = loese(fahrt({ date: '2026-09-10', indoor: true }))
+  it('meldet eine Fahrt als unzugeordnet, wenn dem Rad der Aufbau fehlt', () => {
+    const drinnen = loese(
+      fahrt({ date: '2026-09-10', indoor: true, override: { bikeId: 'spezi', setupId: null } }),
+    )
     expect(drinnen.bikeId).toBe('spezi')
     expect(drinnen.setupId).toBeNull()
     expect(drinnen.unassigned).toBe(true)
   })
 
-  it('lässt sich von Hand übersteuern', () => {
-    const f = loese(fahrt({ date: '2026-08-20', override: { bikeId: 'spezi', setupId: 'p-out' } }))
-    expect(f.bikeId).toBe('spezi')
-    expect(f.setupId).toBe('p-out')
+  it('lässt sich als Ausnahme von Hand übersteuern und kennt den Standard dahinter', () => {
+    const f = loese(fahrt({ date: '2026-10-01', override: { bikeId: 'scott', setupId: null } }))
+    expect(f.bikeId).toBe('scott')
+    expect(f.setupId).toBe('s-out')
+    expect(f.standardBikeId).toBe('spezi')
+    expect(f.standardBikeName).toBe('Specialized')
   })
 })
 
 describe('Verschleiß über geteilte Teile', () => {
-  const { loese } = zuordner(bikes, setups)
+  const { loese } = zuordner(bikes, setups, standards)
   const fahrten = [
     fahrt({ id: '1', date: '2026-06-01', km: 100, indoor: false }),
     fahrt({ id: '2', date: '2026-06-02', km: 30, indoor: true }),
@@ -512,9 +542,11 @@ describe('Wahoo: geplante Einheiten und fehlende Distanzen', () => {
 })
 
 describe('Distanz von Hand', () => {
-  const bikes = [{ id: 'r1', ownerId: 'u1', name: 'Rad', from: '2026-01-01', to: null }]
+  const bikes = [{ id: 'r1', ownerId: 'u1', name: 'Rad', from: '2026-01-01' }]
   const setups = [{ id: 's1', bikeId: 'r1', name: 'Rolle', kind: 'indoor' }]
-  const { loese } = zuordner(bikes, setups)
+  const { loese } = zuordner(bikes, setups, [
+    { id: 'st', ownerId: 'u1', kind: 'indoor', bikeId: 'r1', from: '2026-01-01' },
+  ])
 
   const rolle = {
     id: 'f1',
@@ -663,13 +695,20 @@ describe('Gelöschte Fahrten bleiben gelöscht', () => {
 })
 
 describe('Verschleißfaktor je Aufbau', () => {
-  const bikes = [{ id: 'r1', ownerId: 'u1', name: 'Rad', from: '2026-01-01', to: null }]
+  const bikes = [{ id: 'r1', ownerId: 'u1', name: 'Rad', from: '2026-01-01' }]
+  const standards = (['outdoor', 'indoor'] as const).map((kind) => ({
+    id: kind,
+    ownerId: 'u1',
+    kind,
+    bikeId: 'r1',
+    from: '2026-01-01',
+  }))
   const setups = [
     { id: 'draussen', bikeId: 'r1', name: 'Draußen', kind: 'outdoor', factor: 1 },
     // Auf der Rolle zählt ein Kilometer nur zu 95 %
     { id: 'rolle', bikeId: 'r1', name: 'Rolle', kind: 'indoor', factor: 0.95 },
   ]
-  const { loese } = zuordner(bikes, setups)
+  const { loese } = zuordner(bikes, setups, standards)
   const fahrten = [
     { id: '1', ownerId: 'u1', date: '2026-03-01', km: 100, indoor: false },
     { id: '2', ownerId: 'u1', date: '2026-03-02', km: 100, indoor: true },
@@ -689,7 +728,7 @@ describe('Verschleißfaktor je Aufbau', () => {
   })
 
   it('nimmt 1, wenn kein Faktor gesetzt ist', () => {
-    const ohne = zuordner(bikes, [{ id: 'draussen', bikeId: 'r1', kind: 'outdoor' }])
+    const ohne = zuordner(bikes, [{ id: 'draussen', bikeId: 'r1', kind: 'outdoor' }], standards)
     expect(
       ohne.loese({ ownerId: 'u1', date: '2026-03-01', km: 80, indoor: false }).verschleissKm,
     ).toBe(80)
