@@ -81,7 +81,29 @@ const filterWahl = computed(() => {
 
 // Ziehen geht nur über das ganze Rezeptbuch: gefiltert passen die Plätze in
 // der Anzeige nicht zu denen im Buch
-const ungefiltert = computed(() => !suche.value.trim() && filter.value === 'alle')
+// „Jedes nur 1×“: ein Rezept in mehreren Kategorien steht dann nur unter der
+// ersten davon (in der Reihenfolge des Rezeptbuchs) – beim Durchsuchen sieht
+// man jedes genau einmal. Gemerkt pro Gerät, wie die kompakte Ansicht.
+const EINMAL_KEY = 'einkauf:rezepte-einmal'
+function ladeEinmal() {
+  try {
+    return localStorage.getItem(EINMAL_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+const nurEinmal = ref(ladeEinmal())
+watch(nurEinmal, (an) => {
+  try {
+    localStorage.setItem(EINMAL_KEY, an ? '1' : '0')
+  } catch {
+    /* ohne Speicher gilt es eben nur bis zum Neuladen */
+  }
+})
+
+const ungefiltert = computed(
+  () => !suche.value.trim() && filter.value === 'alle' && !nurEinmal.value,
+)
 
 // Innerhalb jeder Kategorie steht oben, was am längsten nicht auf der Liste
 // war – beim Planen der Woche fällt der Blick so zuerst auf das, was man
@@ -90,14 +112,17 @@ const ungefiltert = computed(() => !suche.value.trim() && filter.value === 'alle
 // nur das Ordnen – dort lassen sie sich umbenennen oder löschen.
 const gruppen = computed(() => {
   const q = suche.value.trim().toLowerCase()
+  const schonDa = new Set<string>()
   return store.state.recipeGroups
     .map((group) => {
       const passend = store.state.recipes.filter(
         (r) =>
           r.groups.includes(group.id) &&
           (!q || r.name.toLowerCase().includes(q)) &&
-          (filter.value === 'alle' || r.haltbarkeit === filter.value),
+          (filter.value === 'alle' || r.haltbarkeit === filter.value) &&
+          !(nurEinmal.value && schonDa.has(r.id)),
       )
+      for (const r of passend) schonDa.add(r.id)
       return {
         group,
         recipes: verwalten.value ? passend : nachZuletzt(passend, store.state.zuletzt),
@@ -451,6 +476,16 @@ function zurueck() {
             >
               {{ f.label }} <span class="zahl">{{ f.anzahl }}</span>
             </button>
+            <button
+              type="button"
+              class="einmal"
+              :class="{ an: nurEinmal }"
+              :aria-pressed="nurEinmal"
+              title="Rezepte in mehreren Kategorien nur unter der ersten zeigen"
+              @click="nurEinmal = !nurEinmal"
+            >
+              Jedes nur 1×
+            </button>
           </div>
 
           <p v-if="meldung" class="meldung">{{ meldung }}</p>
@@ -464,7 +499,9 @@ function zurueck() {
             Vorrat kommt – beides gilt sofort. Kategorien werden über den Stift ✎ an der Überschrift
             umbenannt oder gelöscht.
             <template v-if="ungefiltert">Am Griff ⠿ in die gewünschte Reihenfolge ziehen.</template>
-            <template v-else>Sortieren am Griff geht nur ohne Suche und Filter.</template>
+            <template v-else
+              >Sortieren am Griff geht nur ohne Suche, Filter und „Jedes nur 1×“.</template
+            >
             Gelöschte Rezepte sind weg – es gibt keine Vorlage, aus der sie zurückkämen.
           </p>
 
@@ -1044,6 +1081,15 @@ section ul li.ordnen {
   border-color: color-mix(in srgb, var(--violet) 45%, transparent);
   background: color-mix(in srgb, var(--violet) 12%, white);
   color: var(--violet);
+}
+
+.filter .einmal {
+  margin-left: auto;
+  border-style: dashed;
+}
+
+.filter .einmal.an {
+  border-style: solid;
 }
 
 .filter .zahl {

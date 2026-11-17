@@ -65,7 +65,9 @@ Handys gleichzeitig abgehakt. Erreichbar unter
   auf der Liste war** – nie gewählte Rezepte zuerst, darunter „zuletzt vor 6
   Wochen“ bis „zuletzt heute“. Nur beim Ordnen (⠿) gilt die Reihenfolge des
   Rezeptbuchs. Über der Liste filtern „Alle · 🥗 Frisch · 🥫 Vorrat“ (und
-  „Offen“, solange Rezepte ohne Angabe da sind) – im Fenster wie auf der Seite
+  „Offen“, solange Rezepte ohne Angabe da sind) – im Fenster wie auf der Seite.
+  **„Jedes nur 1×“** zeigt Rezepte aus mehreren Kategorien nur unter der ersten
+  (Reihenfolge der Kategorien-Datei), das macht Durchsuchen übersichtlicher
 - **Diese Woche** (oben, mit Zahl): jedes Rezept, das auf die Liste kommt, ist
   ein geplantes Gericht. Sortiert nach 🥗 Frisch, 🥫 Vorrat und „noch nicht
   festgelegt“, darin das am längsten Eingeplante zuerst; mehr als sieben und
@@ -259,8 +261,9 @@ Rezepte hängen.
 
 Die Reihenfolge in der Datei ist die Reihenfolge im Rezeptbuch. Umsortiert und
 gelöscht wird über den ⠿-Knopf oben im Rezeptfenster („Rezeptbuch ordnen“).
-Dort stehen unter jedem Rezept auch seine Kategorien (als Chips, dazu
-„＋ Kategorie“) und Frisch/Vorrat zum direkten Umstellen – viele Rezepte lassen sich so in einem Zug einsortieren.
+Dort stehen unter jedem Rezept auch seine Kategorien (eine Mehrfachauswahl:
+zugeklappt die gewählten, aufgeklappt jede Kategorie mit Häkchen, eine bleibt
+immer) und Frisch/Vorrat zum direkten Umstellen – viele Rezepte lassen sich so in einem Zug einsortieren.
 Gezogen wird nur ohne Suche und Filter, sonst passten die Plätze nicht zum Buch;
 gelöscht wird erst nach Rückfrage, und ohne Seed gibt es nichts, was ein
 gelöschtes Rezept zurückholt.
