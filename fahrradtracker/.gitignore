@@ -41,11 +41,12 @@ __screenshots__/
 test-results/
 playwright-report/
 
-# Der Live-Stand liegt auf dem Host: PIN-Hashes, Strava-Tokens und die geholten
+# Der Live-Stand liegt auf dem Host: PIN-Hashes, Wahoo-Tokens und die geholten
 # Fahrten haben im (öffentlichen) Repo nichts verloren. Die Kategorien kommen
 # beim ersten Start aus seed/teile.json.
 data/*.json
+data/*.alt
 backups/*.json
 
-# Strava-Zugangsdaten
+# Zugangsdaten: Wahoo, Intervals.icu, SMTP
 .env
