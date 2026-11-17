@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, useTemplateRef } from 'vue'
+import AppIcon from '@/components/AppIcon.vue'
 import type { Category, Item } from '@/composables/useEinkaufStore'
 import { findCatalogMatch, suggestCatalogEntries, type CatalogEntry } from '@/utils/matching'
 import { mengeStufen } from '@/utils/mengen'
@@ -143,7 +144,7 @@ function alsSchreibweise(artikel: string) {
   <li class="zeile" :class="{ erledigt: item.done, aktiv: offen }">
     <!-- Zugeklappt: Haken, Name, Menge. Ein Tipp auf den Namen klappt auf. -->
     <div v-if="!offen" class="haupt">
-      <span v-if="sortierbar" class="griff" title="Verschieben">⠿</span>
+      <span v-if="sortierbar" class="griff" title="Verschieben"><AppIcon name="griff" /></span>
 
       <!-- Bewusst kein <input type=checkbox>: dessen Zustand lebt im DOM und
            lief neben SortableJS aus dem Tritt – der Haken blieb grün, obwohl
@@ -179,42 +180,48 @@ function alsSchreibweise(artikel: string) {
         </span>
       </button>
 
-      <!-- Menge und Stepper sind ein Feld: − │ 250 g │ +. Ohne Angabe bleibt
-           nur das +, das aus der stillen Eins eine Zwei macht. -->
-      <div
-        v-if="stufbar && !item.done"
-        class="stepper"
-        :class="{ leer: !item.quantity, 'ohne-minus': !kannRunter }"
-      >
-        <button
-          v-if="kannRunter"
-          type="button"
-          class="stufe"
-          :aria-label="`Weniger ${item.name}`"
-          @click="stufen(-1)"
+      <!-- Menge, Stepper und Entfernen sind ein Bedienfeld: − 250 g + │ ×.
+           Ohne Angabe bleibt vom Stepper nur das +, das aus der stillen Eins
+           eine Zwei macht. -->
+      <div class="leiste">
+        <div
+          v-if="stufbar && !item.done"
+          class="stepper"
+          :class="{ leer: !item.quantity, 'ohne-minus': !kannRunter }"
         >
-          −
-        </button>
-        <!-- Die Zahl selbst gehört zum Artikel, nicht zum Stepper: ein Tipp
+          <button
+            v-if="kannRunter"
+            type="button"
+            class="stufe"
+            :aria-label="`Weniger ${item.name}`"
+            @click="stufen(-1)"
+          >
+            <AppIcon name="minus" :groesse="16" />
+          </button>
+          <!-- Die Zahl selbst gehört zum Artikel, nicht zum Stepper: ein Tipp
              darauf klappt genau wie der Name die Bearbeitung auf. -->
-        <button v-if="item.quantity" type="button" class="menge" @click="oeffnen">
+          <button v-if="item.quantity" type="button" class="menge" @click="oeffnen">
+            {{ item.quantity }}
+          </button>
+          <button
+            type="button"
+            class="stufe"
+            :aria-label="`Mehr ${item.name}`"
+            title="Eine Portion mehr"
+            @click="stufen(1)"
+          >
+            <AppIcon name="plus" :groesse="16" />
+          </button>
+        </div>
+        <button v-else-if="item.quantity" type="button" class="menge" @click="oeffnen">
           {{ item.quantity }}
         </button>
-        <button
-          type="button"
-          class="stufe"
-          :aria-label="`Mehr ${item.name}`"
-          title="Eine Portion mehr"
-          @click="stufen(1)"
-        >
-          +
+
+        <span class="trenner" aria-hidden="true"></span>
+        <button type="button" class="weg" title="Artikel entfernen" @click="emit('remove')">
+          <AppIcon name="kreuz" :groesse="16" />
         </button>
       </div>
-      <button v-else-if="item.quantity" type="button" class="menge" @click="oeffnen">
-        {{ item.quantity }}
-      </button>
-
-      <button type="button" class="weg" title="Artikel entfernen" @click="emit('remove')">×</button>
     </div>
 
     <!-- Aufgeklappt: dieselbe Zeile, nur als Eingabe – der Name steht nicht doppelt da -->
@@ -318,6 +325,7 @@ function alsSchreibweise(artikel: string) {
 }
 
 .griff {
+  display: inline-flex;
   flex-shrink: 0;
   margin: -0.2rem -0.3rem -0.2rem -0.2rem;
   padding: 0.4rem 0.35rem;
@@ -428,22 +436,31 @@ function alsSchreibweise(artikel: string) {
   opacity: 0.6;
 }
 
-/* Menge und Knöpfe sind ein Bedienfeld, kein Trio: ein Rahmen um alles. */
+/* Menge, Knöpfe und Entfernen sind ein Bedienfeld: ein Rahmen um alles,
+   ein Strich vor dem ×. So steht in jeder Zeile genau ein Element rechts. */
+.leiste {
+  display: flex;
+  align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 55%;
+  border: 1px solid var(--line);
+  border-radius: 1.1rem;
+  background: var(--card);
+}
+
 .stepper {
   display: flex;
   align-items: center;
   flex: 0 1 auto;
   min-width: 0;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--card);
 }
 
-/* Ohne Menge bleibt nur ein zurückhaltender Kreis – auf jeder Zeile ein
-   umrandetes Feld zu zeigen, das nichts enthält, wäre zu laut. */
-.stepper.leer {
-  border-color: transparent;
-  background: transparent;
+.trenner {
+  flex-shrink: 0;
+  width: 1px;
+  height: 1.2rem;
+  background: var(--line);
 }
 
 .stufe {
@@ -452,25 +469,17 @@ function alsSchreibweise(artikel: string) {
   justify-content: center;
   flex-shrink: 0;
   /* Genug Fläche zum Treffen, ohne die Zeile höher zu machen */
-  width: 2rem;
-  height: 2rem;
+  width: 1.9rem;
+  height: 1.9rem;
   border: none;
   border-radius: 999px;
   background: transparent;
   color: var(--violet);
-  font-size: 1.15rem;
-  line-height: 1;
   cursor: pointer;
 }
 
-.stepper.leer .stufe {
-  color: color-mix(in srgb, var(--muted) 50%, transparent);
-}
-
 .stepper .menge {
-  max-width: 8rem;
   padding: 0.15rem 0.15rem;
-  border: none;
   text-align: center;
 }
 
@@ -485,29 +494,31 @@ function alsSchreibweise(artikel: string) {
      Sie dürfen dann umbrechen, aber nie mehr als die halbe Zeile nehmen –
      sonst bleibt für den Namen nichts übrig. */
   flex: 0 1 auto;
-  max-width: 45%;
+  min-width: 0;
   padding: 0.15rem 0.5rem;
-  border: 1px solid var(--line);
-  border-radius: 0.5rem;
+  border: none;
   background: transparent;
   color: var(--muted);
   font-size: 0.8rem;
   line-height: 1.35;
   font-variant-numeric: tabular-nums;
-  overflow-wrap: break-word;
+  /* Umbrochen wird nur an Leerzeichen – „150-200g“ soll nicht mitten in der
+     Zahl zerfallen */
+  overflow-wrap: normal;
   cursor: pointer;
 }
 
 .weg {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
   width: 1.9rem;
   height: 1.9rem;
   border: none;
   border-radius: 999px;
   background: transparent;
-  color: color-mix(in srgb, var(--muted) 60%, transparent);
-  font-size: 1.25rem;
-  line-height: 1;
+  color: color-mix(in srgb, var(--muted) 75%, transparent);
   cursor: pointer;
 }
 

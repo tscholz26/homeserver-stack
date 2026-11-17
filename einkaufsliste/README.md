@@ -12,8 +12,12 @@ Handys gleichzeitig abgehakt. Erreichbar unter
   - `kategorisiert`: Artikel werden nach Kategorie gruppiert und in
     Supermarkt-Reihenfolge angezeigt, mit klebender Kategorie-Überschrift
   - `flach`: schlichte Liste ohne Kategorie-Überbau
+- **Kopf**: eine Zeile auf jeder Seite – ⌂ zurück zum Homeserver, „Einkauf ·
+  Wochenplan · Rezepte“ und ⚙ für die Verwaltung. Kein Titel, damit die Liste
+  so weit oben wie möglich beginnt
 - **Eingabe** aus kleinem Mengenfeld (`2`, `500g`, `1 Pck.`) und großem
-  Namensfeld; Enter oder „+“ trägt ein
+  Namensfeld; Enter oder „+“ trägt ein. Rechts daneben öffnet 🍲 das Rezeptbuch.
+  Jede Zeile hat rechts genau ein Bedienfeld: Menge mit − und +, ein Strich, ×
 - **Zuordnung** über den [Artikelkatalog](export/katalog.json) (340 Artikel,
   gut 1100 Schreibweisen) – komplett im Browser, ohne Nachladen:
   1. Normalisieren (klein, getrimmt, Mehrfach-Leerzeichen zusammengefasst)
@@ -54,7 +58,7 @@ Handys gleichzeitig abgehakt. Erreichbar unter
   Kategorie-Überschriften aus. Sortiert wird weiter nach Laden-Reihenfolge, nur
   sammelt sich das Abgehakte dann am Ende der ganzen Liste statt am Fuß jeder
   Kategorie
-- **Rezepte**: „🍲 Rezept zum Einkauf hinzufügen“ auf dem Listenbildschirm
+- **Rezepte**: der Knopf 🍲 neben dem „+“ auf dem Listenbildschirm
   öffnet das Rezeptbuch (nach Kategorien: Nudeln & Pasta, Suppen & Eintöpfe,
   Salate …). Ein Rezept kann in **mehreren Kategorien** stehen – Rote-Beete-Pasta
   unter „Nudeln & Pasta“ und „Sehr günstig“ – und taucht dann unter jeder auf. Ob ein Gericht **frisch** gekocht wird oder aus dem **Vorrat**
@@ -79,7 +83,7 @@ Handys gleichzeitig abgehakt. Erreichbar unter
   Einkaufsseite zum nächsten Gericht.
   Gerichte gehen **nur von Hand**: „✓ Gekocht“ entfernt ohne Rückfrage, ein paar
   Sekunden lang steht „Rückgängig“ da
-- **Rezeptbuch** als eigener Bereich oben („Einkauf | Wochenplan | Rezeptbuch“): zum
+- **Rezeptbuch** als eigener Bereich oben („Einkauf | Wochenplan | Rezepte“): zum
   Nachschlagen beim Kochen. Ein Rezept zeigt Gruppe, Frisch/Vorrat, Zutaten und
   **Notizen** (Zubereitung, Portionen, ein Link zum Original wird antippbar).
   „Zum Einkauf hinzufügen“ führt in denselben Schritt wie das Fenster auf der

@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useEinkaufStore } from '@/composables/useEinkaufStore'
+import AppIcon from '@/components/AppIcon.vue'
 
 const store = useEinkaufStore()
 
@@ -13,49 +14,13 @@ const ort = computed(() => (route.path.startsWith('/rezepte') ? 'rezepte' : rout
 
 <template>
   <div class="shell">
-    <header class="top">
-      <!-- Unaufdringlicher Rückweg zur Startseite des Homeservers -->
-      <a class="home" href="/">
-        <svg
-          viewBox="0 0 24 24"
-          width="13"
-          height="13"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2.4"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M19 12H6M11 6l-6 6 6 6" />
-        </svg>
-        Homeserver
+    <!-- Eine Zeile, auf jeder Seite gleich: Rückweg zum Homeserver, die drei
+         Orte der App und die Verwaltung. Kein Titel – die Zeile selbst sagt,
+         wo man ist, und jeder Pixel Höhe geht an die Liste darunter. -->
+    <header class="kopf">
+      <a class="rand" href="/" title="Homeserver" aria-label="Zurück zum Homeserver">
+        <AppIcon name="haus" />
       </a>
-
-      <div class="row">
-        <h1>Einkaufsliste</h1>
-        <RouterLink to="/verwaltung" class="tab-link" title="Verwaltung">
-          <svg
-            viewBox="0 0 24 24"
-            width="17"
-            height="17"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <circle cx="12" cy="12" r="3.2" />
-            <path
-              d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"
-            />
-          </svg>
-        </RouterLink>
-      </div>
-
-      <!-- Die Orte der App. Bewusst ein Feld und keine Pillen: darunter
-           stehen im Einkauf schon die Listen als Pillen. -->
       <nav class="menu">
         <RouterLink to="/" class="ort" :class="{ aktiv: ort === '/' }">Einkauf</RouterLink>
         <RouterLink to="/woche" class="ort" :class="{ aktiv: ort === '/woche' }">
@@ -63,9 +28,18 @@ const ort = computed(() => (route.path.startsWith('/rezepte') ? 'rezepte' : rout
           <span v-if="store.state.woche.length" class="zahl">{{ store.state.woche.length }}</span>
         </RouterLink>
         <RouterLink to="/rezepte" class="ort" :class="{ aktiv: ort === 'rezepte' }">
-          Rezeptbuch
+          Rezepte
         </RouterLink>
       </nav>
+      <RouterLink
+        to="/verwaltung"
+        class="rand"
+        :class="{ aktiv: ort === '/verwaltung' }"
+        title="Verwaltung"
+        aria-label="Verwaltung"
+      >
+        <AppIcon name="zahnrad" :groesse="17" />
+      </RouterLink>
     </header>
 
     <p v-if="store.error.value" class="fehler" @click="store.error.value = ''">
@@ -88,38 +62,39 @@ const ort = computed(() => (route.path.startsWith('/rezepte') ? 'rezepte' : rout
   padding-right: max(0.8rem, env(safe-area-inset-right));
 }
 
-.home {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--muted);
-  text-decoration: none;
-}
-
-.row {
+.kopf {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-  margin-top: 0.15rem;
+  gap: 0.4rem;
 }
 
-h1 {
-  margin: 0;
-  font-size: 1.45rem;
-  letter-spacing: -0.01em;
+/* Haus und Zahnrad links und rechts der Orte, gleich groß */
+.rand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.3rem;
+  height: 2.3rem;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: var(--card);
+  color: var(--muted);
+}
+
+.rand.aktiv {
+  border-color: color-mix(in srgb, var(--violet) 45%, transparent);
+  background: color-mix(in srgb, var(--violet) 12%, white);
+  color: var(--violet);
 }
 
 .menu {
+  flex: 1;
+  min-width: 0;
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
   gap: 0.2rem;
-  margin-top: 0.5rem;
   padding: 0.2rem;
   border: 1px solid var(--line);
   border-radius: 0.85rem;
@@ -127,10 +102,10 @@ h1 {
 }
 
 .ort {
-  padding: 0.4rem 0.3rem;
+  padding: 0.45rem 0.2rem;
   border-radius: 0.65rem;
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: 0.84rem;
   font-weight: 600;
   text-align: center;
   text-decoration: none;
@@ -154,26 +129,6 @@ h1 {
 }
 
 .ort.aktiv {
-  background: color-mix(in srgb, var(--violet) 12%, white);
-  color: var(--violet);
-}
-
-.tab-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.35rem 0.7rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--card);
-  color: var(--muted);
-  font-size: 0.85rem;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.tab-link.router-link-exact-active {
-  border-color: color-mix(in srgb, var(--violet) 45%, transparent);
   background: color-mix(in srgb, var(--violet) 12%, white);
   color: var(--violet);
 }

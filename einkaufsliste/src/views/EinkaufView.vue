@@ -201,6 +201,18 @@ onBeforeUnmount(() => beobachter?.disconnect())
           enterkeyhint="done"
         />
         <button type="submit" class="plus" title="Hinzufügen">+</button>
+        <!-- Ganze Rezepte kommen über ein eigenes Fenster dazu – als Knopf in
+             derselben Zeile, statt eine eigene Zeile Platz zu kosten -->
+        <button
+          v-if="liste?.type === 'kategorisiert'"
+          type="button"
+          class="plus rezept-knopf"
+          title="Rezept zum Einkauf hinzufügen"
+          aria-label="Rezept zum Einkauf hinzufügen"
+          @click="rezepteOffen = true"
+        >
+          🍲
+        </button>
       </form>
 
       <!-- Was der Katalog zum Angetippten kennt: ein Tipp trägt es ein -->
@@ -215,16 +227,6 @@ onBeforeUnmount(() => beobachter?.disconnect())
           {{ v }}
         </button>
       </div>
-
-      <!-- Ganze Rezepte kommen über ein eigenes Fenster dazu -->
-      <button
-        v-if="liste?.type === 'kategorisiert'"
-        type="button"
-        class="rezepte"
-        @click="rezepteOffen = true"
-      >
-        🍲 Rezept zum Einkauf hinzufügen
-      </button>
     </div>
 
     <RezeptFenster v-if="rezepteOffen && liste" :list="liste" @close="rezepteOffen = false" />
@@ -407,7 +409,7 @@ onBeforeUnmount(() => beobachter?.disconnect())
 }
 
 .menge {
-  width: 6.9rem;
+  width: 5.2rem;
   flex-shrink: 0;
   text-align: center;
 }
@@ -458,17 +460,8 @@ onBeforeUnmount(() => beobachter?.disconnect())
   cursor: pointer;
 }
 
-.rezepte {
-  width: 100%;
-  margin-top: 0.4rem;
-  padding: 0.5rem;
-  border: 1px dashed color-mix(in srgb, var(--violet) 35%, transparent);
-  border-radius: 0.8rem;
-  background: color-mix(in srgb, var(--violet) 6%, transparent);
-  color: var(--violet);
-  font-size: 0.88rem;
-  font-weight: 600;
-  cursor: pointer;
+.rezept-knopf {
+  font-size: 1.15rem;
 }
 
 .gruppe {
