@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useEinkaufStore, type WochenEintrag } from '@/composables/useEinkaufStore'
 import { wocheNachHaltbarkeit } from '@/utils/woche'
-import { wieLangeHer } from '@/utils/zuletzt'
+import RezeptFenster from '@/components/RezeptFenster.vue'
 
 const store = useEinkaufStore()
 const router = useRouter()
@@ -44,18 +44,17 @@ function rueckgaengig() {
 
 onBeforeUnmount(() => clearTimeout(timer))
 
-function seit(e: WochenEintrag) {
-  return `eingeplant ${wieLangeHer(e.addedAt)}`
-}
+// Derselbe Weg wie auf der Einkaufsseite: ein Rezept auf die Liste ist ein
+// Gericht mehr im Wochenplan
+const rezepteOffen = ref(false)
 </script>
 
 <template>
   <div class="woche">
+    <!-- Ohne Datum: alles, was geplant und noch nicht gekocht ist -->
     <p v-if="!store.state.woche.length" class="leer">
-      Noch nichts geplant. Gerichte landen hier, sobald ein Rezept über
-      <strong>„🍲 Rezept zum Einkauf hinzufügen“</strong> auf die Liste kommt – und bleiben, bis sie
-      als gekocht abgehakt werden.
-      <RouterLink to="/rezepte" class="zum-buch">Zum Rezeptbuch</RouterLink>
+      Noch nichts geplant. Gerichte landen hier, sobald ein Rezept auf die Einkaufsliste kommt – und
+      bleiben, bis sie als gekocht abgehakt werden.
     </p>
 
     <section v-for="a in abschnitte" :key="a.id" class="abschnitt">
@@ -68,10 +67,7 @@ function seit(e: WochenEintrag) {
         <li v-for="e in a.eintraege" :key="e.id">
           <button type="button" class="gericht" :disabled="!rezeptVon(e)" @click="oeffne(e)">
             <span class="name">{{ rezeptVon(e)?.name ?? e.name }}</span>
-            <small>
-              {{ seit(e) }}
-              <template v-if="!rezeptVon(e)"> · Rezept gelöscht</template>
-            </small>
+            <small v-if="!rezeptVon(e)">Rezept gelöscht</small>
           </button>
           <button
             type="button"
@@ -85,10 +81,25 @@ function seit(e: WochenEintrag) {
       </ul>
     </section>
 
+    <button
+      v-if="store.einkaufsListe.value"
+      type="button"
+      class="rezepte"
+      @click="rezepteOffen = true"
+    >
+      🍲 Rezept zum Einkauf hinzufügen
+    </button>
+
     <p v-if="store.state.woche.length" class="hinweis">
       Ein Tipp auf das Gericht schlägt das Rezept auf. Was gekocht ist, verschwindet nur über
       „Gekocht“.
     </p>
+
+    <RezeptFenster
+      v-if="rezepteOffen && store.einkaufsListe.value"
+      :list="store.einkaufsListe.value"
+      @close="rezepteOffen = false"
+    />
 
     <div v-if="entfernt" class="rueck" role="status">
       <span>„{{ entfernt.name }}“ ist raus.</span>
@@ -114,16 +125,18 @@ function seit(e: WochenEintrag) {
   font-weight: 600;
 }
 
-.zum-buch {
-  display: block;
-  width: fit-content;
-  margin: 1rem auto 0;
-  padding: 0.55rem 1rem;
+/* Wie auf der Einkaufsseite */
+.rezepte {
+  width: 100%;
+  margin-top: 1.2rem;
+  padding: 0.5rem;
+  border: 1px dashed color-mix(in srgb, var(--violet) 35%, transparent);
   border-radius: 0.8rem;
-  background: var(--violet);
-  color: white;
-  font-weight: 700;
-  text-decoration: none;
+  background: color-mix(in srgb, var(--violet) 6%, transparent);
+  color: var(--violet);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .abschnitt {

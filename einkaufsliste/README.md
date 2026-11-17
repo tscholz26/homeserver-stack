@@ -71,13 +71,15 @@ Handys gleichzeitig abgehakt. Erreichbar unter
   **„Nur 1×“** zeigt Rezepte aus mehreren Kategorien nur unter der ersten
   (Reihenfolge der Kategorien-Datei). Während der Suche ist es von selbst an –
   dort abschaltbar –, ohne Suchbegriff gilt wieder die eigene Einstellung
-- **Diese Woche** (oben, mit Zahl): jedes Rezept, das auf die Liste kommt, ist
-  ein geplantes Gericht. Sortiert nach 🥗 Frisch, 🥫 Vorrat und „noch nicht
-  festgelegt“, darin das am längsten Eingeplante zuerst; mehr als sieben und
-  dasselbe Gericht zweimal sind kein Problem. Ein Tipp schlägt das Rezept auf.
+- **Wochenplan** (oben, mit Zahl): jedes Rezept, das auf die Liste kommt, ist
+  ein geplantes Gericht – ohne Datum, einfach alles, was noch nicht gekocht ist.
+  Sortiert nach 🥗 Frisch, 🥫 Vorrat und „noch nicht festgelegt“; mehr als
+  sieben und dasselbe Gericht zweimal sind kein Problem. Ein Tipp schlägt das
+  Rezept auf, unten führt „🍲 Rezept zum Einkauf hinzufügen“ wie auf der
+  Einkaufsseite zum nächsten Gericht.
   Gerichte gehen **nur von Hand**: „✓ Gekocht“ entfernt ohne Rückfrage, ein paar
   Sekunden lang steht „Rückgängig“ da
-- **Rezeptbuch** als eigener Bereich oben („Einkauf | Diese Woche | Rezeptbuch“): zum
+- **Rezeptbuch** als eigener Bereich oben („Einkauf | Wochenplan | Rezeptbuch“): zum
   Nachschlagen beim Kochen. Ein Rezept zeigt Gruppe, Frisch/Vorrat, Zutaten und
   **Notizen** (Zubereitung, Portionen, ein Link zum Original wird antippbar).
   „Zum Einkauf hinzufügen“ führt in denselben Schritt wie das Fenster auf der
@@ -124,7 +126,7 @@ Fünf Dateien, jede mit genau einer Aufgabe – alle auf dem Host, keine im Imag
 
 | Datei | Inhalt | im git |
 | --- | --- | --- |
-| `data/state.json` | die Einkaufslisten, die Historie nicht zugeordneter Namen, wann welches Rezept zuletzt gewählt wurde (`zuletzt`) und die Gerichte für „Diese Woche“ (`woche`) | nein |
+| `data/state.json` | die Einkaufslisten, die Historie nicht zugeordneter Namen, wann welches Rezept zuletzt gewählt wurde (`zuletzt`) und die Gerichte im Wochenplan (`woche`) | nein |
 | `export/katalog.json` | der Artikelkatalog | **ja** |
 | `export/maerkte.json` | die Märkte (Kategorie-Reihenfolge je Filiale) | **ja** |
 | `export/rezepte.json` | das Rezeptbuch | **ja** |
@@ -188,7 +190,7 @@ selbst sind ersetzbar, alles andere liegt im git. Das alte Verzeichnis
 | POST | `/api/lists/:id/items/:itemId/check` | `{ done }` setzen |
 | DELETE | `/api/lists/:id/items/:itemId` | Artikel entfernen |
 | PUT | `/api/lists/:id/order` | neue Reihenfolge der Artikel (Handsortierung) |
-| POST | `/api/lists/:id/add-batch` | ganzes Rezept: neue Artikel und fortgeschriebene Mengen; mit `recipeId` gilt das Rezept als zuletzt gewählt, kommt in „Diese Woche“ und hängt an seinen Artikeln |
+| POST | `/api/lists/:id/add-batch` | ganzes Rezept: neue Artikel und fortgeschriebene Mengen; mit `recipeId` gilt das Rezept als zuletzt gewählt, kommt in den Wochenplan und hängt an seinen Artikeln |
 | POST / DELETE | `/api/woche[/:id]` | Gericht zurückholen („Rückgängig“) / als gekocht entfernen |
 | POST / PUT / DELETE | `/api/recipes[/:id]` | Rezept anlegen / ändern / löschen |
 | PUT | `/api/recipes/order` | Reihenfolge im Rezeptbuch |

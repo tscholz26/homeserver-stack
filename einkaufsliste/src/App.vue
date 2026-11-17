@@ -59,7 +59,7 @@ const ort = computed(() => (route.path.startsWith('/rezepte') ? 'rezepte' : rout
       <nav class="menu">
         <RouterLink to="/" class="ort" :class="{ aktiv: ort === '/' }">Einkauf</RouterLink>
         <RouterLink to="/woche" class="ort" :class="{ aktiv: ort === '/woche' }">
-          Diese Woche
+          Wochenplan
           <span v-if="store.state.woche.length" class="zahl">{{ store.state.woche.length }}</span>
         </RouterLink>
         <RouterLink to="/rezepte" class="ort" :class="{ aktiv: ort === 'rezepte' }">

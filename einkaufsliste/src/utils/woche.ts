@@ -8,7 +8,7 @@ export interface WochenAbschnitt<T> {
 }
 
 /**
- * „Diese Woche“ nach Frisch und Vorrat: frisch zuerst, weil das zuerst gekocht
+ * Der Wochenplan nach Frisch und Vorrat: frisch zuerst, weil das zuerst gekocht
  * werden muss. Innerhalb eines Abschnitts steht oben, was schon am längsten
  * eingeplant ist. Gerichte ohne Angabe kommen ans Ende; leere Abschnitte fallen
  * weg.

@@ -21,7 +21,7 @@ function zeige(id: string | null) {
   if (id) router.push(`/rezepte/${id}`)
   // Schon in der Übersicht: nichts zu tun
   else if (!rezeptId.value) return
-  // Kam man aus der Übersicht oder aus „Diese Woche“, geht es dorthin zurück
+  // Kam man aus der Übersicht oder aus dem Wochenplan, geht es dorthin zurück
   // statt einen Schritt weiter
   else if (['/rezepte', '/woche'].includes(window.history.state?.back)) router.back()
   else router.replace('/rezepte')

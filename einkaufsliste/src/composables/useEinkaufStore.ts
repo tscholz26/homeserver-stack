@@ -67,7 +67,7 @@ export interface RecipeGroup {
   label: string
 }
 
-/** Ein geplantes Gericht in „Diese Woche“ */
+/** Ein geplantes Gericht im Wochenplan */
 export interface WochenEintrag {
   id: string
   /** Leer oder ins Leere zeigend, wenn das Rezept inzwischen gelöscht ist */
@@ -611,7 +611,7 @@ function createStore() {
     return (item.rezepte ?? []).map((v) => state.recipes.find((r) => r.id === v.id)?.name ?? v.name)
   }
 
-  // ── Diese Woche ────────────────────────────────────────────────────────────
+  // ── Wochenplan ─────────────────────────────────────────────────────────────
   /** Gekocht (oder doch nicht): raus aus der Woche. */
   function removeWochenEintrag(id: string) {
     state.woche = state.woche.filter((e) => e.id !== id)
