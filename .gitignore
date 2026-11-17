@@ -6,3 +6,7 @@ nextcloud/data/
 
 # Logs
 *.log
+
+# Nextcloud upgrade backups (contain DB dump + config secrets)
+nextcloud/backup-*/
+*.bak

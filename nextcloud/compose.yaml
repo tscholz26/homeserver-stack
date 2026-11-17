@@ -27,7 +27,7 @@ services:
       - caddy-network
 
   app:
-    image: nextcloud:fpm-alpine
+    image: nextcloud:35-fpm-alpine
     restart: always
     volumes:
       - /home/tristans/dev/nextcloud-dev/nextcloud:/var/www/html:z
@@ -52,7 +52,7 @@ services:
       - caddy-network
 
   cron:
-    image: nextcloud:fpm-alpine
+    image: nextcloud:35-fpm-alpine
     restart: always
     volumes:
       - /home/tristans/dev/nextcloud-dev/nextcloud:/var/www/html:z
