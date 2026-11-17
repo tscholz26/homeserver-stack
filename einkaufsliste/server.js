@@ -746,7 +746,11 @@ app.put('/api/recipe-groups/:id', (req, res) => {
       return { reject: { status: 409, error: 'Diese Kategorie gibt es schon.' } }
     }
     // Die id bleibt: an ihr hängen die Rezepte
-    Object.assign(gruppe, normalizeGroup({ ...gruppe, label: label ?? gruppe.label, emoji }))
+    // Was nicht mitkommt, bleibt: ein Umbenennen ohne Zeichen setzte es sonst auf ❓
+    Object.assign(
+      gruppe,
+      normalizeGroup({ ...gruppe, label: label ?? gruppe.label, emoji: emoji ?? gruppe.emoji }),
+    )
   })
 })
 
