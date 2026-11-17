@@ -72,9 +72,10 @@ async function neu() {
         />
         <span>{{ g.emoji }} {{ g.label }}</span>
       </label>
+      <!-- Kein eigenes „Fertig“: beim Bearbeiten speichert „Speichern“ das ganze
+           Rezept, beim Ordnen gilt jedes Häkchen sofort. Zu klappt der Kopf. -->
       <div class="unten">
         <button type="button" class="neu" @click="neu">＋ Kategorie hinzufügen …</button>
-        <button type="button" class="fertig" @click="offen = false">Fertig</button>
       </div>
       <p v-if="gewaehlt.length === 1" class="hinweis">Eine Kategorie bleibt immer.</p>
     </div>
@@ -162,13 +163,11 @@ label span {
 .unten {
   grid-column: 1 / -1;
   display: flex;
-  justify-content: space-between;
   gap: 0.4rem;
   margin-top: 0.2rem;
 }
 
-.neu,
-.fertig {
+.neu {
   padding: 0.4rem 0.7rem;
   border-radius: 0.6rem;
   font-size: 0.82rem;
@@ -180,12 +179,6 @@ label span {
   border: 1px dashed color-mix(in srgb, var(--violet) 40%, transparent);
   background: transparent;
   color: var(--violet);
-}
-
-.fertig {
-  border: none;
-  background: var(--violet);
-  color: white;
 }
 
 .hinweis {
