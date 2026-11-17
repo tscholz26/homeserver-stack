@@ -8,6 +8,7 @@ import {
   type RecipeIngredient,
 } from '@/composables/useEinkaufStore'
 import HaltbarkeitWahl from '@/components/HaltbarkeitWahl.vue'
+import KategorienWahl from '@/components/KategorienWahl.vue'
 import NotizText from '@/components/NotizText.vue'
 import { planeRezept, zerlegeKategorie } from '@/utils/rezept'
 import { HALTBARKEITEN, haltbarkeitInfo, type Haltbarkeit } from '@/utils/haltbarkeit'
@@ -54,8 +55,8 @@ watch(
   { immediate: true },
 )
 
-const aktivGruppe = computed(() =>
-  store.state.recipeGroups.find((g) => g.id === aktiv.value?.group),
+const aktivGruppen = computed(() =>
+  store.state.recipeGroups.filter((g) => aktiv.value?.groups.includes(g.id)),
 )
 const suche = ref('')
 // Im Verwaltungsmodus wird sortiert und gelöscht statt eingekauft
@@ -93,7 +94,7 @@ const gruppen = computed(() => {
     .map((group) => {
       const passend = store.state.recipes.filter(
         (r) =>
-          r.group === group.id &&
+          r.groups.includes(group.id) &&
           (!q || r.name.toLowerCase().includes(q)) &&
           (filter.value === 'alle' || r.haltbarkeit === filter.value),
       )
@@ -185,16 +186,16 @@ async function hinzufuegen() {
 const entwurf = reactive<{
   id: string | null
   name: string
-  group: string
+  groups: string[]
   haltbarkeit: Haltbarkeit
   notes: string
   zutaten: RecipeIngredient[]
-}>({ id: null, name: '', group: '', haltbarkeit: '', notes: '', zutaten: [] })
+}>({ id: null, name: '', groups: [], haltbarkeit: '', notes: '', zutaten: [] })
 
 function bearbeiten(rezept: Recipe) {
   entwurf.id = rezept.id
   entwurf.name = rezept.name
-  entwurf.group = rezept.group
+  entwurf.groups = [...rezept.groups]
   entwurf.haltbarkeit = rezept.haltbarkeit
   entwurf.notes = rezept.notes
   entwurf.zutaten = rezept.ingredients.map((z) => ({ ...z }))
@@ -205,7 +206,7 @@ function bearbeiten(rezept: Recipe) {
 function neuesRezept() {
   entwurf.id = null
   entwurf.name = ''
-  entwurf.group = store.state.recipeGroups[0]?.id ?? ''
+  entwurf.groups = store.state.recipeGroups[0] ? [store.state.recipeGroups[0].id] : []
   entwurf.haltbarkeit = ''
   entwurf.notes = ''
   entwurf.zutaten = [{ name: '', quantity: '' }]
@@ -302,7 +303,7 @@ async function rezeptSpeichern() {
 
   const rezept = {
     name,
-    group: entwurf.group,
+    groups: entwurf.groups,
     haltbarkeit: entwurf.haltbarkeit,
     notes: entwurf.notes.trim(),
     ingredients: zutaten,
@@ -314,9 +315,9 @@ async function rezeptSpeichern() {
 }
 
 // ── Kategorien ────────────────────────────────────────────────────────────────
-// Angelegt wird direkt aus jeder Kategorie-Auswahl heraus („＋ Kategorie
-// hinzufügen …“), umbenannt und gelöscht über den Stift an der Überschrift.
-const NEUE_KATEGORIE = '__neu__'
+// Ein Rezept steht in einer oder mehreren Kategorien. Angelegt wird direkt aus
+// jeder Kategorie-Auswahl heraus („＋ Kategorie hinzufügen …“), umbenannt und
+// gelöscht über den Stift an der Überschrift.
 
 /** Fragt nach dem Namen, legt an und gibt die id zurück – null bei Abbruch. */
 async function kategorieAnlegen(): Promise<string | null> {
@@ -331,31 +332,6 @@ async function kategorieAnlegen(): Promise<string | null> {
     (g) => g.label.trim().toLowerCase() === label.toLowerCase(),
   )
   return neu?.id ?? null
-}
-
-/** Auswahl an einem Rezept in der Liste: gilt sofort. */
-async function kategorieGewaehlt(rezept: Recipe, event: Event) {
-  const select = event.target as HTMLSelectElement
-  let ziel: string | null = select.value
-  if (ziel === NEUE_KATEGORIE) {
-    // Die Auswahl springt erst zurück; steht die neue Kategorie, zeigt der
-    // Serverstand sie ohnehin an
-    select.value = rezept.group
-    ziel = await kategorieAnlegen()
-  }
-  if (ziel && ziel !== rezept.group) store.saveRecipe(rezept.id, { group: ziel })
-}
-
-/** Auswahl im Bearbeiten-Formular: gilt erst mit „Speichern“. */
-async function entwurfKategorie(event: Event) {
-  const select = event.target as HTMLSelectElement
-  if (select.value !== NEUE_KATEGORIE) {
-    entwurf.group = select.value
-    return
-  }
-  select.value = entwurf.group
-  const id = await kategorieAnlegen()
-  if (id) entwurf.group = id
 }
 
 const kategorieOffen = ref<string | null>(null)
@@ -378,7 +354,11 @@ async function kategorieSpeichern(id: string) {
 }
 
 async function kategorieLoeschen(id: string, label: string) {
-  if (!confirm(`Kategorie „${label}“ löschen?`)) return
+  const drin = store.recipeCount(id)
+  const frage = drin
+    ? `Kategorie „${label}“ löschen? Die ${drin} Rezepte darin bleiben in ihren anderen Kategorien.`
+    : `Kategorie „${label}“ löschen?`
+  if (!confirm(frage)) return
   if (await store.removeRecipeGroup(id)) kategorieOffen.value = null
 }
 
@@ -480,7 +460,7 @@ function zurueck() {
           </p>
 
           <p v-if="verwalten" class="hinweis ordnen-hinweis">
-            Unter jedem Rezept stehen seine Kategorie und ob es frisch gekocht wird oder aus dem
+            Unter jedem Rezept stehen seine Kategorien und ob es frisch gekocht wird oder aus dem
             Vorrat kommt – beides gilt sofort. Kategorien werden über den Stift ✎ an der Überschrift
             umbenannt oder gelöscht.
             <template v-if="ungefiltert">Am Griff ⠿ in die gewünschte Reihenfolge ziehen.</template>
@@ -509,8 +489,10 @@ function zurueck() {
                 />
               </div>
               <div class="kategorie-knoepfe">
+                <!-- Gelöscht wird, solange jedes Rezept noch eine andere
+                     Kategorie hat – aus denen wird sie dann nur herausgenommen -->
                 <button
-                  v-if="store.recipeCount(g.group.id) === 0"
+                  v-if="store.recipeCountOnly(g.group.id) === 0"
                   type="button"
                   class="loeschen klein"
                   @click="kategorieLoeschen(g.group.id, g.group.label)"
@@ -518,8 +500,12 @@ function zurueck() {
                   🗑 Löschen
                 </button>
                 <span v-else class="hinweis klein">
-                  Löschen geht erst, wenn die {{ store.recipeCount(g.group.id) }} Rezepte woanders
-                  liegen.
+                  {{
+                    store.recipeCountOnly(g.group.id) === 1
+                      ? '1 Rezept steht'
+                      : `${store.recipeCountOnly(g.group.id)} Rezepte stehen`
+                  }}
+                  nur hier – Löschen geht, sobald sie auch in einer anderen Kategorie stehen.
                 </span>
                 <button type="button" class="ab" @click="kategorieOffen = null">Abbrechen</button>
                 <button type="submit" class="ok" :disabled="!kategorieName.trim()">
@@ -590,16 +576,14 @@ function zurueck() {
                 <!-- Einsortieren ohne Umweg über das Bearbeiten: bei sechzig
                      Rezepten wäre jeder zusätzliche Tipp einer zu viel -->
                 <div v-if="verwalten" class="einordnen">
-                  <select
-                    :value="r.group"
-                    :aria-label="`Kategorie von ${r.name}`"
-                    @change="kategorieGewaehlt(r, $event)"
-                  >
-                    <option v-for="gr in store.state.recipeGroups" :key="gr.id" :value="gr.id">
-                      {{ gr.emoji }} {{ gr.label }}
-                    </option>
-                    <option :value="NEUE_KATEGORIE">＋ Kategorie hinzufügen …</option>
-                  </select>
+                  <KategorienWahl
+                    :model-value="r.groups"
+                    :gruppen="store.state.recipeGroups"
+                    :anlegen="kategorieAnlegen"
+                    :rezept-name="r.name"
+                    class="kategorien-wahl"
+                    @update:model-value="store.saveRecipe(r.id, { groups: $event })"
+                  />
                   <HaltbarkeitWahl
                     :model-value="r.haltbarkeit"
                     @update:model-value="store.saveRecipe(r.id, { haltbarkeit: $event })"
@@ -635,7 +619,9 @@ function zurueck() {
 
         <div class="inhalt">
           <p class="meta">
-            <template v-if="aktivGruppe">{{ aktivGruppe.emoji }} {{ aktivGruppe.label }}</template>
+            <template v-for="(g, index) in aktivGruppen" :key="g.id"
+              ><template v-if="index > 0"> · </template>{{ g.emoji }} {{ g.label }}</template
+            >
             <template v-if="haltbarkeitInfo(aktiv.haltbarkeit)">
               · {{ haltbarkeitInfo(aktiv.haltbarkeit)?.emoji }}
               {{ haltbarkeitInfo(aktiv.haltbarkeit)?.lang }}
@@ -754,12 +740,12 @@ function zurueck() {
             placeholder="Name des Rezepts"
             aria-label="Name des Rezepts"
           />
-          <select :value="entwurf.group" aria-label="Kategorie" @change="entwurfKategorie">
-            <option v-for="g in store.state.recipeGroups" :key="g.id" :value="g.id">
-              {{ g.emoji }} {{ g.label }}
-            </option>
-            <option :value="NEUE_KATEGORIE">＋ Kategorie hinzufügen …</option>
-          </select>
+          <KategorienWahl
+            v-model="entwurf.groups"
+            :gruppen="store.state.recipeGroups"
+            :anlegen="kategorieAnlegen"
+            class="kategorien-entwurf"
+          />
           <!-- Unabhängig von der Gruppe: auch Pasta kann aus dem Vorrat kommen -->
           <HaltbarkeitWahl v-model="entwurf.haltbarkeit" class="haltbarkeit" />
 
@@ -1005,9 +991,19 @@ section ul li.ordnen {
 .einordnen {
   flex-basis: 100%;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
   gap: 0.4rem;
   padding: 0 0 0.6rem;
+}
+
+.kategorien-wahl {
+  flex: 1 1 12rem;
+}
+
+.kategorien-entwurf {
+  margin-top: 0.5rem;
 }
 
 .einordnen select {

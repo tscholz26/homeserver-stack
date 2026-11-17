@@ -52,7 +52,8 @@ export interface RecipeIngredient {
 export interface Recipe {
   id: string
   name: string
-  group: string
+  /** Kategorien des Rezepts – mindestens eine, gern mehrere */
+  groups: string[]
   /** Unabhängig von der Gruppe: wie schnell die Zutaten verbraucht sein müssen */
   haltbarkeit: Haltbarkeit
   /** Freitext: Zubereitung, Portionen, Link zur Quelle */
@@ -494,16 +495,6 @@ function createStore() {
 
   // ── Rezepte ────────────────────────────────────────────────────────────────
   /**
-   * Rezepte nach Gruppen, leere Gruppen fallen weg. Innerhalb einer Gruppe gilt
-   * die Reihenfolge aus dem Rezeptbuch – die lässt sich von Hand ziehen.
-   */
-  const recipesByGroup = computed(() =>
-    state.recipeGroups
-      .map((group) => ({ group, recipes: state.recipes.filter((r) => r.group === group.id) }))
-      .filter((g) => g.recipes.length > 0),
-  )
-
-  /**
    * Ein Rezept innerhalb seiner Gruppe verschieben. Die anderen Gruppen bleiben
    * stehen, wo sie sind: die Plätze der Gruppe werden neu belegt.
    */
@@ -521,11 +512,16 @@ function createStore() {
 
   /** Wie viele Rezepte in einer Gruppe liegen – die Verwaltung zeigt es an. */
   function recipeCount(groupId: string) {
-    return state.recipes.filter((r) => r.group === groupId).length
+    return state.recipes.filter((r) => r.groups.includes(groupId)).length
+  }
+
+  /** Rezepte, die nur in dieser Kategorie stehen – sie verhindern das Löschen. */
+  function recipeCountOnly(groupId: string) {
+    return state.recipes.filter((r) => r.groups.length === 1 && r.groups[0] === groupId).length
   }
 
   function moveRecipe(groupId: string, from: number, to: number) {
-    const inGruppe = state.recipes.filter((r) => r.group === groupId)
+    const inGruppe = state.recipes.filter((r) => r.groups.includes(groupId))
     if (from === to || from < 0 || to < 0 || from >= inGruppe.length || to >= inGruppe.length) {
       return
     }
@@ -533,7 +529,7 @@ function createStore() {
     inGruppe.splice(to, 0, raus!)
 
     let n = 0
-    const neu = state.recipes.map((r) => (r.group === groupId ? inGruppe[n++]! : r))
+    const neu = state.recipes.map((r) => (r.groups.includes(groupId) ? inGruppe[n++]! : r))
     state.recipes = neu
     return sendChange('/recipes/order', 'PUT', { ids: neu.map((r) => r.id) })
   }
@@ -794,7 +790,6 @@ function createStore() {
     updateStoreProfile,
     removeStoreProfile,
     selectStoreProfile,
-    recipesByGroup,
     addRecipe,
     saveRecipe,
     moveRecipe,
@@ -802,6 +797,7 @@ function createStore() {
     saveRecipeGroup,
     removeRecipeGroup,
     recipeCount,
+    recipeCountOnly,
     removeRecipe,
     addRecipeToList,
     gerichteFuer,

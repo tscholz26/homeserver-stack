@@ -55,8 +55,9 @@ Handys gleichzeitig abgehakt. Erreichbar unter
   sammelt sich das Abgehakte dann am Ende der ganzen Liste statt am Fuß jeder
   Kategorie
 - **Rezepte**: „🍲 Rezept zum Einkauf hinzufügen“ auf dem Listenbildschirm
-  öffnet das Rezeptbuch (nach Gruppen: Nudeln & Pasta, Suppen & Eintöpfe,
-  Salate …). Ob ein Gericht **frisch** gekocht wird oder aus dem **Vorrat**
+  öffnet das Rezeptbuch (nach Kategorien: Nudeln & Pasta, Suppen & Eintöpfe,
+  Salate …). Ein Rezept kann in **mehreren Kategorien** stehen – Rote-Beete-Pasta
+  unter „Nudeln & Pasta“ und „Sehr günstig“ – und taucht dann unter jeder auf. Ob ein Gericht **frisch** gekocht wird oder aus dem **Vorrat**
   kommt, steht unabhängig davon am Rezept (🥗 / 🥫). Ein Tipp zeigt die Zutaten – dort wird abgewählt, was schon zu
   Hause ist, und die Menge für **diesen einen Einkauf** angepasst. Das Rezept
   selbst bleibt davon unberührt; über den Stift ✎ wird es dauerhaft geändert
@@ -234,10 +235,12 @@ Das Rezeptbuch steht in [export/rezepte.json](export/rezepte.json) – wie
 Katalog und Märkte eine schlichte Liste:
 
 ```jsonc
-[{ "name": "Porridge", "group": "suesses", "haltbarkeit": "vorrat",
+[{ "name": "Porridge", "groups": ["suesses", "guenstig"], "haltbarkeit": "vorrat",
    "ingredients": [{ "name": "Haferflocken", "quantity": "500 g" }] }]
 ```
 
+`groups` sind die Kategorien, mindestens eine. Ältere Dateien mit einer
+einzelnen `"group"` werden beim Lesen zur Liste und so zurückgeschrieben.
 `notes` ist Freitext und darf fehlen. `haltbarkeit` ist `"frisch"` (Zutaten schnell verbrauchen), `"vorrat"` (hält
 sich länger) oder leer für „noch nicht festgelegt“ – und hängt nicht an der
 Gruppe. Früher waren „Frisch“ und „Vorrat“ selbst Gruppen; fehlt die Angabe in
@@ -249,14 +252,15 @@ Die **Gruppen** (in der App „Kategorien“) stehen in
 Kategorie-Auswahl heraus über „＋ Kategorie hinzufügen …“ – ein Emoji vorne im
 Namen wird ihr Zeichen („🌮 Mexikanisch“) – oder unten beim Ordnen. Der Stift ✎
 an der Überschrift benennt um, ändert das Zeichen oder löscht; beim Ordnen
-stehen dafür auch leere Kategorien da. Eine Kategorie, in der noch Rezepte
-liegen, wird nicht gelöscht. Beim Umbenennen bleibt die `id`, an der die
+stehen dafür auch leere Kategorien da. Löschen nimmt die Kategorie aus allen
+Rezepten heraus; abgelehnt wird es nur, solange ein Rezept ausschließlich dort
+steht – es stünde sonst nirgends mehr. Beim Umbenennen bleibt die `id`, an der die
 Rezepte hängen.
 
 Die Reihenfolge in der Datei ist die Reihenfolge im Rezeptbuch. Umsortiert und
 gelöscht wird über den ⠿-Knopf oben im Rezeptfenster („Rezeptbuch ordnen“).
-Dort steht unter jedem Rezept auch seine Kategorie und Frisch/Vorrat zum
-direkten Umstellen – viele Rezepte lassen sich so in einem Zug einsortieren.
+Dort stehen unter jedem Rezept auch seine Kategorien (als Chips, dazu
+„＋ Kategorie“) und Frisch/Vorrat zum direkten Umstellen – viele Rezepte lassen sich so in einem Zug einsortieren.
 Gezogen wird nur ohne Suche und Filter, sonst passten die Plätze nicht zum Buch;
 gelöscht wird erst nach Rückfrage, und ohne Seed gibt es nichts, was ein
 gelöschtes Rezept zurückholt.

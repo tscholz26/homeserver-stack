@@ -167,13 +167,29 @@ function haltbarkeitVon(r) {
   return ''
 }
 
+/**
+ * Ein Rezept kann in mehreren Gruppen stehen („Nudeln & Pasta“ und „Sehr
+ * günstig“). Ältere Dateien und Clients kennen nur die eine `group` – die wird
+ * zur Liste. Unbekannte Gruppen fallen weg; bleibt keine übrig, landet das
+ * Rezept in der ersten – sichtbar bleiben ist besser als unsichtbar werden.
+ */
+function gruppenVon(r) {
+  const roh = Array.isArray(r.groups) ? r.groups : typeof r.group === 'string' ? [r.group] : []
+  const gueltig = [...new Set(roh.filter((id) => typeof id === 'string' && istGruppe(id)))]
+  return gueltig.length ? gueltig : [buch.recipeGroups[0]?.id ?? 'sonstiges']
+}
+
+/** Ein alter Client schickt `group` – das ersetzt dann die ganze Liste. */
+function mitGruppen(body) {
+  if (!body || body.groups !== undefined || typeof body.group !== 'string') return body
+  return { ...body, groups: [body.group] }
+}
+
 function normalizeRecipe(r) {
   return {
     id: r.id,
     name: r.name,
-    // Zeigt ein Rezept auf eine Gruppe, die es nicht (mehr) gibt, landet es in
-    // der ersten – sichtbar bleiben ist besser als unsichtbar werden.
-    group: istGruppe(r.group) ? r.group : (buch.recipeGroups[0]?.id ?? 'sonstiges'),
+    groups: gruppenVon(r),
     haltbarkeit: haltbarkeitVon(r),
     // Freitext: Zubereitung, Portionen, Link zur Quelle
     notes: typeof r.notes === 'string' ? r.notes.trim() : '',
@@ -670,7 +686,10 @@ app.post('/api/lists/:listId/finish', (req, res) => {
 // ── Rezepte ───────────────────────────────────────────────────────────────────
 function pruefeRezept(r) {
   if (!r || typeof r.name !== 'string' || !r.name.trim()) return 'Name fehlt'
-  if (r.group !== undefined && !istGruppe(r.group)) return 'Unbekannte Gruppe'
+  if (r.groups !== undefined) {
+    if (!Array.isArray(r.groups) || r.groups.length === 0) return 'Mindestens eine Kategorie'
+    if (r.groups.some((id) => !istGruppe(id))) return 'Unbekannte Kategorie'
+  }
   if (r.haltbarkeit !== undefined && r.haltbarkeit !== '' && !HALTBARKEIT.has(r.haltbarkeit)) {
     return 'Haltbarkeit ist „frisch“, „vorrat“ oder leer'
   }
@@ -731,18 +750,21 @@ app.put('/api/recipe-groups/:id', (req, res) => {
   })
 })
 
-// Eine Gruppe mit Rezepten wird nicht gelöscht – sonst verschwinden sie
-// stillschweigend woanders hin. Erst umhängen, dann löschen.
+// Löschen nimmt die Gruppe aus allen Rezepten. Abgelehnt wird nur, wenn ein
+// Rezept dann in gar keiner Gruppe mehr stünde – es würde stillschweigend
+// woanders hin wandern. Erst umhängen, dann löschen.
 app.delete('/api/recipe-groups/:id', (req, res) => {
   mutate(req, res, () => {
     const gruppe = buch.recipeGroups.find((g) => g.id === req.params.id)
     if (!gruppe) return
-    const drin = buch.recipes.filter((r) => r.group === gruppe.id).length
-    if (drin > 0) {
+    const nurHier = buch.recipes.filter(
+      (r) => r.groups.length === 1 && r.groups[0] === gruppe.id,
+    ).length
+    if (nurHier > 0) {
       return {
         reject: {
           status: 409,
-          error: `In „${gruppe.label}“ liegen noch ${drin} Rezepte. Erst umhängen, dann löschen.`,
+          error: `${nurHier === 1 ? '1 Rezept steht' : `${nurHier} Rezepte stehen`} nur in „${gruppe.label}“. Erst umhängen, dann löschen.`,
         },
       }
     }
@@ -750,14 +772,16 @@ app.delete('/api/recipe-groups/:id', (req, res) => {
       return { reject: { status: 409, error: 'Die letzte Kategorie muss bleiben.' } }
     }
     buch.recipeGroups = buch.recipeGroups.filter((g) => g.id !== gruppe.id)
+    for (const r of buch.recipes) r.groups = r.groups.filter((id) => id !== gruppe.id)
   })
 })
 
 app.post('/api/recipes', (req, res) => {
-  const fehler = pruefeRezept(req.body)
+  const body = mitGruppen(req.body)
+  const fehler = pruefeRezept(body)
   if (fehler) return res.status(400).json({ error: fehler })
   mutate(req, res, () => {
-    const r = normalizeRecipe({ ...req.body, id: req.body.id || createId() })
+    const r = normalizeRecipe({ ...body, id: body.id || createId() })
     if (buch.recipes.some((x) => x.id === r.id)) return
     if (buch.recipes.some((x) => normalize(x.name) === normalize(r.name))) {
       return { reject: { status: 409, error: 'Dieses Rezept gibt es schon.' } }
@@ -785,12 +809,13 @@ app.put('/api/recipes/order', (req, res) => {
 })
 
 app.put('/api/recipes/:id', (req, res) => {
-  const fehler = pruefeRezept({ name: 'x', ...req.body })
+  const body = mitGruppen(req.body)
+  const fehler = pruefeRezept({ name: 'x', ...body })
   if (fehler) return res.status(400).json({ error: fehler })
   mutate(req, res, () => {
     const rezept = buch.recipes.find((x) => x.id === req.params.id)
     if (!rezept) return { reject: { status: 404, error: 'Rezept nicht gefunden.' } }
-    const neu = normalizeRecipe({ ...rezept, ...req.body, id: rezept.id })
+    const neu = normalizeRecipe({ ...rezept, ...body, id: rezept.id })
     if (buch.recipes.some((x) => x.id !== rezept.id && normalize(x.name) === normalize(neu.name))) {
       return { reject: { status: 409, error: 'Dieses Rezept gibt es schon.' } }
     }
