@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, onUpdated, ref, useTemplateRef } from 'vue'
 import Sortable from 'sortablejs'
+import { zurueckAnAltenPlatz } from '@/utils/sortable'
 import { useEinkaufStore, type List } from '@/composables/useEinkaufStore'
 
 const props = defineProps<{ list: List }>()
@@ -71,7 +72,7 @@ function buildSortable() {
       ziehend.value = false
       // SortableJS hat den Knoten selbst verschoben – zurücksetzen und Vue aus
       // dem Zustand neu zeichnen lassen
-      evt.from.insertBefore(evt.item, evt.from.children[evt.oldIndex ?? 0] ?? null)
+      zurueckAnAltenPlatz(evt)
       if (evt.oldIndex != null && evt.newIndex != null) schieben(evt.oldIndex, evt.newIndex)
     },
   })

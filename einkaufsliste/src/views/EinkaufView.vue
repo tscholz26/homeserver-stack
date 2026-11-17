@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, onUpdated, ref, useTemplateRef } from 'vue'
 import Sortable from 'sortablejs'
+import { zurueckAnAltenPlatz } from '@/utils/sortable'
 import { useEinkaufStore } from '@/composables/useEinkaufStore'
 import { vervollstaendige } from '@/utils/matching'
 import ArtikelZeile from '@/components/ArtikelZeile.vue'
@@ -127,7 +128,7 @@ function buildSortable() {
       ziehend.value = false
       // SortableJS hat den Knoten selbst verschoben – zurücksetzen und Vue neu
       // zeichnen lassen, damit DOM und Zustand nicht auseinanderlaufen.
-      evt.from.insertBefore(evt.item, evt.from.children[evt.oldIndex ?? 0] ?? null)
+      zurueckAnAltenPlatz(evt)
       if (liste.value && evt.oldIndex != null && evt.newIndex != null) {
         store.moveItem(liste.value, evt.oldIndex, evt.newIndex)
       }

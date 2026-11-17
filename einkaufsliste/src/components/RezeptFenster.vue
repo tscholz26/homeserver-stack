@@ -11,6 +11,7 @@ import HaltbarkeitWahl from '@/components/HaltbarkeitWahl.vue'
 import KategorienWahl from '@/components/KategorienWahl.vue'
 import NotizText from '@/components/NotizText.vue'
 import { planeRezept, zerlegeKategorie } from '@/utils/rezept'
+import { zurueckAnAltenPlatz } from '@/utils/sortable'
 import { HALTBARKEITEN, haltbarkeitInfo, type Haltbarkeit } from '@/utils/haltbarkeit'
 import { nachZuletzt, wieLangeHer } from '@/utils/zuletzt'
 import { mengeZusammenfassen } from '@/utils/mengen'
@@ -208,13 +209,20 @@ async function hinzufuegen() {
 }
 
 // ── Schritt 3: das Rezept selbst ──────────────────────────────────────────────
+// Jede Zutat im Formular bekommt einen festen Schlüssel: am Platz in der Liste
+// festgemacht, hätte Vue beim Umsortieren die Eingabefelder vertauscht statt
+// die Zeilen.
+type EntwurfZutat = RecipeIngredient & { schluessel: number }
+let schluesselZaehler = 0
+const neuerSchluessel = () => ++schluesselZaehler
+
 const entwurf = reactive<{
   id: string | null
   name: string
   groups: string[]
   haltbarkeit: Haltbarkeit
   notes: string
-  zutaten: RecipeIngredient[]
+  zutaten: EntwurfZutat[]
 }>({ id: null, name: '', groups: [], haltbarkeit: '', notes: '', zutaten: [] })
 
 function bearbeiten(rezept: Recipe) {
@@ -223,7 +231,7 @@ function bearbeiten(rezept: Recipe) {
   entwurf.groups = [...rezept.groups]
   entwurf.haltbarkeit = rezept.haltbarkeit
   entwurf.notes = rezept.notes
-  entwurf.zutaten = rezept.ingredients.map((z) => ({ ...z }))
+  entwurf.zutaten = rezept.ingredients.map((z) => ({ ...z, schluessel: neuerSchluessel() }))
   aktivId.value = rezept.id
   modus.value = 'bearbeiten'
 }
@@ -234,14 +242,14 @@ function neuesRezept() {
   entwurf.groups = store.state.recipeGroups[0] ? [store.state.recipeGroups[0].id] : []
   entwurf.haltbarkeit = ''
   entwurf.notes = ''
-  entwurf.zutaten = [{ name: '', quantity: '' }]
+  entwurf.zutaten = [{ name: '', quantity: '', schluessel: neuerSchluessel() }]
   aktivId.value = null
   meldung.value = ''
   modus.value = 'bearbeiten'
 }
 
 function zutatDazu() {
-  entwurf.zutaten.push({ name: '', quantity: '' })
+  entwurf.zutaten.push({ name: '', quantity: '', schluessel: neuerSchluessel() })
 }
 
 function zutatWeg(index: number) {
@@ -260,12 +268,6 @@ function setGruppenListe(groupId: string, el: unknown) {
   else gruppenListen.delete(groupId)
 }
 
-// SortableJS verschiebt den Knoten selbst; wir setzen ihn zurück und lassen Vue
-// aus dem Zustand neu zeichnen, damit beides nicht auseinanderläuft.
-function undoDomMove(evt: Sortable.SortableEvent) {
-  evt.from.insertBefore(evt.item, evt.from.children[evt.oldIndex ?? 0] ?? null)
-}
-
 function buildSortables() {
   for (const s of sortables) s.destroy()
   sortables = []
@@ -279,7 +281,7 @@ function buildSortables() {
         onStart: () => (ziehend.value = true),
         onEnd: (evt) => {
           ziehend.value = false
-          undoDomMove(evt)
+          zurueckAnAltenPlatz(evt)
           const { oldIndex, newIndex } = evt
           if (oldIndex == null || newIndex == null || oldIndex === newIndex) return
           const [raus] = entwurf.zutaten.splice(oldIndex, 1)
@@ -299,7 +301,7 @@ function buildSortables() {
           onStart: () => (ziehend.value = true),
           onEnd: (evt) => {
             ziehend.value = false
-            undoDomMove(evt)
+            zurueckAnAltenPlatz(evt)
             if (evt.oldIndex != null && evt.newIndex != null) {
               store.moveRecipe(groupId, evt.oldIndex, evt.newIndex)
             }
@@ -787,7 +789,7 @@ function zurueck() {
           <HaltbarkeitWahl v-model="entwurf.haltbarkeit" class="haltbarkeit" />
 
           <ul ref="zutatenListe" class="zutaten">
-            <li v-for="(z, index) in entwurf.zutaten" :key="index" class="zutat-zeile">
+            <li v-for="(z, index) in entwurf.zutaten" :key="z.schluessel" class="zutat-zeile">
               <span class="griff" title="Zutat verschieben">⠿</span>
               <input
                 v-model="z.name"

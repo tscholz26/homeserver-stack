@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onUpdated, reactive, ref } from 'vue'
 import Sortable from 'sortablejs'
+import { zurueckAnAltenPlatz } from '@/utils/sortable'
 import { useEinkaufStore, type ListType } from '@/composables/useEinkaufStore'
 import { normalize, suggestCatalogEntries, type CatalogEntry } from '@/utils/matching'
 
@@ -128,12 +129,6 @@ function setSortListe(profileId: string, el: unknown) {
   else sortListen.delete(profileId)
 }
 
-// SortableJS verschiebt den Knoten selbst; das machen wir rückgängig und lassen
-// Vue aus dem Zustand neu zeichnen, damit beides nicht auseinanderläuft.
-function undoDomMove(evt: Sortable.SortableEvent) {
-  evt.from.insertBefore(evt.item, evt.from.children[evt.oldIndex ?? 0] ?? null)
-}
-
 function buildSortables() {
   for (const s of sortables) s.destroy()
   sortables = []
@@ -146,7 +141,7 @@ function buildSortables() {
         onStart: () => (ziehend.value = true),
         onEnd: (evt) => {
           ziehend.value = false
-          undoDomMove(evt)
+          zurueckAnAltenPlatz(evt)
           if (evt.oldIndex != null && evt.newIndex != null) {
             schieben(profileId, evt.oldIndex, evt.newIndex)
           }
