@@ -35,6 +35,11 @@
     "label": "Reis"
   },
   {
+    "id": "asiatisch",
+    "emoji": "🥢",
+    "label": "Asiatisch"
+  },
+  {
     "id": "salate",
     "emoji": "🥗",
     "label": "Salate"

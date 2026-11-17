@@ -1388,7 +1388,8 @@
     "name": "Udonnudeln mit Erdnussoße Max",
     "groups": [
       "viel_gemuese",
-      "guenstig"
+      "guenstig",
+      "asiatisch"
     ],
     "haltbarkeit": "frisch",
     "notes": "",
@@ -1671,7 +1672,8 @@
     "name": "Linsencurry und selbstgemachtes Naan",
     "groups": [
       "reis_curry",
-      "guenstig"
+      "guenstig",
+      "asiatisch"
     ],
     "haltbarkeit": "vorrat",
     "notes": "",
@@ -1931,7 +1933,8 @@
     "name": "Gamja Jorim (Koreanische Kartoffeln)",
     "groups": [
       "kartoffeln",
-      "guenstig"
+      "guenstig",
+      "asiatisch"
     ],
     "haltbarkeit": "vorrat",
     "notes": "",
@@ -1980,7 +1983,8 @@
     "groups": [
       "reis_curry",
       "viel_gemuese",
-      "guenstig"
+      "guenstig",
+      "asiatisch"
     ],
     "haltbarkeit": "frisch",
     "notes": "",
@@ -2188,7 +2192,8 @@
     "id": "d5d2994a-eef3-4e92-b867-f619663f3d7d",
     "name": "Chinesische Scherennudeln",
     "groups": [
-      "pasta"
+      "guenstig",
+      "asiatisch"
     ],
     "haltbarkeit": "frisch",
     "notes": "",
@@ -2216,6 +2221,110 @@
       {
         "name": "Sesam?",
         "quantity": "Optional"
+      }
+    ]
+  },
+  {
+    "id": "10fcea2c-99ec-4097-93da-1225b9b1c030",
+    "name": "Ofenkürbispasta Chantal",
+    "groups": [
+      "saisonal"
+    ],
+    "haltbarkeit": "vorrat",
+    "notes": "",
+    "ingredients": [
+      {
+        "name": "Nudeln",
+        "quantity": "750g"
+      },
+      {
+        "name": "Hokkaidokürbis",
+        "quantity": "1 kleiner"
+      },
+      {
+        "name": "Feta",
+        "quantity": "2"
+      },
+      {
+        "name": "Pastawasser",
+        "quantity": ""
+      },
+      {
+        "name": "???",
+        "quantity": ""
+      }
+    ]
+  },
+  {
+    "id": "57d851ff-844b-45f8-b3a7-fdab5f162f9b",
+    "name": "Teryaki-Lachs Bowl mit Brokkoli",
+    "groups": [
+      "viel_gemuese",
+      "airfryer",
+      "asiatisch"
+    ],
+    "haltbarkeit": "frisch",
+    "notes": "",
+    "ingredients": [
+      {
+        "name": "Sushireis",
+        "quantity": "1 Tasse"
+      },
+      {
+        "name": "Lachs",
+        "quantity": "500g"
+      },
+      {
+        "name": "Brokkoli",
+        "quantity": "1"
+      },
+      {
+        "name": "Avocado",
+        "quantity": "1"
+      },
+      {
+        "name": "Brauner Zucker",
+        "quantity": "4 EL"
+      },
+      {
+        "name": "Edamame",
+        "quantity": "150g"
+      },
+      {
+        "name": "Sojasoße",
+        "quantity": "10 EL"
+      },
+      {
+        "name": "Mirin",
+        "quantity": "10 EL"
+      },
+      {
+        "name": "Knoblauch",
+        "quantity": "1-2 Zehen"
+      },
+      {
+        "name": "Ingwer",
+        "quantity": ""
+      },
+      {
+        "name": "Sesamöl",
+        "quantity": "1 TL"
+      },
+      {
+        "name": "Sushiessig",
+        "quantity": "3 EL"
+      },
+      {
+        "name": "Speisestärke",
+        "quantity": "1 TL"
+      },
+      {
+        "name": "Sesamsaat",
+        "quantity": "1 EL"
+      },
+      {
+        "name": "Limetten",
+        "quantity": "2"
       }
     ]
   }
