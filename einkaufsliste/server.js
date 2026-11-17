@@ -706,7 +706,7 @@ app.post('/api/recipe-groups', (req, res) => {
   }
   mutate(req, res, () => {
     if (buch.recipeGroups.some((g) => normalize(g.label) === normalize(label))) {
-      return { reject: { status: 409, error: 'Diese Gruppe gibt es schon.' } }
+      return { reject: { status: 409, error: 'Diese Kategorie gibt es schon.' } }
     }
     buch.recipeGroups.push(normalizeGroup({ id: gruppenId(label), label, emoji }))
   })
@@ -719,12 +719,12 @@ app.put('/api/recipe-groups/:id', (req, res) => {
   }
   mutate(req, res, () => {
     const gruppe = buch.recipeGroups.find((g) => g.id === req.params.id)
-    if (!gruppe) return { reject: { status: 404, error: 'Gruppe nicht gefunden.' } }
+    if (!gruppe) return { reject: { status: 404, error: 'Kategorie nicht gefunden.' } }
     if (
       label !== undefined &&
       buch.recipeGroups.some((g) => g.id !== gruppe.id && normalize(g.label) === normalize(label))
     ) {
-      return { reject: { status: 409, error: 'Diese Gruppe gibt es schon.' } }
+      return { reject: { status: 409, error: 'Diese Kategorie gibt es schon.' } }
     }
     // Die id bleibt: an ihr hängen die Rezepte
     Object.assign(gruppe, normalizeGroup({ ...gruppe, label: label ?? gruppe.label, emoji }))
@@ -747,7 +747,7 @@ app.delete('/api/recipe-groups/:id', (req, res) => {
       }
     }
     if (buch.recipeGroups.length === 1) {
-      return { reject: { status: 409, error: 'Die letzte Gruppe muss bleiben.' } }
+      return { reject: { status: 409, error: 'Die letzte Kategorie muss bleiben.' } }
     }
     buch.recipeGroups = buch.recipeGroups.filter((g) => g.id !== gruppe.id)
   })

@@ -9,8 +9,8 @@ import {
 } from '@/composables/useEinkaufStore'
 import HaltbarkeitWahl from '@/components/HaltbarkeitWahl.vue'
 import NotizText from '@/components/NotizText.vue'
-import { planeRezept } from '@/utils/rezept'
-import { haltbarkeitInfo, type Haltbarkeit } from '@/utils/haltbarkeit'
+import { planeRezept, zerlegeKategorie } from '@/utils/rezept'
+import { HALTBARKEITEN, haltbarkeitInfo, type Haltbarkeit } from '@/utils/haltbarkeit'
 import { nachZuletzt, wieLangeHer } from '@/utils/zuletzt'
 import { mengeZusammenfassen } from '@/utils/mengen'
 
@@ -62,21 +62,47 @@ const suche = ref('')
 const verwalten = ref(false)
 
 // ── Schritt 1: welches Rezept? ────────────────────────────────────────────────
-// Innerhalb jeder Gruppe steht oben, was am längsten nicht auf der Liste war –
-// beim Planen der Woche fällt der Blick so zuerst auf das, was man vergessen
-// hätte. Beim Ordnen gilt die Reihenfolge des Rezeptbuchs, sonst würde das
-// Ziehen am Griff nichts sichtbar ändern.
+// Frisch oder Vorrat als Filter: beim Planen der Woche will man oft genau
+// eines davon. „Offen“ hilft beim Einsortieren und taucht nur auf, solange es
+// Rezepte ohne Angabe gibt.
+type Filter = 'alle' | Haltbarkeit
+const filter = ref<Filter>('alle')
+
+const filterWahl = computed(() => {
+  const zahl = (h: Haltbarkeit) => store.state.recipes.filter((r) => r.haltbarkeit === h).length
+  const wahl: { id: Filter; label: string; anzahl: number }[] = [
+    { id: 'alle', label: 'Alle', anzahl: store.state.recipes.length },
+    ...HALTBARKEITEN.map((h) => ({ id: h.id, label: `${h.emoji} ${h.label}`, anzahl: zahl(h.id) })),
+  ]
+  if (zahl('') > 0 || filter.value === '') wahl.push({ id: '', label: 'Offen', anzahl: zahl('') })
+  return wahl
+})
+
+// Ziehen geht nur über das ganze Rezeptbuch: gefiltert passen die Plätze in
+// der Anzeige nicht zu denen im Buch
+const ungefiltert = computed(() => !suche.value.trim() && filter.value === 'alle')
+
+// Innerhalb jeder Kategorie steht oben, was am längsten nicht auf der Liste
+// war – beim Planen der Woche fällt der Blick so zuerst auf das, was man
+// vergessen hätte. Beim Ordnen gilt die Reihenfolge des Rezeptbuchs, sonst
+// würde das Ziehen am Griff nichts sichtbar ändern. Leere Kategorien zeigt
+// nur das Ordnen – dort lassen sie sich umbenennen oder löschen.
 const gruppen = computed(() => {
   const q = suche.value.trim().toLowerCase()
-  return store.recipesByGroup.value
-    .map((g) => {
-      const passend = q ? g.recipes.filter((r) => r.name.toLowerCase().includes(q)) : g.recipes
+  return store.state.recipeGroups
+    .map((group) => {
+      const passend = store.state.recipes.filter(
+        (r) =>
+          r.group === group.id &&
+          (!q || r.name.toLowerCase().includes(q)) &&
+          (filter.value === 'alle' || r.haltbarkeit === filter.value),
+      )
       return {
-        ...g,
+        group,
         recipes: verwalten.value ? passend : nachZuletzt(passend, store.state.zuletzt),
       }
     })
-    .filter((g) => g.recipes.length > 0)
+    .filter((g) => g.recipes.length > 0 || (verwalten.value && ungefiltert.value))
 })
 
 function zuletztText(rezeptId: string) {
@@ -287,34 +313,73 @@ async function rezeptSpeichern() {
   modus.value = props.eingebettet && entwurf.id ? 'ansehen' : 'auswahl'
 }
 
-// ── Gruppen ───────────────────────────────────────────────────────────────────
-const gruppenNamen = reactive<Record<string, string>>({})
-const gruppenEmoji = reactive<Record<string, string>>({})
-const neueGruppe = ref('')
-const neuesEmoji = ref('')
+// ── Kategorien ────────────────────────────────────────────────────────────────
+// Angelegt wird direkt aus jeder Kategorie-Auswahl heraus („＋ Kategorie
+// hinzufügen …“), umbenannt und gelöscht über den Stift an der Überschrift.
+const NEUE_KATEGORIE = '__neu__'
 
-function gruppeUmbenennen(id: string, alt: string) {
-  const neu = (gruppenNamen[id] ?? '').trim()
-  if (!neu || neu === alt) return
-  store.saveRecipeGroup(id, { label: neu })
+/** Fragt nach dem Namen, legt an und gibt die id zurück – null bei Abbruch. */
+async function kategorieAnlegen(): Promise<string | null> {
+  const eingabe = prompt(
+    'Name der neuen Kategorie (ein Emoji vorne wird ihr Zeichen, z. B. „🌮 Mexikanisch“):',
+  )
+  if (!eingabe?.trim()) return null
+  const { emoji, label } = zerlegeKategorie(eingabe)
+  if (!label) return null
+  if (!(await store.addRecipeGroup(label, emoji))) return null
+  const neu = store.state.recipeGroups.find(
+    (g) => g.label.trim().toLowerCase() === label.toLowerCase(),
+  )
+  return neu?.id ?? null
 }
 
-function gruppeEmoji(id: string, alt: string) {
-  const neu = (gruppenEmoji[id] ?? '').trim()
-  if (!neu || neu === alt) return
-  store.saveRecipeGroup(id, { emoji: neu })
+/** Auswahl an einem Rezept in der Liste: gilt sofort. */
+async function kategorieGewaehlt(rezept: Recipe, event: Event) {
+  const select = event.target as HTMLSelectElement
+  let ziel: string | null = select.value
+  if (ziel === NEUE_KATEGORIE) {
+    // Die Auswahl springt erst zurück; steht die neue Kategorie, zeigt der
+    // Serverstand sie ohnehin an
+    select.value = rezept.group
+    ziel = await kategorieAnlegen()
+  }
+  if (ziel && ziel !== rezept.group) store.saveRecipe(rezept.id, { group: ziel })
 }
 
-function gruppeAnlegen() {
-  if (!neueGruppe.value.trim()) return
-  store.addRecipeGroup(neueGruppe.value, neuesEmoji.value || '❓')
-  neueGruppe.value = ''
-  neuesEmoji.value = ''
+/** Auswahl im Bearbeiten-Formular: gilt erst mit „Speichern“. */
+async function entwurfKategorie(event: Event) {
+  const select = event.target as HTMLSelectElement
+  if (select.value !== NEUE_KATEGORIE) {
+    entwurf.group = select.value
+    return
+  }
+  select.value = entwurf.group
+  const id = await kategorieAnlegen()
+  if (id) entwurf.group = id
 }
 
-function gruppeWeg(id: string, label: string) {
-  if (!confirm(`Gruppe „${label}“ löschen?`)) return
-  store.removeRecipeGroup(id)
+const kategorieOffen = ref<string | null>(null)
+const kategorieEmoji = ref('')
+const kategorieName = ref('')
+
+function kategorieBearbeiten(id: string) {
+  const g = store.state.recipeGroups.find((x) => x.id === id)
+  if (!g) return
+  kategorieEmoji.value = g.emoji
+  kategorieName.value = g.label
+  kategorieOffen.value = id
+}
+
+async function kategorieSpeichern(id: string) {
+  const label = kategorieName.value.trim()
+  if (!label) return
+  const ok = await store.saveRecipeGroup(id, { label, emoji: kategorieEmoji.value.trim() })
+  if (ok) kategorieOffen.value = null
+}
+
+async function kategorieLoeschen(id: string, label: string) {
+  if (!confirm(`Kategorie „${label}“ löschen?`)) return
+  if (await store.removeRecipeGroup(id)) kategorieOffen.value = null
 }
 
 async function rezeptWeg(rezept: Recipe) {
@@ -349,7 +414,10 @@ function zurueck() {
 </script>
 
 <template>
-  <div :class="eingebettet ? 'seite' : 'overlay'" @click.self="eingebettet || emit('close')">
+  <div
+    :class="eingebettet ? 'rezeptbuch-seite' : 'overlay'"
+    @click.self="eingebettet || emit('close')"
+  >
     <div
       class="fenster card"
       :role="eingebettet ? undefined : 'dialog'"
@@ -392,20 +460,86 @@ function zurueck() {
             aria-label="Rezept suchen"
           />
 
+          <div class="filter" role="group" aria-label="Nach Frisch oder Vorrat filtern">
+            <button
+              v-for="f in filterWahl"
+              :key="f.id"
+              type="button"
+              :class="{ an: filter === f.id }"
+              :aria-pressed="filter === f.id"
+              @click="filter = f.id"
+            >
+              {{ f.label }} <span class="zahl">{{ f.anzahl }}</span>
+            </button>
+          </div>
+
           <p v-if="meldung" class="meldung">{{ meldung }}</p>
 
           <p v-if="!gruppen.length" class="leer">
             {{ store.state.recipes.length ? 'Nichts gefunden.' : 'Noch keine Rezepte angelegt.' }}
           </p>
 
-          <p v-if="verwalten" class="hinweis">
-            Unter jedem Rezept stehen seine Gruppe und ob es frisch gekocht wird oder aus dem Vorrat
-            kommt – beides gilt sofort. Am Griff ⠿ in die gewünschte Reihenfolge ziehen. Gelöschte
-            Rezepte sind weg – es gibt keine Vorlage, aus der sie zurückkämen.
+          <p v-if="verwalten" class="hinweis ordnen-hinweis">
+            Unter jedem Rezept stehen seine Kategorie und ob es frisch gekocht wird oder aus dem
+            Vorrat kommt – beides gilt sofort. Kategorien werden über den Stift ✎ an der Überschrift
+            umbenannt oder gelöscht.
+            <template v-if="ungefiltert">Am Griff ⠿ in die gewünschte Reihenfolge ziehen.</template>
+            <template v-else>Sortieren am Griff geht nur ohne Suche und Filter.</template>
+            Gelöschte Rezepte sind weg – es gibt keine Vorlage, aus der sie zurückkämen.
           </p>
 
           <section v-for="g in gruppen" :key="g.group.id">
-            <h3>{{ g.group.emoji }} {{ g.group.label }}</h3>
+            <!-- Kategorie umbenennen oder löschen: auf der Seite immer, im
+                 Fenster beim Einkauf nur beim Ordnen -->
+            <form
+              v-if="kategorieOffen === g.group.id"
+              class="kategorie-form"
+              @submit.prevent="kategorieSpeichern(g.group.id)"
+            >
+              <div class="kategorie-felder">
+                <input
+                  v-model="kategorieEmoji"
+                  class="emoji"
+                  :aria-label="`Zeichen für ${g.group.label}`"
+                />
+                <input
+                  v-model="kategorieName"
+                  class="kategorie-name"
+                  :aria-label="`Name von ${g.group.label}`"
+                />
+              </div>
+              <div class="kategorie-knoepfe">
+                <button
+                  v-if="store.recipeCount(g.group.id) === 0"
+                  type="button"
+                  class="loeschen klein"
+                  @click="kategorieLoeschen(g.group.id, g.group.label)"
+                >
+                  🗑 Löschen
+                </button>
+                <span v-else class="hinweis klein">
+                  Löschen geht erst, wenn die {{ store.recipeCount(g.group.id) }} Rezepte woanders
+                  liegen.
+                </span>
+                <button type="button" class="ab" @click="kategorieOffen = null">Abbrechen</button>
+                <button type="submit" class="ok" :disabled="!kategorieName.trim()">
+                  Speichern
+                </button>
+              </div>
+            </form>
+            <h3 v-else class="kategorie">
+              <span>{{ g.group.emoji }} {{ g.group.label }}</span>
+              <button
+                v-if="eingebettet || verwalten"
+                type="button"
+                class="stift klein"
+                :title="`Kategorie „${g.group.label}“ umbenennen oder löschen`"
+                @click="kategorieBearbeiten(g.group.id)"
+              >
+                ✎
+              </button>
+            </h3>
+            <p v-if="!g.recipes.length" class="hinweis leer-kategorie">Noch keine Rezepte.</p>
             <ul :ref="(el) => setGruppenListe(g.group.id, el)">
               <li
                 v-for="r in g.recipes"
@@ -413,7 +547,9 @@ function zurueck() {
                 class="rezept-zeile"
                 :class="{ ordnen: verwalten }"
               >
-                <span v-if="verwalten" class="griff" title="Rezept verschieben">⠿</span>
+                <span v-if="verwalten && ungefiltert" class="griff" title="Rezept verschieben">
+                  ⠿
+                </span>
 
                 <button type="button" class="rezept" :disabled="verwalten" @click="waehle(r)">
                   <span class="name">
@@ -456,14 +592,13 @@ function zurueck() {
                 <div v-if="verwalten" class="einordnen">
                   <select
                     :value="r.group"
-                    :aria-label="`Gruppe von ${r.name}`"
-                    @change="
-                      store.saveRecipe(r.id, { group: ($event.target as HTMLSelectElement).value })
-                    "
+                    :aria-label="`Kategorie von ${r.name}`"
+                    @change="kategorieGewaehlt(r, $event)"
                   >
                     <option v-for="gr in store.state.recipeGroups" :key="gr.id" :value="gr.id">
                       {{ gr.emoji }} {{ gr.label }}
                     </option>
+                    <option :value="NEUE_KATEGORIE">＋ Kategorie hinzufügen …</option>
                   </select>
                   <HaltbarkeitWahl
                     :model-value="r.haltbarkeit"
@@ -473,50 +608,14 @@ function zurueck() {
               </li>
             </ul>
           </section>
-          <!-- Gruppen: das Gerüst des Rezeptbuchs, nur im Verwaltungsmodus -->
-          <section v-if="verwalten" class="gruppen">
-            <h3>Gruppen</h3>
-            <ul>
-              <li v-for="g in store.state.recipeGroups" :key="g.id" class="gruppe-zeile">
-                <input
-                  :value="gruppenEmoji[g.id] ?? g.emoji"
-                  class="emoji"
-                  :aria-label="`Zeichen für ${g.label}`"
-                  @input="gruppenEmoji[g.id] = ($event.target as HTMLInputElement).value"
-                  @blur="gruppeEmoji(g.id, g.emoji)"
-                  @keyup.enter="gruppeEmoji(g.id, g.emoji)"
-                />
-                <input
-                  :value="gruppenNamen[g.id] ?? g.label"
-                  class="gruppe-name"
-                  :aria-label="`Name von ${g.label}`"
-                  @input="gruppenNamen[g.id] = ($event.target as HTMLInputElement).value"
-                  @blur="gruppeUmbenennen(g.id, g.label)"
-                  @keyup.enter="gruppeUmbenennen(g.id, g.label)"
-                />
-                <span class="anzahl">{{ store.recipeCount(g.id) }}</span>
-                <button
-                  type="button"
-                  class="muell"
-                  :title="`${g.label} löschen`"
-                  @click="gruppeWeg(g.id, g.label)"
-                >
-                  🗑
-                </button>
-              </li>
-            </ul>
-
-            <form class="gruppe-zeile neu" @submit.prevent="gruppeAnlegen">
-              <input v-model="neuesEmoji" class="emoji" placeholder="❓" aria-label="Zeichen" />
-              <input
-                v-model="neueGruppe"
-                class="gruppe-name"
-                placeholder="Neue Gruppe"
-                aria-label="Name der neuen Gruppe"
-              />
-              <button type="submit" class="ok" :disabled="!neueGruppe.trim()">Anlegen</button>
-            </form>
-          </section>
+          <button
+            v-if="verwalten"
+            type="button"
+            class="ghost neue-kategorie"
+            @click="kategorieAnlegen"
+          >
+            ＋ Kategorie hinzufügen
+          </button>
         </div>
 
         <footer>
@@ -655,10 +754,11 @@ function zurueck() {
             placeholder="Name des Rezepts"
             aria-label="Name des Rezepts"
           />
-          <select v-model="entwurf.group" aria-label="Gruppe">
+          <select :value="entwurf.group" aria-label="Kategorie" @change="entwurfKategorie">
             <option v-for="g in store.state.recipeGroups" :key="g.id" :value="g.id">
               {{ g.emoji }} {{ g.label }}
             </option>
+            <option :value="NEUE_KATEGORIE">＋ Kategorie hinzufügen …</option>
           </select>
           <!-- Unabhängig von der Gruppe: auch Pasta kann aus dem Vorrat kommen -->
           <HaltbarkeitWahl v-model="entwurf.haltbarkeit" class="haltbarkeit" />
@@ -733,24 +833,33 @@ function zurueck() {
   overflow: hidden;
 }
 
+/* Als Fenster deckend: durch das halbtransparente .card schimmerten sonst die
+   Liste und der Knopf „Einkauf starten“ hindurch */
+.overlay .fenster {
+  background: var(--bg);
+}
+
 /* Als Seite: kein Schleier, keine eigene Scrollfläche – die Seite scrollt, und
-   die Fußleiste mit dem nächsten Schritt bleibt am unteren Rand stehen. */
-.seite {
+   die Fußleiste mit dem nächsten Schritt bleibt am unteren Rand stehen.
+   Der Klassenname muss einmalig sein: scoped gilt nur für das letzte Glied
+   eines Selektors, ein „.seite“ traf deshalb auch die Einkaufsseite, in der
+   das Fenster steckt – dort verlor es Höhe und Scrollfläche. */
+.rezeptbuch-seite {
   margin-top: 0.8rem;
   padding-bottom: 1rem;
 }
 
-.seite .fenster {
+.rezeptbuch-seite .fenster {
   width: 100%;
   max-height: none;
   overflow: visible;
 }
 
-.seite .inhalt {
+.rezeptbuch-seite .inhalt {
   overflow: visible;
 }
 
-.seite footer {
+.rezeptbuch-seite footer {
   position: sticky;
   bottom: 0;
   padding-bottom: max(0.7rem, env(safe-area-inset-bottom));
@@ -917,39 +1026,134 @@ section ul li.ordnen {
   font-size: 0.85rem;
 }
 
-.gruppen {
-  margin-top: 1.4rem;
-  padding-top: 0.4rem;
-  border-top: 2px solid var(--line);
+.filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.6rem;
 }
 
-.gruppe-zeile {
+.filter button {
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--muted);
+  font-size: 0.83rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.filter button.an {
+  border-color: color-mix(in srgb, var(--violet) 45%, transparent);
+  background: color-mix(in srgb, var(--violet) 12%, white);
+  color: var(--violet);
+}
+
+.filter .zahl {
+  margin-left: 0.15rem;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+h3.kategorie {
   display: flex;
   align-items: center;
+  gap: 0.3rem;
+}
+
+h3.kategorie span {
+  flex: 1;
+  min-width: 0;
+}
+
+.stift.klein {
+  width: 1.7rem;
+  height: 1.7rem;
+  font-size: 0.95rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.kategorie-form {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0.9rem 0 0.4rem;
+  padding: 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--violet) 30%, transparent);
+  border-radius: 0.8rem;
+  background: color-mix(in srgb, var(--violet) 5%, transparent);
+}
+
+.kategorie-felder {
+  display: flex;
   gap: 0.4rem;
-  padding: 0.35rem 0;
-  border-top: 1px solid var(--line);
 }
 
-.gruppe-zeile.neu {
-  border-top: none;
-  margin-top: 0.4rem;
-}
-
-.gruppe-zeile .emoji {
+.kategorie-felder .emoji {
   width: 3.2rem;
   flex: 0 0 auto;
   text-align: center;
 }
 
-.gruppe-zeile .gruppe-name {
-  flex: 1 1 6rem;
-  min-width: 0;
+.kategorie-knoepfe {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
 }
 
-.gruppe-zeile .anzahl {
-  min-width: 1.5rem;
-  text-align: right;
+.kategorie-knoepfe .loeschen.klein {
+  margin-right: auto;
+  padding: 0.45rem 0.7rem;
+}
+
+.kategorie-knoepfe .hinweis.klein {
+  flex: 1 1 10rem;
+  margin: 0;
+  font-size: 0.76rem;
+}
+
+.ab,
+.ok {
+  flex-shrink: 0;
+  padding: 0.45rem 0.9rem;
+  border-radius: 0.6rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ab {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+}
+
+.ok {
+  border: none;
+  background: var(--violet);
+  color: white;
+}
+
+.ok:disabled {
+  background: color-mix(in srgb, var(--muted) 25%, white);
+  color: var(--muted);
+  cursor: default;
+}
+
+.ordnen-hinweis {
+  margin-top: 0.7rem;
+}
+
+.leer-kategorie {
+  padding: 0.5rem 0.2rem;
+  border-top: 1px solid var(--line);
+}
+
+.neue-kategorie {
+  width: 100%;
+  margin-top: 1.2rem;
 }
 
 .muell {

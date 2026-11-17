@@ -87,3 +87,13 @@ export function textMitLinks(text: string): { text: string; url?: string }[] {
   if (pos < text.length) teile.push({ text: text.slice(pos) })
   return teile
 }
+
+/** „🌮 Mexikanisch“ → Zeichen und Name; ohne Emoji vorne gibt es ein neutrales. */
+export function zerlegeKategorie(eingabe: string) {
+  const text = eingabe.trim()
+  const emoji = text.match(
+    /^(\p{Extended_Pictographic}(\uFE0F|\u200D\p{Extended_Pictographic})*)\s*/u,
+  )
+  if (!emoji) return { emoji: '🍽️', label: text }
+  return { emoji: emoji[1]!, label: text.slice(emoji[0].length).trim() }
+}

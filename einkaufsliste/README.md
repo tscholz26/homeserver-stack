@@ -63,7 +63,8 @@ Handys gleichzeitig abgehakt. Erreichbar unter
   oder neu angelegt. **Innerhalb jeder Gruppe steht oben, was am längsten nicht
   auf der Liste war** – nie gewählte Rezepte zuerst, darunter „zuletzt vor 6
   Wochen“ bis „zuletzt heute“. Nur beim Ordnen (⠿) gilt die Reihenfolge des
-  Rezeptbuchs
+  Rezeptbuchs. Über der Liste filtern „Alle · 🥗 Frisch · 🥫 Vorrat“ (und
+  „Offen“, solange Rezepte ohne Angabe da sind) – im Fenster wie auf der Seite
 - **Diese Woche** (oben, mit Zahl): jedes Rezept, das auf die Liste kommt, ist
   ein geplantes Gericht. Sortiert nach 🥗 Frisch, 🥫 Vorrat und „noch nicht
   festgelegt“, darin das am längsten Eingeplante zuerst; mehr als sieben und
@@ -243,16 +244,20 @@ Gruppe. Früher waren „Frisch“ und „Vorrat“ selbst Gruppen; fehlt die An
 der Datei, liest der Server sie einmalig aus den alten Gruppen-IDs `frisch` und
 `vorrat` und schreibt sie fest (`haltbarkeitVon` in [server.js](server.js)).
 
-Die **Gruppen** stehen in [export/rezeptgruppen.json](export/rezeptgruppen.json)
-und werden im selben Modus gepflegt: anlegen, umbenennen, Zeichen ändern,
-löschen. Eine Gruppe, in der noch Rezepte liegen, wird nicht gelöscht – der
-Server sagt, wie viele es sind. Beim Umbenennen bleibt die `id`, an der die
+Die **Gruppen** (in der App „Kategorien“) stehen in
+[export/rezeptgruppen.json](export/rezeptgruppen.json). Angelegt wird aus jeder
+Kategorie-Auswahl heraus über „＋ Kategorie hinzufügen …“ – ein Emoji vorne im
+Namen wird ihr Zeichen („🌮 Mexikanisch“) – oder unten beim Ordnen. Der Stift ✎
+an der Überschrift benennt um, ändert das Zeichen oder löscht; beim Ordnen
+stehen dafür auch leere Kategorien da. Eine Kategorie, in der noch Rezepte
+liegen, wird nicht gelöscht. Beim Umbenennen bleibt die `id`, an der die
 Rezepte hängen.
 
 Die Reihenfolge in der Datei ist die Reihenfolge im Rezeptbuch. Umsortiert und
 gelöscht wird über den ⠿-Knopf oben im Rezeptfenster („Rezeptbuch ordnen“).
-Dort steht unter jedem Rezept auch seine Gruppe und Frisch/Vorrat zum direkten
-Umstellen – viele Rezepte lassen sich so in einem Zug einsortieren;
+Dort steht unter jedem Rezept auch seine Kategorie und Frisch/Vorrat zum
+direkten Umstellen – viele Rezepte lassen sich so in einem Zug einsortieren.
+Gezogen wird nur ohne Suche und Filter, sonst passten die Plätze nicht zum Buch;
 gelöscht wird erst nach Rückfrage, und ohne Seed gibt es nichts, was ein
 gelöschtes Rezept zurückholt.
 

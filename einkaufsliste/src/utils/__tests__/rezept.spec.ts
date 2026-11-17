@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { planeRezept, textMitLinks, type ListenArtikel } from '@/utils/rezept'
+import { planeRezept, textMitLinks, zerlegeKategorie, type ListenArtikel } from '@/utils/rezept'
 import type { CatalogEntry } from '@/utils/matching'
 
 const katalog: CatalogEntry[] = [
@@ -82,5 +82,21 @@ describe('textMitLinks', () => {
 
   it('kommt mit leerem Text zurecht', () => {
     expect(textMitLinks('')).toEqual([])
+  })
+})
+
+describe('zerlegeKategorie', () => {
+  it('nimmt ein Emoji vorne als Zeichen', () => {
+    expect(zerlegeKategorie('🌮 Mexikanisch')).toEqual({ emoji: '🌮', label: 'Mexikanisch' })
+    expect(zerlegeKategorie('  🍝Pasta ')).toEqual({ emoji: '🍝', label: 'Pasta' })
+  })
+
+  it('kennt zusammengesetzte Emoji', () => {
+    expect(zerlegeKategorie('🧑‍🍳 Chefkoch')).toEqual({ emoji: '🧑‍🍳', label: 'Chefkoch' })
+    expect(zerlegeKategorie('❤️ Lieblinge')).toEqual({ emoji: '❤️', label: 'Lieblinge' })
+  })
+
+  it('gibt ohne Emoji ein neutrales Zeichen', () => {
+    expect(zerlegeKategorie('Mexikanisch')).toEqual({ emoji: '🍽️', label: 'Mexikanisch' })
   })
 })
