@@ -4,6 +4,8 @@ import {
   ausCsv,
   ausIntervals,
   ausWahoo,
+  brauchtDistanz,
+  passendeAktivitaet,
   istDublette,
   istRadfahrt,
   kmFuerRad,
@@ -766,5 +768,94 @@ describe('Statistik', () => {
     expect(s.jahre.map((j: { jahr: string }) => j.jahr)).toEqual(['2025', '2026'])
     expect(s.raeder[0]).toMatchObject({ name: 'Scott', km: 290.6, fahrten: 4 })
     expect(s.laengste[0].km).toBe(170.6)
+  })
+})
+
+describe('Distanz aus Intervals.icu ergänzen', () => {
+  // Wie Wahoo die MyWhoosh-Fahrt meldet: Startzeit in UTC, keine Distanz
+  const wahoo = {
+    id: 'w1',
+    ownerId: 'u1',
+    date: '2026-11-06',
+    time: '14:41',
+    minutes: 207,
+    km: 0,
+    indoor: true,
+    ohneDistanz: true,
+  }
+  // Dieselbe Fahrt, von MyWhoosh direkt zu Intervals.icu hochgeladen
+  const icu = {
+    id: 'i206680256',
+    start_date: '2026-11-06T14:41:22Z',
+    start_date_local: '2026-11-06T15:41:22',
+    moving_time: 12433,
+    distance: 104036.95,
+  }
+  const andere = {
+    id: 'i2',
+    start_date: '2026-11-06T07:00:00Z',
+    start_date_local: '2026-11-06T08:00:00',
+    moving_time: 3600,
+    distance: 30000,
+  }
+
+  it('findet dieselbe Fahrt über Tag und Startzeit', () => {
+    expect(passendeAktivitaet(wahoo, [andere, icu])?.id).toBe('i206680256')
+  })
+
+  it('nimmt nichts von einem anderen Tag oder ohne Distanz', () => {
+    expect(passendeAktivitaet(wahoo, [{ ...icu, start_date_local: '2026-11-05T15:41:22' }])).toBe(
+      null,
+    )
+    expect(passendeAktivitaet(wahoo, [{ ...icu, distance: 0 }])).toBe(null)
+    expect(passendeAktivitaet(wahoo, [andere])).toBe(null)
+  })
+
+  it('greift ohne Startzeit auf die Dauer zurück', () => {
+    expect(passendeAktivitaet({ ...wahoo, time: null }, [andere, icu])?.id).toBe('i206680256')
+    expect(passendeAktivitaet({ ...wahoo, time: null, minutes: 100 }, [icu])).toBe(null)
+  })
+
+  it('fragt nur für Fahrten ohne jede Distanz', () => {
+    expect(brauchtDistanz(wahoo)).toBe(true)
+    expect(brauchtDistanz({ ...wahoo, km: 20 })).toBe(false)
+    expect(brauchtDistanz({ ...wahoo, kmOverride: 12 })).toBe(false)
+    expect(brauchtDistanz({ ...wahoo, kmErgaenzt: 104.04 })).toBe(false)
+    expect(brauchtDistanz({ ...wahoo, deleted: true })).toBe(false)
+  })
+
+  it('rechnet mit der ergänzten Distanz, von Hand schlägt sie', () => {
+    const bikes = [{ id: 'r1', ownerId: 'u1', name: 'Rad', from: '2026-01-01' }]
+    const setups = [{ id: 's1', bikeId: 'r1', name: 'Rolle', kind: 'indoor', factor: 0.9 }]
+    const { loese } = zuordner(bikes, setups, [
+      { id: 'st', ownerId: 'u1', kind: 'indoor', bikeId: 'r1', from: '2026-01-01' },
+    ])
+    const ergaenzt = loese({ ...wahoo, kmErgaenzt: 104.04 })
+    expect(ergaenzt).toMatchObject({ km: 104.04, kmErgaenzt: 104.04, kmKorrigiert: false })
+    expect(ergaenzt.verschleissKm).toBe(93.64)
+    const vonHand = loese({ ...wahoo, kmErgaenzt: 104.04, kmOverride: 100 })
+    expect(vonHand).toMatchObject({ km: 100, kmErgaenzt: null, kmKorrigiert: true })
+  })
+
+  it('übersteht den nächsten Sync, der wieder 0 km meldet', () => {
+    const bestand = [
+      { ...wahoo, externalProvider: 'wahoo', externalActivityId: '513235275', kmErgaenzt: 104.04 },
+    ]
+    const erneut = {
+      ...wahoo,
+      name: 'umbenannt',
+      externalProvider: 'wahoo',
+      externalActivityId: '513235275',
+    }
+    delete (erneut as Record<string, unknown>).id
+    const e = synchronisiereFenster(bestand, [erneut], {
+      ownerId: 'u1',
+      provider: 'wahoo',
+      von: '2026-11-01',
+      bis: '2026-11-30',
+      neueId: () => 'neu',
+    })
+    expect(e.geaendert).toBe(1)
+    expect(e.rides[0].kmErgaenzt).toBe(104.04)
   })
 })

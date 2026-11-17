@@ -226,11 +226,12 @@ export function zuordner(bikes, setups, standards = []) {
     const aufbauDazu = aufbau(fahrt, radDazu)
     // Was ohne Ausnahme gälte – damit die Liste sagen kann, wovon abgewichen wird
     const standardRad = fahrt.override?.bikeId ? standard(fahrt) : radDazu
-    // Eine von Hand eingetragene Distanz schlägt die gemeldete: Sie ist die
-    // Antwort auf Fahrten, für die der Anbieter keine Kilometer kennt, und
-    // überlebt jeden weiteren Sync.
+    // Woher die Kilometer kommen, in dieser Reihenfolge: von Hand eingetragen
+    // (schlägt alles und überlebt jeden Sync), aus Intervals.icu ergänzt (für
+    // Fahrten, zu denen der Anbieter keine Distanz kennt), wie gemeldet.
     const korrigiert = typeof fahrt.kmOverride === 'number' && fahrt.kmOverride >= 0
-    const km = korrigiert ? fahrt.kmOverride : Number(fahrt.km) || 0
+    const ergaenzt = !korrigiert && typeof fahrt.kmErgaenzt === 'number' && fahrt.kmErgaenzt > 0
+    const km = korrigiert ? fahrt.kmOverride : ergaenzt ? fahrt.kmErgaenzt : Number(fahrt.km) || 0
     // Gefahren wurde, was auf der Uhr steht; für den Verschleiß zählt es mit
     // dem Faktor des Aufbaus – auf der Rolle nutzt sich weniger ab als
     // draußen im Dreck.
@@ -240,6 +241,7 @@ export function zuordner(bikes, setups, standards = []) {
       km,
       kmGemeldet: Number(fahrt.km) || 0,
       kmKorrigiert: korrigiert,
+      kmErgaenzt: ergaenzt ? fahrt.kmErgaenzt : null,
       faktor,
       verschleissKm: Math.round(km * faktor * 100) / 100,
       bikeId: radDazu?.id ?? null,
@@ -357,6 +359,9 @@ export function synchronisiereFenster(rides, neueFahrten, { ownerId, provider, v
       deleted: alt.deleted,
       deletedAt: alt.deletedAt,
       kmOverride: alt.kmOverride,
+      // Aus Intervals.icu ergänzt – Wahoo meldet die Fahrt weiter mit 0 km
+      kmErgaenzt: alt.kmErgaenzt,
+      kmErgaenztVon: alt.kmErgaenztVon,
     })
     geaendert += 1
   }
@@ -379,6 +384,62 @@ export function synchronisiereFenster(rides, neueFahrten, { ownerId, provider, v
     uebersprungen,
     geloescht: bestand.length - behalten.length,
   }
+}
+
+// ── Distanz ergänzen ─────────────────────────────────────────────────────────
+// Rollenfahrten aus MyWhoosh kommen bei Wahoo ohne Distanz an – nicht einmal
+// die FIT-Datei dort enthält eine. MyWhoosh lädt dieselbe Fahrt aber auch
+// direkt zu Intervals.icu hoch, und dort steht die virtuelle Strecke. Die
+// Fahrt bleibt, wie sie ist; nur die Kilometer werden daraus übernommen.
+
+/** Braucht diese Fahrt Kilometer von anderswo? */
+export function brauchtDistanz(fahrt) {
+  if (fahrt.deleted) return false
+  if (typeof fahrt.kmOverride === 'number') return false
+  if (typeof fahrt.kmErgaenzt === 'number' && fahrt.kmErgaenzt > 0) return false
+  return !((Number(fahrt.km) || 0) > 0)
+}
+
+const minuten = (hhmm) => {
+  const [h, m] = String(hhmm ?? '')
+    .split(':')
+    .map(Number)
+  return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null
+}
+
+/**
+ * Die Aktivität bei Intervals.icu, die dieselbe Fahrt ist – oder `null`.
+ *
+ * Gleicher Kalendertag ist Pflicht. Dann entscheidet die Startzeit (beide in
+ * UTC, höchstens 20 Minuten auseinander); ohne Startzeit muss die Dauer auf
+ * 10 % passen. Bei mehreren Kandidaten gewinnt der zeitlich nächste – lieber
+ * keine Kilometer als die einer anderen Fahrt.
+ */
+export function passendeAktivitaet(fahrt, aktivitaeten) {
+  const start = minuten(fahrt.time)
+  const dauer = Number(fahrt.minutes) || 0
+  let beste = null
+  let besterAbstand = Infinity
+  for (const a of aktivitaeten) {
+    const meter = Number(a?.distance) || 0
+    if (meter <= 0) continue
+    if (String(a.start_date_local ?? '').slice(0, 10) !== fahrt.date) continue
+    const aDauer = (Number(a.moving_time ?? a.elapsed_time) || 0) / 60
+    const aStart = minuten(String(a.start_date ?? '').slice(11, 16))
+    let abstand
+    if (start !== null && aStart !== null) {
+      abstand = Math.abs(start - aStart)
+      if (abstand > 20) continue
+    } else {
+      if (!dauer || !aDauer || Math.abs(dauer - aDauer) > dauer * 0.1) continue
+      abstand = Math.abs(dauer - aDauer)
+    }
+    if (abstand < besterAbstand) {
+      beste = a
+      besterAbstand = abstand
+    }
+  }
+  return beste
 }
 
 // ── CSV-Import ───────────────────────────────────────────────────────────────

@@ -16,6 +16,8 @@ import {
   ausCsv,
   ausIntervals,
   ausWahoo,
+  brauchtDistanz,
+  passendeAktivitaet,
   kmFuerAufbau,
   kmFuerRad,
   kmImZeitraum,
@@ -50,6 +52,13 @@ const ICU_CONFIGURED = Boolean(ICU_CLIENT_ID && ICU_CLIENT_SECRET)
 // Muss mit dem Secret in den Webhook-Einstellungen der Intervals-App
 // übereinstimmen; ohne ihn wird jeder eingehende Webhook verworfen.
 const ICU_WEBHOOK_SECRET = process.env.INTERVALS_WEBHOOK_SECRET || ''
+// Persönlicher API-Key von Intervals.icu (Settings → Developer Settings). Er
+// dient nur dazu, Distanzen zu ergänzen, die die aktive Quelle nicht kennt –
+// MyWhoosh-Fahrten etwa kommen bei Wahoo mit 0 km an. Er gehört genau einem
+// Konto, also genau einem Profil: INTERVALS_API_PROFIL nennt es beim Namen;
+// gibt es nur ein Profil, ist es dieses.
+const ICU_API_KEY = (process.env.INTERVALS_API_KEY || '').trim()
+const ICU_API_PROFIL = (process.env.INTERVALS_API_PROFIL || '').trim()
 
 mkdirSync(DATA_DIR, { recursive: true })
 mkdirSync(BACKUPS_DIR, { recursive: true })
@@ -681,6 +690,72 @@ async function syncWahoo(userId, { voll = false } = {}) {
   return schreibeSync(conn, userId, ANBIETER.wahoo, fahrten, oldest, newest)
 }
 
+// ── Distanzen aus Intervals.icu ergänzen ─────────────────────────────────────
+// Wahoo bleibt die Quelle der Fahrten. Wo es keine Distanz kennt, schaut der
+// Server bei Intervals.icu nach derselben Fahrt (Tag + Startzeit) und
+// übernimmt deren Kilometer – getrennt vom gemeldeten Wert gespeichert, damit
+// kein Sync sie überschreibt. Was von Hand eingetragen ist, hat Vorrang.
+const ICU_KEY_HEADER = ICU_API_KEY
+  ? `Basic ${Buffer.from(`API_KEY:${ICU_API_KEY}`).toString('base64')}`
+  : ''
+
+function ergaenzungsProfil() {
+  if (!ICU_API_KEY) return null
+  if (ICU_API_PROFIL) {
+    return db.users.find((u) => u.name.toLowerCase() === ICU_API_PROFIL.toLowerCase()) ?? null
+  }
+  return db.users.length === 1 ? db.users[0] : null
+}
+
+let ergaenzungLaeuft = false
+
+/**
+ * `alle` schaut über die ganze Historie (beim Start); sonst nur die letzten
+ * 60 Tage – ältere Fahrten ohne Distanz, die Intervals.icu nicht kennt, sollen
+ * nicht stündlich eine Abfrage über Monate auslösen.
+ */
+async function ergaenzeDistanzen({ alle = false } = {}) {
+  const user = ergaenzungsProfil()
+  if (!user || ergaenzungLaeuft) return 0
+  const ab = new Date(Date.now() - 60 * 24 * 3600_000).toISOString().slice(0, 10)
+  const offen = db.rides.filter(
+    (r) => r.ownerId === user.id && brauchtDistanz(r) && (alle || r.date >= ab),
+  )
+  if (!offen.length) return 0
+
+  ergaenzungLaeuft = true
+  try {
+    const tage = offen.map((r) => r.date).sort()
+    const r = await fetch(
+      `${ICU_BASE}/api/v1/athlete/0/activities?oldest=${tage[0]}&newest=${tage.at(-1)}`,
+      { headers: { Authorization: ICU_KEY_HEADER, Accept: 'application/json' } },
+    )
+    if (!r.ok) throw new Error(`Intervals.icu antwortet mit HTTP ${r.status}`)
+    const aktivitaeten = await r.json()
+    if (!Array.isArray(aktivitaeten)) return 0
+
+    let gefunden = 0
+    for (const fahrt of offen) {
+      const a = passendeAktivitaet(fahrt, aktivitaeten)
+      if (!a) continue
+      fahrt.kmErgaenzt = Math.round(Number(a.distance) / 10) / 100
+      fahrt.kmErgaenztVon = `intervals.icu:${a.id}`
+      gefunden += 1
+    }
+    if (gefunden) {
+      sichere('rides')
+      meldungenBaldPruefen()
+      console.log(`[fahrradtracker] ${gefunden} Distanz(en) aus Intervals.icu ergänzt`)
+    }
+    return gefunden
+  } catch (err) {
+    console.error('[fahrradtracker] Distanzen nicht ergänzt:', err.message)
+    return 0
+  } finally {
+    ergaenzungLaeuft = false
+  }
+}
+
 /** Namen und Wahoo-Id des verbundenen Kontos – einmal beim Verbinden. */
 async function wahooProfil(conn) {
   const nutzer = await wahooGet(conn, '/v1/user')
@@ -774,6 +849,8 @@ function schreibeSync(conn, userId, provider, fahrten, oldest, newest) {
   )
   // Frische Kilometer können ein Teil über eine Schwelle geschoben haben
   if (neu || geaendert || geloescht) meldungenBaldPruefen()
+  // Neue Fahrten ohne Distanz: gleich bei Intervals.icu nachsehen
+  if (neu) ergaenzeDistanzen()
   return { neu, geaendert, geloescht, uebersprungen, oldest }
 }
 
@@ -802,7 +879,10 @@ async function syncIntervals(userId, { voll = false } = {}) {
 // alles auf, was der Webhook verpasst hat (nicht eingerichtet, Server war aus,
 // Zustellung fehlgeschlagen). Geprüft wird stündlich, geholt nur, was fällig
 // ist.
-async function syncFaellige() {
+async function syncFaellige({ start = false } = {}) {
+  // Stündlich, unabhängig vom Sync: MyWhoosh lädt zu Intervals.icu mitunter
+  // später hoch als zu Wahoo. Ohne offene Fahrt kostet das keinen Aufruf.
+  await ergaenzeDistanzen({ alle: start })
   for (const user of db.users) {
     const aktiv = aktiveQuelle(user.id)
     if (!aktiv || aktiv.conn.needsReconnect) continue
@@ -820,7 +900,7 @@ async function syncFaellige() {
   }
 }
 
-setTimeout(syncFaellige, 20_000)
+setTimeout(() => syncFaellige({ start: true }), 20_000)
 setInterval(syncFaellige, 60 * 60 * 1000)
 
 // ── Verschleißrechnung ───────────────────────────────────────────────────────
@@ -2070,7 +2150,7 @@ app.delete('/api/rides', auth, (req, res) => {
       treffer = eigene.filter((r) => ids.includes(r.id))
     } else if (typeof provider === 'string' && provider) {
       treffer = eigene.filter(
-        (r) => r.externalProvider === provider && (!ohneDistanz || !(r.km > 0)),
+        (r) => r.externalProvider === provider && (!ohneDistanz || brauchtDistanz(r)),
       )
     } else {
       return { reject: { status: 400, error: 'Bitte angeben, welche Fahrten weg sollen.' } }

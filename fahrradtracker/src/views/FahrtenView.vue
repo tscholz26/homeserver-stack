@@ -45,9 +45,7 @@ const summe = computed(() => fahrten.value.reduce((s, f) => s + f.km, 0))
 
 /** Fahrten, für die der Anbieter keine Kilometer führt und die noch niemand
  *  von Hand nachgetragen hat. */
-const ohneDistanz = computed(
-  () => fahrten.value.filter((f) => f.ohneDistanz && !f.kmKorrigiert).length,
-)
+const ohneDistanz = computed(() => fahrten.value.filter((f) => fehltDistanz(f)).length)
 
 const ohneKm = computed(() => store.state.rides.filter((f) => !(f.km > 0)).length)
 
@@ -138,6 +136,11 @@ function kmSpeichern(fahrt: Fahrt, wert: string) {
 /** Rad von Hand setzen; leer heißt „wieder das Standardrad“. */
 function radSetzen(fahrt: Fahrt, bikeId: string) {
   store.fahrtSpeichern(fahrt.id, { bikeId: bikeId || null, setupId: null })
+}
+
+/** Keine Distanz – weder gemeldet noch von Hand noch aus Intervals ergänzt. */
+function fehltDistanz(fahrt: Fahrt) {
+  return !(fahrt.km > 0)
 }
 
 function darfAendern(fahrt: Fahrt) {
@@ -343,10 +346,9 @@ function distanzKorrigieren(fahrt: Fahrt, wert: string) {
                 {{ quelle(fahrt) }}
               </span>
               <span v-if="fahrt.indoor" class="quelle drinnen">Rolle</span>
-              <span v-if="fahrt.ohneDistanz && !fahrt.kmKorrigiert" class="quelle fehlt">
-                ohne Distanz
-              </span>
+              <span v-if="fehltDistanz(fahrt)" class="quelle fehlt">ohne Distanz</span>
               <span v-else-if="fahrt.kmKorrigiert" class="quelle korrigiert">km von Hand</span>
+              <span v-else-if="fahrt.kmErgaenzt" class="quelle korrigiert">km von Intervals</span>
             </p>
             <p class="meta">
               {{ datumText(fahrt.date) }}{{ fahrt.time ? `, ${fahrt.time} Uhr` : '' }} ·
@@ -423,11 +425,16 @@ function distanzKorrigieren(fahrt: Fahrt, wert: string) {
           <template v-else>
             <!-- Für Fahrten, zu denen der Anbieter keine Kilometer kennt -->
             <label class="klein">
-              Distanz (km) – leer heißt: Wert vom Anbieter ({{ kmText(fahrt.kmGemeldet) }})
+              <template v-if="fahrt.kmErgaenzt">
+                Distanz (km) – leer heißt: Wert aus Intervals.icu ({{ kmText(fahrt.kmErgaenzt) }})
+              </template>
+              <template v-else>
+                Distanz (km) – leer heißt: Wert vom Anbieter ({{ kmText(fahrt.kmGemeldet) }})
+              </template>
               <input
                 inputmode="decimal"
                 :value="fahrt.kmKorrigiert ? fahrt.km : ''"
-                :placeholder="String(fahrt.kmGemeldet)"
+                :placeholder="String(fahrt.kmErgaenzt ?? fahrt.kmGemeldet)"
                 @change="distanzKorrigieren(fahrt, ($event.target as HTMLInputElement).value)"
               />
             </label>

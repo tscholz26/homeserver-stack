@@ -107,6 +107,8 @@ export interface Fahrt {
   /** Was der Anbieter gemeldet hat, vor einer Korrektur von Hand */
   kmGemeldet: number
   kmKorrigiert: boolean
+  /** Aus Intervals.icu übernommene Distanz, wenn der Anbieter keine kannte */
+  kmErgaenzt: number | null
 }
 
 export interface Kategorie {

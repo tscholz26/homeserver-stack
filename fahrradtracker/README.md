@@ -207,6 +207,19 @@ Nicht jedes Workout beim Anbieter ist eine Fahrt:
   der Wert wird getrennt vom gemeldeten gespeichert und überlebt jeden weiteren
   Sync. Dasselbe gilt für die Rad-Zuordnung.
 
+**Rollenfahrten aus MyWhoosh** sind der häufigste Fall: Bei Wahoo kommt nur
+ein Eintrag mit Name und Dauer an – ohne Zusammenfassung, und selbst wo es eine
+FIT-Datei gibt, steht darin keine Strecke. MyWhoosh lädt dieselbe Fahrt aber
+auch direkt zu Intervals.icu hoch, mit der virtuellen Distanz. Mit
+`INTERVALS_API_KEY` in der `.env` sucht der Server deshalb zu jeder Fahrt ohne
+Distanz die passende Aktivität dort (gleicher Tag, Start höchstens 20 Minuten
+auseinander; ohne Startzeit muss die Dauer passen) und übernimmt deren
+Kilometer – nach jedem Sync mit neuen Fahrten und stündlich für die letzten 60
+Tage, beim Start einmal über alles. Gespeichert wird das getrennt
+(`kmErgaenzt`), die Liste zeigt „km von Intervals“, und ein von Hand
+eingetragener Wert hat weiter Vorrang. Wahoo bleibt dabei die Quelle der
+Fahrten; es wird nichts doppelt angelegt.
+
 ### Zwei Quellen, einmal Kilometer
 
 Verbunden sein dürfen beide Quellen, **geholt wird immer nur aus einer** – der
