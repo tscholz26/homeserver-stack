@@ -60,14 +60,17 @@ Handys gleichzeitig abgehakt. Erreichbar unter
   unter „Nudeln & Pasta“ und „Sehr günstig“ – und taucht dann unter jeder auf. Ob ein Gericht **frisch** gekocht wird oder aus dem **Vorrat**
   kommt, steht unabhängig davon am Rezept (🥗 / 🥫). Ein Tipp zeigt die Zutaten – dort wird abgewählt, was schon zu
   Hause ist, und die Menge für **diesen einen Einkauf** angepasst. Das Rezept
-  selbst bleibt davon unberührt; über den Stift ✎ wird es dauerhaft geändert
-  oder neu angelegt. **Innerhalb jeder Gruppe steht oben, was am längsten nicht
+  selbst bleibt davon unberührt; über den Stift im Kopf des aufgeschlagenen
+  Rezepts wird es dauerhaft geändert, „+ Neues Rezept“ legt eins an. Die Liste
+  selbst trägt keine Knöpfe: Kategorien als Abschnitte mit Balken und Anzahl,
+  die Rezepte darin in einem Kasten mit abwechselnd getönten Zeilen. **Innerhalb jeder Gruppe steht oben, was am längsten nicht
   auf der Liste war** – nie gewählte Rezepte zuerst, darunter „zuletzt vor 6
   Wochen“ bis „zuletzt heute“. Nur beim Ordnen (⠿) gilt die Reihenfolge des
   Rezeptbuchs. Über der Liste filtern „Alle · 🥗 Frisch · 🥫 Vorrat“ (und
   „Offen“, solange Rezepte ohne Angabe da sind) – im Fenster wie auf der Seite.
-  **„Jedes nur 1×“** zeigt Rezepte aus mehreren Kategorien nur unter der ersten
-  (Reihenfolge der Kategorien-Datei), das macht Durchsuchen übersichtlicher
+  **„Nur 1×“** zeigt Rezepte aus mehreren Kategorien nur unter der ersten
+  (Reihenfolge der Kategorien-Datei). Während der Suche ist es von selbst an –
+  dort abschaltbar –, ohne Suchbegriff gilt wieder die eigene Einstellung
 - **Diese Woche** (oben, mit Zahl): jedes Rezept, das auf die Liste kommt, ist
   ein geplantes Gericht. Sortiert nach 🥗 Frisch, 🥫 Vorrat und „noch nicht
   festgelegt“, darin das am längsten Eingeplante zuerst; mehr als sieben und
@@ -252,7 +255,7 @@ der Datei, liest der Server sie einmalig aus den alten Gruppen-IDs `frisch` und
 Die **Gruppen** (in der App „Kategorien“) stehen in
 [export/rezeptgruppen.json](export/rezeptgruppen.json). Angelegt wird aus jeder
 Kategorie-Auswahl heraus über „＋ Kategorie hinzufügen …“ – ein Emoji vorne im
-Namen wird ihr Zeichen („🌮 Mexikanisch“) – oder unten beim Ordnen. Der Stift ✎
+Namen wird ihr Zeichen („🌮 Mexikanisch“) – oder unten beim Ordnen. Der Stift
 an der Überschrift benennt um, ändert das Zeichen oder löscht; beim Ordnen
 stehen dafür auch leere Kategorien da. Löschen nimmt die Kategorie aus allen
 Rezepten heraus; abgelehnt wird es nur, solange ein Rezept ausschließlich dort
@@ -260,7 +263,8 @@ steht – es stünde sonst nirgends mehr. Beim Umbenennen bleibt die `id`, an de
 Rezepte hängen.
 
 Die Reihenfolge in der Datei ist die Reihenfolge im Rezeptbuch. Umsortiert und
-gelöscht wird über den ⠿-Knopf oben im Rezeptfenster („Rezeptbuch ordnen“).
+gelöscht wird über den Griff-Knopf oben im Rezeptfenster („Rezeptbuch
+ordnen“); dort öffnet „⋯“ an jedem Rezept „Bearbeiten“ und „Löschen“.
 Dort stehen unter jedem Rezept auch seine Kategorien (eine Mehrfachauswahl:
 zugeklappt die gewählten, aufgeklappt jede Kategorie mit Häkchen, eine bleibt
 immer) und Frisch/Vorrat zum direkten Umstellen – viele Rezepte lassen sich so in einem Zug einsortieren.

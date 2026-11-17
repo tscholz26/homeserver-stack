@@ -7,6 +7,7 @@ import {
   type Recipe,
   type RecipeIngredient,
 } from '@/composables/useEinkaufStore'
+import AppIcon from '@/components/AppIcon.vue'
 import HaltbarkeitWahl from '@/components/HaltbarkeitWahl.vue'
 import KategorienWahl from '@/components/KategorienWahl.vue'
 import NotizText from '@/components/NotizText.vue'
@@ -62,6 +63,10 @@ const aktivGruppen = computed(() =>
 const suche = ref('')
 // Im Verwaltungsmodus wird sortiert und gelöscht statt eingekauft
 const verwalten = ref(false)
+// Welches Rezept beim Ordnen sein „⋯“-Menü offen hat – je Kategorie, denn
+// dasselbe Rezept kann in mehreren stehen („<kategorie>:<rezept>“)
+const menuOffen = ref<string | null>(null)
+watch(verwalten, () => (menuOffen.value = null))
 
 // ── Schritt 1: welches Rezept? ────────────────────────────────────────────────
 // Frisch oder Vorrat als Filter: beim Planen der Woche will man oft genau
@@ -102,9 +107,22 @@ watch(nurEinmal, (an) => {
   }
 })
 
-const ungefiltert = computed(
-  () => !suche.value.trim() && filter.value === 'alle' && !nurEinmal.value,
-)
+// Während der Suche gilt „nur 1×“ von selbst – dieselbe Pasta dreimal in den
+// Treffern hilft niemandem. Abschalten lässt es sich dort trotzdem; ohne
+// Suchbegriff gilt wieder die eigene Einstellung.
+const sucht = computed(() => suche.value.trim() !== '')
+const einmalBeiSuche = ref(true)
+watch(sucht, (jetzt) => {
+  if (jetzt) einmalBeiSuche.value = true
+})
+const einmalAktiv = computed(() => (sucht.value ? einmalBeiSuche.value : nurEinmal.value))
+
+function einmalUmschalten() {
+  if (sucht.value) einmalBeiSuche.value = !einmalBeiSuche.value
+  else nurEinmal.value = !nurEinmal.value
+}
+
+const ungefiltert = computed(() => !sucht.value && filter.value === 'alle' && !einmalAktiv.value)
 
 // Innerhalb jeder Kategorie steht oben, was am längsten nicht auf der Liste
 // war – beim Planen der Woche fällt der Blick so zuerst auf das, was man
@@ -121,7 +139,7 @@ const gruppen = computed(() => {
           r.groups.includes(group.id) &&
           (!q || r.name.toLowerCase().includes(q)) &&
           (filter.value === 'alle' || r.haltbarkeit === filter.value) &&
-          !(nurEinmal.value && schonDa.has(r.id)),
+          !(einmalAktiv.value && schonDa.has(r.id)),
       )
       for (const r of passend) schonDa.add(r.id)
       return {
@@ -446,7 +464,7 @@ function zurueck() {
             :aria-pressed="verwalten"
             @click="verwalten = !verwalten"
           >
-            ⠿
+            <AppIcon name="griff" />
           </button>
           <button
             v-if="!eingebettet"
@@ -481,12 +499,12 @@ function zurueck() {
             <button
               type="button"
               class="einmal"
-              :class="{ an: nurEinmal }"
-              :aria-pressed="nurEinmal"
-              title="Rezepte in mehreren Kategorien nur unter der ersten zeigen"
-              @click="nurEinmal = !nurEinmal"
+              :class="{ an: einmalAktiv }"
+              :aria-pressed="einmalAktiv"
+              title="Rezepte in mehreren Kategorien nur unter der ersten zeigen – beim Suchen von selbst"
+              @click="einmalUmschalten"
             >
-              Jedes nur 1×
+              Nur 1×
             </button>
           </div>
 
@@ -498,9 +516,9 @@ function zurueck() {
 
           <p v-if="verwalten" class="hinweis ordnen-hinweis">
             Unter jedem Rezept stehen seine Kategorien und ob es frisch gekocht wird oder aus dem
-            Vorrat kommt – beides gilt sofort. Kategorien werden über den Stift ✎ an der Überschrift
-            umbenannt oder gelöscht.
-            <template v-if="ungefiltert">Am Griff ⠿ in die gewünschte Reihenfolge ziehen.</template>
+            Vorrat kommt – beides gilt sofort. „⋯“ bearbeitet oder löscht ein Rezept, der Stift an
+            der Überschrift eine Kategorie.
+            <template v-if="ungefiltert">Am Griff in die gewünschte Reihenfolge ziehen.</template>
             <template v-else
               >Sortieren am Griff geht nur ohne Suche, Filter und „Jedes nur 1×“.</template
             >
@@ -536,7 +554,7 @@ function zurueck() {
                   class="loeschen klein"
                   @click="kategorieLoeschen(g.group.id, g.group.label)"
                 >
-                  🗑 Löschen
+                  <AppIcon name="muell" :groesse="16" /> Löschen
                 </button>
                 <span v-else class="hinweis klein">
                   {{
@@ -553,7 +571,9 @@ function zurueck() {
               </div>
             </form>
             <h3 v-else class="kategorie">
-              <span>{{ g.group.emoji }} {{ g.group.label }}</span>
+              <span class="k-emoji" aria-hidden="true">{{ g.group.emoji }}</span>
+              <span class="k-name">{{ g.group.label }}</span>
+              <span class="k-zahl">{{ g.recipes.length }}</span>
               <button
                 v-if="eingebettet || verwalten"
                 type="button"
@@ -561,11 +581,11 @@ function zurueck() {
                 :title="`Kategorie „${g.group.label}“ umbenennen oder löschen`"
                 @click="kategorieBearbeiten(g.group.id)"
               >
-                ✎
+                <AppIcon name="stift" :groesse="16" />
               </button>
             </h3>
             <p v-if="!g.recipes.length" class="hinweis leer-kategorie">Noch keine Rezepte.</p>
-            <ul :ref="(el) => setGruppenListe(g.group.id, el)">
+            <ul v-if="g.recipes.length" :ref="(el) => setGruppenListe(g.group.id, el)">
               <li
                 v-for="r in g.recipes"
                 :key="r.id"
@@ -573,7 +593,7 @@ function zurueck() {
                 :class="{ ordnen: verwalten }"
               >
                 <span v-if="verwalten && ungefiltert" class="griff" title="Rezept verschieben">
-                  ⠿
+                  <AppIcon name="griff" />
                 </span>
 
                 <button type="button" class="rezept" :disabled="verwalten" @click="waehle(r)">
@@ -594,23 +614,30 @@ function zurueck() {
                   <span class="anzahl">{{ r.ingredients.length }} Zutaten</span>
                 </button>
 
-                <button
-                  type="button"
-                  class="stift"
-                  title="Rezept bearbeiten"
-                  @click="bearbeiten(r)"
-                >
-                  ✎
-                </button>
+                <!-- Bearbeitet wird im aufgeschlagenen Rezept; nur beim Ordnen
+                     steht beides hinter „⋯“, damit die Liste ruhig bleibt -->
                 <button
                   v-if="verwalten"
                   type="button"
-                  class="muell"
-                  :title="`${r.name} löschen`"
-                  @click="rezeptWeg(r)"
+                  class="mehr"
+                  :class="{ an: menuOffen === `${g.group.id}:${r.id}` }"
+                  :title="`${r.name}: bearbeiten oder löschen`"
+                  :aria-expanded="menuOffen === `${g.group.id}:${r.id}`"
+                  @click="
+                    menuOffen =
+                      menuOffen === `${g.group.id}:${r.id}` ? null : `${g.group.id}:${r.id}`
+                  "
                 >
-                  🗑
+                  <AppIcon name="mehr" :groesse="20" />
                 </button>
+                <div v-if="verwalten && menuOffen === `${g.group.id}:${r.id}`" class="menue">
+                  <button type="button" @click="bearbeiten(r)">
+                    <AppIcon name="stift" :groesse="16" /> Bearbeiten
+                  </button>
+                  <button type="button" class="rot" @click="rezeptWeg(r)">
+                    <AppIcon name="muell" :groesse="16" /> Löschen
+                  </button>
+                </div>
 
                 <!-- Einsortieren ohne Umweg über das Bearbeiten: bei sechzig
                      Rezepten wäre jeder zusätzliche Tipp einer zu viel -->
@@ -652,7 +679,7 @@ function zurueck() {
           <button type="button" class="zurueck" title="Zurück" @click="zurueck">←</button>
           <h2>{{ aktiv.name }}</h2>
           <button type="button" class="stift" title="Rezept bearbeiten" @click="bearbeiten(aktiv)">
-            ✎
+            <AppIcon name="stift" />
           </button>
         </header>
 
@@ -679,7 +706,7 @@ function zurueck() {
           <h3>Notizen</h3>
           <NotizText v-if="aktiv.notes" :text="aktiv.notes" />
           <p v-else class="hinweis">
-            Noch keine Notizen. Über den Stift ✎ lassen sich Zubereitung, Portionen oder ein Link
+            Noch keine Notizen. Über den Stift oben lassen sich Zubereitung, Portionen oder ein Link
             zum Original ergänzen.
           </p>
         </div>
@@ -697,7 +724,7 @@ function zurueck() {
           <button type="button" class="zurueck" @click="zurueck">←</button>
           <h2>{{ aktiv.name }}</h2>
           <button type="button" class="stift" title="Rezept bearbeiten" @click="bearbeiten(aktiv)">
-            ✎
+            <AppIcon name="stift" />
           </button>
           <button
             v-if="!eingebettet"
@@ -790,7 +817,7 @@ function zurueck() {
 
           <ul ref="zutatenListe" class="zutaten">
             <li v-for="(z, index) in entwurf.zutaten" :key="z.schluessel" class="zutat-zeile">
-              <span class="griff" title="Zutat verschieben">⠿</span>
+              <span class="griff" title="Zutat verschieben"><AppIcon name="griff" /></span>
               <input
                 v-model="z.name"
                 class="zutat"
@@ -962,6 +989,40 @@ h3 {
   text-transform: uppercase;
 }
 
+/* Kategorie-Überschrift: groß, mit Balken und Anzahl – die Liste soll auf
+   einen Blick in Abschnitte zerfallen */
+h3.kategorie {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 1.6rem 0 0.5rem;
+  padding: 0.15rem 0 0.15rem 0.7rem;
+  border-left: 4px solid var(--violet);
+  color: var(--text);
+  font-size: 1.08rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.k-emoji {
+  flex-shrink: 0;
+  font-size: 1.2rem;
+}
+
+.k-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.k-zahl {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 .inhalt {
   flex: 1;
   overflow-y: auto;
@@ -1012,11 +1073,70 @@ ul {
   padding: 0;
 }
 
+/* Rezepte einer Kategorie in einem Kasten, jede zweite Zeile leicht getönt:
+   trennt die Zeilen, ohne dass überall Linien stehen */
+section ul {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  background: white;
+}
+
 section ul li {
   display: flex;
   align-items: center;
   gap: 0.3rem;
-  border-top: 1px solid var(--line);
+  padding: 0 0.35rem 0 0.55rem;
+}
+
+section ul li:nth-child(even) {
+  background: color-mix(in srgb, var(--violet) 5%, white);
+}
+
+.mehr {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.2rem;
+  height: 2.2rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.mehr.an {
+  background: color-mix(in srgb, var(--violet) 12%, white);
+  color: var(--violet);
+}
+
+.menue {
+  flex-basis: 100%;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  padding: 0 0 0.6rem;
+}
+
+.menue button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  background: white;
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.menue button.rot {
+  border-color: color-mix(in srgb, var(--red) 30%, transparent);
+  color: var(--red);
 }
 
 .rezept:disabled {
@@ -1063,18 +1183,27 @@ section ul li.ordnen {
 
 .filter {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
+  gap: 0.25rem;
   margin-top: 0.6rem;
+  /* Eine Zeile, auch auf dem Handy; wird es doch zu eng (mit „Offen“),
+     scrollt sie zur Seite, statt umzubrechen */
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.filter::-webkit-scrollbar {
+  display: none;
 }
 
 .filter button {
-  padding: 0.35rem 0.7rem;
+  flex-shrink: 0;
+  padding: 0.3rem 0.5rem;
+  white-space: nowrap;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--card);
   color: var(--muted);
-  font-size: 0.83rem;
+  font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
 }
@@ -1095,20 +1224,9 @@ section ul li.ordnen {
 }
 
 .filter .zahl {
-  margin-left: 0.15rem;
+  margin-left: 0.05rem;
   opacity: 0.7;
   font-variant-numeric: tabular-nums;
-}
-
-h3.kategorie {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-
-h3.kategorie span {
-  flex: 1;
-  min-width: 0;
 }
 
 .stift.klein {
@@ -1200,18 +1318,6 @@ h3.kategorie span {
   margin-top: 1.2rem;
 }
 
-.muell {
-  flex-shrink: 0;
-  width: 2rem;
-  height: 2rem;
-  border: none;
-  border-radius: 999px;
-  background: transparent;
-  font-size: 0.95rem;
-  line-height: 1;
-  cursor: pointer;
-}
-
 .stift.an {
   background: color-mix(in srgb, var(--violet) 14%, transparent);
   color: var(--violet);
@@ -1223,7 +1329,7 @@ h3.kategorie span {
   display: flex;
   align-items: baseline;
   gap: 0.5rem;
-  padding: 0.7rem 0.2rem;
+  padding: 0.85rem 0.15rem;
   border: none;
   background: transparent;
   color: inherit;
@@ -1280,6 +1386,7 @@ h3.kategorie span {
 }
 
 .griff {
+  display: inline-flex;
   flex-shrink: 0;
   padding: 0.35rem 0.2rem;
   color: color-mix(in srgb, var(--muted) 55%, transparent);
@@ -1346,6 +1453,9 @@ h3.kategorie span {
 .zu,
 .zurueck,
 .stift {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
   width: 2rem;
   height: 2rem;
