@@ -3,6 +3,8 @@
     "id": "msqhngzo-88e15fdd",
     "name": "Flammkuchen (2 Personen)",
     "group": "frisch",
+    "haltbarkeit": "frisch",
+    "notes": "",
     "ingredients": [
       {
         "name": "Flammkuchenteig",
@@ -42,6 +44,8 @@
     "id": "msqhngzo-90a14675",
     "name": "Halloumi Burger",
     "group": "frisch",
+    "haltbarkeit": "frisch",
+    "notes": "",
     "ingredients": [
       {
         "name": "Burger Buns",
@@ -93,6 +97,8 @@
     "id": "msqi07no-80fa843f",
     "name": "Zitronenlauch mit Gnocchi",
     "group": "frisch",
+    "haltbarkeit": "frisch",
+    "notes": "",
     "ingredients": [
       {
         "name": "Lauch",
@@ -132,6 +138,8 @@
     "id": "msqhngzp-955be25a",
     "name": "Shakshuka",
     "group": "familienkochbuch",
+    "haltbarkeit": "",
+    "notes": "",
     "ingredients": [
       {
         "name": "Eier",
@@ -171,6 +179,8 @@
     "id": "msqi07no-3f98c567",
     "name": "Gnocchi Auflauf",
     "group": "frisch",
+    "haltbarkeit": "frisch",
+    "notes": "",
     "ingredients": [
       {
         "name": "Gnocchi",
@@ -198,6 +208,8 @@
     "id": "msqhngzp-39fd443c",
     "name": "Kichererbsen-Curry aus Australien",
     "group": "vorrat",
+    "haltbarkeit": "vorrat",
+    "notes": "",
     "ingredients": [
       {
         "name": "Kichererbsen (Dose)",
@@ -229,6 +241,8 @@
     "id": "msqi07no-e649e287",
     "name": "Nudeln mit Gorgonzolasoße und Walnüssen",
     "group": "familienkochbuch",
+    "haltbarkeit": "",
+    "notes": "",
     "ingredients": [
       {
         "name": "Nudeln",
@@ -280,6 +294,8 @@
     "id": "msqi07no-c8a3b1e9",
     "name": "Gorgonzola Risotto",
     "group": "familienkochbuch",
+    "haltbarkeit": "",
+    "notes": "",
     "ingredients": [
       {
         "name": "Zwiebeln",
@@ -327,6 +343,8 @@
     "id": "msqi07no-9e137599",
     "name": "Risotto mit Steinpilzen",
     "group": "familienkochbuch",
+    "haltbarkeit": "",
+    "notes": "",
     "ingredients": [
       {
         "name": "Zwiebeln",
@@ -378,6 +396,8 @@
     "id": "msqi07no-06f3b4f9",
     "name": "Chili con Carne",
     "group": "frisch",
+    "haltbarkeit": "frisch",
+    "notes": "",
     "ingredients": [
       {
         "name": "Hackfleisch Rind",
@@ -417,6 +437,8 @@
     "id": "msqi07no-8f2be20a",
     "name": "Züricher Geschnetzeltes mit Spätzle",
     "group": "frisch",
+    "haltbarkeit": "frisch",
+    "notes": "",
     "ingredients": [
       {
         "name": "Hähnchenbrustfilets",
@@ -452,6 +474,8 @@
     "id": "msqi07no-184dda1e",
     "name": "Milchreis mit Apfelmus, Zucker und Zimt",
     "group": "sonstiges",
+    "haltbarkeit": "",
+    "notes": "",
     "ingredients": [
       {
         "name": "Milchreis",
@@ -491,6 +515,8 @@
     "id": "msqi07no-5c074e9f",
     "name": "Käse-Lauch-Suppe mit Hackfleisch",
     "group": "frisch",
+    "haltbarkeit": "frisch",
+    "notes": "",
     "ingredients": [
       {
         "name": "Hackepeter",
@@ -526,6 +552,8 @@
     "id": "msqi07no-557da920",
     "name": "Schnitzel mit Spargel und Kartoffeln",
     "group": "saisonal",
+    "haltbarkeit": "",
+    "notes": "",
     "ingredients": [
       {
         "name": "Kartoffeln",
@@ -573,6 +601,8 @@
     "id": "msqi07no-21ae31e8",
     "name": "Spaghetti Carbonara",
     "group": "frisch",
+    "haltbarkeit": "frisch",
+    "notes": "",
     "ingredients": [
       {
         "name": "Gute Spaghetti",
@@ -596,6 +626,8 @@
     "id": "msqi07no-7c098a19",
     "name": "Lachsnudeln",
     "group": "vorrat",
+    "haltbarkeit": "vorrat",
+    "notes": "",
     "ingredients": [
       {
         "name": "Nudeln",
@@ -655,6 +687,8 @@
     "id": "msqi07no-5af91048",
     "name": "Eierkuchen herzhaft oder süß (=6 Eierkuchen)",
     "group": "frisch",
+    "haltbarkeit": "frisch",
+    "notes": "",
     "ingredients": [
       {
         "name": "Buttermilch",
@@ -702,6 +736,8 @@
     "id": "msqi07no-02922cc3",
     "name": "Kartoffelpuffer mit Apfelmus",
     "group": "sonstiges",
+    "haltbarkeit": "",
+    "notes": "",
     "ingredients": [
       {
         "name": "Kartoffeln",
@@ -733,6 +769,8 @@
     "id": "msqi07no-b37dfa1d",
     "name": "Spaghetti Tetrazzini",
     "group": "familienkochbuch",
+    "haltbarkeit": "",
+    "notes": "",
     "ingredients": [
       {
         "name": "Nudeln",
@@ -780,6 +818,8 @@
     "id": "9fba2470-6deb-4a56-a06b-aa8c194686bc",
     "name": "Ofengemüse mit Gnocchi",
     "group": "frisch",
+    "haltbarkeit": "frisch",
+    "notes": "",
     "ingredients": [
       {
         "name": "Pilze",
@@ -811,6 +851,8 @@
     "id": "msqi07no-df885986",
     "name": "Saure Kartoffelstückchen",
     "group": "familienkochbuch",
+    "haltbarkeit": "",
+    "notes": "",
     "ingredients": [
       {
         "name": "Kartoffeln",
@@ -870,6 +912,8 @@
     "id": "msqi07no-ea7bbcf1",
     "name": "Pflaumenklöße mit brauner Butter, Zimt und Zucker",
     "group": "sonstiges",
+    "haltbarkeit": "",
+    "notes": "",
     "ingredients": [
       {
         "name": "Kartoffeln",
@@ -905,6 +949,8 @@
     "id": "msqi07no-3724ff0f",
     "name": "Fischfilet mit Kartoffeln, Rotkraut und Senfsoße",
     "group": "familienkochbuch",
+    "haltbarkeit": "",
+    "notes": "",
     "ingredients": [
       {
         "name": "Kartoffeln",
@@ -960,6 +1006,8 @@
     "id": "msqi07no-0d2f432a",
     "name": "Kaiserschmarrn",
     "group": "sonstiges",
+    "haltbarkeit": "",
+    "notes": "",
     "ingredients": [
       {
         "name": "Mehl",
@@ -999,6 +1047,8 @@
     "id": "msqi07no-869320e7",
     "name": "Quiche Lorraine + Spargelquiche",
     "group": "familienkochbuch",
+    "haltbarkeit": "",
+    "notes": "",
     "ingredients": [
       {
         "name": "Mehl",
@@ -1078,6 +1128,8 @@
     "id": "msqi07no-ec67d3df",
     "name": "Kartoffelgratin",
     "group": "familienkochbuch",
+    "haltbarkeit": "",
+    "notes": "",
     "ingredients": [
       {
         "name": "Kartoffeln",
@@ -1101,12 +1153,16 @@
     "id": "b917cb2b-6c60-4ae6-b3e8-e0d8b8b0945d",
     "name": "Chantals Curry",
     "group": "frisch",
+    "haltbarkeit": "frisch",
+    "notes": "",
     "ingredients": []
   },
   {
     "id": "d5a3b362-8d73-4ffe-b60c-0decaa8e31e1",
     "name": "Maultaschensalat",
     "group": "frisch",
+    "haltbarkeit": "frisch",
+    "notes": "",
     "ingredients": [
       {
         "name": "Maultaschen vegan",
@@ -1138,6 +1194,8 @@
     "id": "55336775-33fb-4aee-91e0-92bc143a7c6f",
     "name": "Lasagne",
     "group": "frisch",
+    "haltbarkeit": "frisch",
+    "notes": "",
     "ingredients": [
       {
         "name": "Lasagneplatten",
@@ -1213,6 +1271,8 @@
     "id": "2112f5f1-17ce-48b9-b46f-6d7594ad76b6",
     "name": "Caesars Salad mit Halloumiwürfeln (optional Pommes)",
     "group": "frisch",
+    "haltbarkeit": "frisch",
+    "notes": "",
     "ingredients": [
       {
         "name": "Salatherzen",
@@ -1260,6 +1320,8 @@
     "id": "5d0160bc-f9d6-4d31-83f8-385bdf05f7a7",
     "name": "Spätzle mit Rahmsoße, Hühnchen und Röstzwiebeln",
     "group": "frisch",
+    "haltbarkeit": "frisch",
+    "notes": "",
     "ingredients": [
       {
         "name": "Spätzle",
@@ -1283,30 +1345,40 @@
     "id": "c9f4acc8-8703-416f-8c7c-766a130c8af1",
     "name": "Udonnudeln mit Erdnussoße Max",
     "group": "frisch",
+    "haltbarkeit": "frisch",
+    "notes": "",
     "ingredients": []
   },
   {
     "id": "df4c84a0-065d-4ae6-a204-abe1c4b95bc3",
     "name": "Halloumi Pitas",
     "group": "frisch",
+    "haltbarkeit": "frisch",
+    "notes": "",
     "ingredients": []
   },
   {
     "id": "7373c5f7-2b75-43bc-b694-eb77428b5579",
     "name": "Chantals Zitronen-Sahne-Pesto Nudeln mit gebackenen Zucchini Bites",
     "group": "frisch",
+    "haltbarkeit": "frisch",
+    "notes": "",
     "ingredients": []
   },
   {
     "id": "3f2b3f4b-e2d0-4561-9332-64711a87930a",
     "name": "Nudeln mit Pilzsoße",
     "group": "frisch",
+    "haltbarkeit": "frisch",
+    "notes": "",
     "ingredients": []
   },
   {
     "id": "msqhngzo-6c7bdc20",
     "name": "Griechischer Salat/Tomate Gurke Paprika",
     "group": "frisch",
+    "haltbarkeit": "frisch",
+    "notes": "",
     "ingredients": [
       {
         "name": "Tomaten",
@@ -1342,66 +1414,88 @@
     "id": "ab832aa1-2157-4c4c-951f-8826bfe9d8e4",
     "name": "Rote-Beete-Salat",
     "group": "frisch",
+    "haltbarkeit": "frisch",
+    "notes": "",
     "ingredients": []
   },
   {
     "id": "3d714869-5e50-4c29-9891-13889f0a7b32",
     "name": "Mango-Avocado-Salat und Lachsfilet",
     "group": "frisch",
+    "haltbarkeit": "frisch",
+    "notes": "",
     "ingredients": []
   },
   {
     "id": "0a7c9c21-a8ee-4abc-95d9-6ca271ffd1f2",
     "name": "Moussaka",
     "group": "suesses",
+    "haltbarkeit": "",
+    "notes": "",
     "ingredients": []
   },
   {
     "id": "dab8b69d-4827-4c44-862c-d087972b635e",
     "name": "Aubergine mit Feta und Tomatensoße überbacken",
     "group": "suesses",
+    "haltbarkeit": "",
+    "notes": "",
     "ingredients": []
   },
   {
     "id": "cb7c5747-b2fe-48fc-9c3c-9d3d7b144da8",
     "name": "Nudelsalat auf Pestobasis",
     "group": "frisch",
+    "haltbarkeit": "frisch",
+    "notes": "",
     "ingredients": []
   },
   {
     "id": "747ac9c8-5c97-4fac-ad83-6f9a4d99c662",
     "name": "Baguette und Käse, Ofenkäse",
     "group": "frisch",
+    "haltbarkeit": "frisch",
+    "notes": "",
     "ingredients": []
   },
   {
     "id": "51e9f638-258f-4c69-9cc1-86c059da513a",
     "name": "Rote Beete Pasta",
     "group": "vorrat",
+    "haltbarkeit": "vorrat",
+    "notes": "",
     "ingredients": []
   },
   {
     "id": "4a337b81-04c5-4d08-8640-9af782e6d9aa",
     "name": "Tomaten-Feta-Pasta aus dem Ofen von Chantal",
     "group": "vorrat",
+    "haltbarkeit": "vorrat",
+    "notes": "",
     "ingredients": []
   },
   {
     "id": "15fc2a87-428c-41c2-beb2-4132bd6d980e",
     "name": "Hotdogs",
     "group": "vorrat",
+    "haltbarkeit": "vorrat",
+    "notes": "",
     "ingredients": []
   },
   {
     "id": "c5160c37-6484-4421-be63-c1f9ebd13c4b",
     "name": "Sandwichtoast",
     "group": "vorrat",
+    "haltbarkeit": "vorrat",
+    "notes": "",
     "ingredients": []
   },
   {
     "id": "29c209c7-07d6-440b-a13e-51da464ad90b",
     "name": "Tortelliniauflauf",
     "group": "vorrat",
+    "haltbarkeit": "vorrat",
+    "notes": "",
     "ingredients": [
       {
         "name": "Tortellini",
@@ -1437,18 +1531,24 @@
     "id": "f7934f74-9a13-42b0-a3ff-fa0bbc54eb27",
     "name": "Zitronenpasta",
     "group": "vorrat",
+    "haltbarkeit": "vorrat",
+    "notes": "",
     "ingredients": []
   },
   {
     "id": "598f91cf-0017-4fe2-aa39-cf991ab6e535",
     "name": "Papa-Nudeln",
     "group": "vorrat",
+    "haltbarkeit": "vorrat",
+    "notes": "",
     "ingredients": []
   },
   {
     "id": "msqhngzn-47c5a12f",
     "name": "Pinsa",
     "group": "frisch",
+    "haltbarkeit": "frisch",
+    "notes": "",
     "ingredients": [
       {
         "name": "Pinsateig",
@@ -1476,6 +1576,8 @@
     "id": "82bfd11a-3b01-4537-9134-e31fa85ba684",
     "name": "Linsencurry und selbstgemachtes Naan",
     "group": "vorrat",
+    "haltbarkeit": "vorrat",
+    "notes": "",
     "ingredients": [
       {
         "name": "Getrocknete Rote Linsen",
@@ -1515,12 +1617,16 @@
     "id": "c5de8d6d-99ab-4ae7-8fc3-cb9e15c38e67",
     "name": "Spargel-Tomaten-Salat",
     "group": "saisonal",
+    "haltbarkeit": "",
+    "notes": "",
     "ingredients": []
   },
   {
     "id": "bff97421-90db-456d-9d60-6e2d463086e8",
     "name": "Kürbissuppe",
     "group": "saisonal",
+    "haltbarkeit": "",
+    "notes": "",
     "ingredients": [
       {
         "name": "Kürbis",
@@ -1552,6 +1658,8 @@
     "id": "0b53bb29-d42a-48e4-9740-44f99e0914f5",
     "name": "Gefüllter Butternut Kürbis aus dem Ofen",
     "group": "saisonal",
+    "haltbarkeit": "",
+    "notes": "",
     "ingredients": [
       {
         "name": "Butternut Kürbis (möglichst schmal)",
@@ -1591,6 +1699,8 @@
     "id": "576fb01e-e86f-4d5f-bf1b-64f94d0f4a70",
     "name": "Schupfnudel-Gemüse-Pfanne",
     "group": "frisch",
+    "haltbarkeit": "frisch",
+    "notes": "",
     "ingredients": [
       {
         "name": "Zucchini",
@@ -1630,6 +1740,8 @@
     "id": "502e48eb-a575-4056-b4f8-28f53aa77bf3",
     "name": "Türkische Pasta",
     "group": "frisch",
+    "haltbarkeit": "frisch",
+    "notes": "",
     "ingredients": [
       {
         "name": "Gute Nudeln",
@@ -1661,6 +1773,8 @@
     "id": "ae5b454f-17e7-4157-aac6-18a7fbb7fffc",
     "name": "Steinpilz Risotto",
     "group": "frisch",
+    "haltbarkeit": "frisch",
+    "notes": "",
     "ingredients": [
       {
         "name": "Schalotten",
@@ -1700,6 +1814,8 @@
     "id": "f5ccc435-6c6c-4086-b09a-877047b0f9a0",
     "name": "Gamja Jorim (Koreanische Kartoffeln)",
     "group": "suesses",
+    "haltbarkeit": "",
+    "notes": "",
     "ingredients": [
       {
         "name": "Drillinge",
@@ -1743,6 +1859,8 @@
     "id": "00e1fe47-b007-417e-af3d-6e8741fc6ff9",
     "name": "Aubergine mit Goldenem Reis",
     "group": "suesses",
+    "haltbarkeit": "",
+    "notes": "",
     "ingredients": [
       {
         "name": "Aubergine",
@@ -1782,6 +1900,8 @@
     "id": "3db3ab99-7419-4d54-a81f-42390c48c588",
     "name": "One Pot Kürbis Pasta",
     "group": "saisonal",
+    "haltbarkeit": "",
+    "notes": "",
     "ingredients": [
       {
         "name": "Nudeln",
@@ -1821,6 +1941,8 @@
     "id": "b196afa2-4f0a-4010-a89d-f22d72997c68",
     "name": "Gefüllte Süßkartoffel Rezept Chantal",
     "group": "frisch",
+    "haltbarkeit": "frisch",
+    "notes": "",
     "ingredients": [
       {
         "name": "Süßkartoffel",
@@ -1852,6 +1974,8 @@
     "id": "655893fa-a22d-47ba-bfbb-ec532d678231",
     "name": "Tiktok Kartoffeln",
     "group": "vorrat",
+    "haltbarkeit": "vorrat",
+    "notes": "",
     "ingredients": [
       {
         "name": "Drillinge",
@@ -1887,6 +2011,8 @@
     "id": "3d2d9125-46ad-481e-ae14-486d35a49c30",
     "name": "Vodka Pasta",
     "group": "frisch",
+    "haltbarkeit": "frisch",
+    "notes": "",
     "ingredients": [
       {
         "name": "Gute Pasta",
@@ -1926,6 +2052,8 @@
     "id": "d5d2994a-eef3-4e92-b867-f619663f3d7d",
     "name": "Chinesische Scherennudeln",
     "group": "frisch",
+    "haltbarkeit": "frisch",
+    "notes": "",
     "ingredients": [
       {
         "name": "Weizenmehl",
