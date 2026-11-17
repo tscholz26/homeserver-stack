@@ -1,18 +1,8 @@
 [
   {
-    "id": "frisch",
-    "emoji": "📥",
-    "label": "Noch einsortieren (bisher Frisch)"
-  },
-  {
-    "id": "vorrat",
-    "emoji": "📥",
-    "label": "Noch einsortieren (bisher Vorrat)"
-  },
-  {
     "id": "pasta",
     "emoji": "🍝",
-    "label": "Nudeln & Pasta"
+    "label": "Pasta"
   },
   {
     "id": "reis_curry",
@@ -27,7 +17,7 @@
   {
     "id": "ofen",
     "emoji": "🧀",
-    "label": "Aufläufe & Ofengerichte"
+    "label": "Aus dem Ofen"
   },
   {
     "id": "suppen",
@@ -40,19 +30,29 @@
     "label": "Salate"
   },
   {
-    "id": "brotzeit",
-    "emoji": "🍔",
-    "label": "Burger, Flammkuchen & Brotzeit"
-  },
-  {
-    "id": "fleisch_fisch",
-    "emoji": "🐟",
-    "label": "Fleisch & Fisch"
+    "id": "asiatisch",
+    "emoji": "🥢",
+    "label": "Asiatisch"
   },
   {
     "id": "sonstiges",
     "emoji": "🥞",
     "label": "Süßes"
+  },
+  {
+    "id": "suesses",
+    "emoji": "❓",
+    "label": "Sonstiges"
+  },
+  {
+    "id": "viel_gemuese",
+    "emoji": "🥦",
+    "label": "Viel Gemüse"
+  },
+  {
+    "id": "fleisch_fisch",
+    "emoji": "🐟",
+    "label": "Fleisch & Fisch"
   },
   {
     "id": "saisonal",
@@ -63,10 +63,5 @@
     "id": "familienkochbuch",
     "emoji": "📕",
     "label": "Familienkochbuch"
-  },
-  {
-    "id": "suesses",
-    "emoji": "❓",
-    "label": "Sonstiges"
   }
 ]
