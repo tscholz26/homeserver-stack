@@ -3177,13 +3177,6 @@
     "category_id": "nudeln_reis"
   },
   {
-    "name": "Nudeln",
-    "aliases": [
-      "Gute Nudeln"
-    ],
-    "category_id": "nudeln_reis"
-  },
-  {
     "name": "TK-Pizza",
     "aliases": [
       "Tiefkühlpizza",
@@ -3360,5 +3353,23 @@
     "name": "Mirin",
     "aliases": [],
     "category_id": "nudeln_reis"
+  },
+  {
+    "name": "Nudeln",
+    "aliases": [
+      "Gute Nudeln",
+      "Schmetterlingsnudeln"
+    ],
+    "category_id": "nudeln_reis"
+  },
+  {
+    "name": "Veggie Hack",
+    "aliases": [],
+    "category_id": "fleisch_wurst"
+  },
+  {
+    "name": "Indische Gewürze",
+    "aliases": [],
+    "category_id": "backen_gewuerze"
   }
 ]

@@ -4,7 +4,7 @@
     "name": "Flammkuchen (2 Personen)",
     "groups": [
       "ofen",
-      "fleisch_fisch"
+      "familienkochbuch"
     ],
     "haltbarkeit": "frisch",
     "notes": "",
@@ -103,7 +103,7 @@
     "name": "Zitronenlauch mit Gnocchi",
     "groups": [
       "kartoffeln",
-      "viel_gemuese"
+      "familienkochbuch"
     ],
     "haltbarkeit": "frisch",
     "notes": "",
@@ -149,7 +149,7 @@
       "viel_gemuese",
       "familienkochbuch"
     ],
-    "haltbarkeit": "",
+    "haltbarkeit": "frisch",
     "notes": "",
     "ingredients": [
       {
@@ -191,7 +191,8 @@
     "name": "Gnocchi Auflauf",
     "groups": [
       "kartoffeln",
-      "ofen"
+      "ofen",
+      "familienkochbuch"
     ],
     "haltbarkeit": "frisch",
     "notes": "",
@@ -260,7 +261,7 @@
       "pasta",
       "familienkochbuch"
     ],
-    "haltbarkeit": "",
+    "haltbarkeit": "vorrat",
     "notes": "",
     "ingredients": [
       {
@@ -316,7 +317,7 @@
       "reis_curry",
       "familienkochbuch"
     ],
-    "haltbarkeit": "",
+    "haltbarkeit": "vorrat",
     "notes": "",
     "ingredients": [
       {
@@ -362,67 +363,12 @@
     ]
   },
   {
-    "id": "msqi07no-9e137599",
-    "name": "Risotto mit Steinpilzen",
-    "groups": [
-      "reis_curry",
-      "familienkochbuch"
-    ],
-    "haltbarkeit": "",
-    "notes": "",
-    "ingredients": [
-      {
-        "name": "Zwiebeln",
-        "quantity": "2 Stück"
-      },
-      {
-        "name": "Butterschmalz",
-        "quantity": "20 g"
-      },
-      {
-        "name": "Weißwein",
-        "quantity": "300 ml"
-      },
-      {
-        "name": "Wasser",
-        "quantity": "2 l"
-      },
-      {
-        "name": "Gemüsebrühe",
-        "quantity": "für 2 l Wasser / ca. 40 g"
-      },
-      {
-        "name": "Risottoreis",
-        "quantity": "500 g"
-      },
-      {
-        "name": "Schlagsahne",
-        "quantity": "3 EL"
-      },
-      {
-        "name": "getrocknete Steinpilze",
-        "quantity": "40 g"
-      },
-      {
-        "name": "Parmesan",
-        "quantity": "100 g"
-      },
-      {
-        "name": "Salz",
-        "quantity": "7 g"
-      },
-      {
-        "name": "Pfeffer",
-        "quantity": "nach Geschmack"
-      }
-    ]
-  },
-  {
     "id": "msqi07no-06f3b4f9",
     "name": "Chili con Carne",
     "groups": [
       "suppen",
-      "fleisch_fisch"
+      "fleisch_fisch",
+      "familienkochbuch"
     ],
     "haltbarkeit": "frisch",
     "notes": "",
@@ -466,7 +412,8 @@
     "name": "Züricher Geschnetzeltes mit Spätzle",
     "groups": [
       "kartoffeln",
-      "fleisch_fisch"
+      "fleisch_fisch",
+      "familienkochbuch"
     ],
     "haltbarkeit": "frisch",
     "notes": "",
@@ -505,9 +452,10 @@
     "id": "msqi07no-184dda1e",
     "name": "Milchreis mit Apfelmus, Zucker und Zimt",
     "groups": [
-      "sonstiges"
+      "sonstiges",
+      "familienkochbuch"
     ],
-    "haltbarkeit": "",
+    "haltbarkeit": "vorrat",
     "notes": "",
     "ingredients": [
       {
@@ -549,7 +497,8 @@
     "name": "Käse-Lauch-Suppe mit Hackfleisch",
     "groups": [
       "suppen",
-      "fleisch_fisch"
+      "fleisch_fisch",
+      "familienkochbuch"
     ],
     "haltbarkeit": "frisch",
     "notes": "",
@@ -588,11 +537,11 @@
     "id": "msqi07no-557da920",
     "name": "Schnitzel mit Spargel und Kartoffeln",
     "groups": [
-      "kartoffeln",
       "fleisch_fisch",
-      "saisonal"
+      "saisonal",
+      "familienkochbuch"
     ],
-    "haltbarkeit": "",
+    "haltbarkeit": "frisch",
     "notes": "",
     "ingredients": [
       {
@@ -670,7 +619,8 @@
     "name": "Lachsnudeln",
     "groups": [
       "pasta",
-      "fleisch_fisch"
+      "fleisch_fisch",
+      "familienkochbuch"
     ],
     "haltbarkeit": "vorrat",
     "notes": "",
@@ -733,7 +683,8 @@
     "id": "msqi07no-5af91048",
     "name": "Eierkuchen herzhaft oder süß (=6 Eierkuchen)",
     "groups": [
-      "sonstiges"
+      "sonstiges",
+      "familienkochbuch"
     ],
     "haltbarkeit": "frisch",
     "notes": "",
@@ -784,10 +735,10 @@
     "id": "msqi07no-02922cc3",
     "name": "Kartoffelpuffer mit Apfelmus",
     "groups": [
-      "kartoffeln",
-      "sonstiges"
+      "sonstiges",
+      "familienkochbuch"
     ],
-    "haltbarkeit": "",
+    "haltbarkeit": "vorrat",
     "notes": "",
     "ingredients": [
       {
@@ -820,11 +771,10 @@
     "id": "msqi07no-b37dfa1d",
     "name": "Spaghetti Tetrazzini",
     "groups": [
-      "pasta",
       "fleisch_fisch",
       "familienkochbuch"
     ],
-    "haltbarkeit": "",
+    "haltbarkeit": "frisch",
     "notes": "",
     "ingredients": [
       {
@@ -874,8 +824,8 @@
     "name": "Ofengemüse mit Gnocchi",
     "groups": [
       "kartoffeln",
-      "ofen",
-      "viel_gemuese"
+      "viel_gemuese",
+      "airfryer"
     ],
     "haltbarkeit": "frisch",
     "notes": "",
@@ -910,11 +860,10 @@
     "id": "msqi07no-df885986",
     "name": "Saure Kartoffelstückchen",
     "groups": [
-      "kartoffeln",
-      "fleisch_fisch",
+      "suppen",
       "familienkochbuch"
     ],
-    "haltbarkeit": "",
+    "haltbarkeit": "frisch",
     "notes": "",
     "ingredients": [
       {
@@ -975,10 +924,10 @@
     "id": "msqi07no-ea7bbcf1",
     "name": "Pflaumenklöße mit brauner Butter, Zimt und Zucker",
     "groups": [
-      "kartoffeln",
-      "sonstiges"
+      "sonstiges",
+      "familienkochbuch"
     ],
-    "haltbarkeit": "",
+    "haltbarkeit": "frisch",
     "notes": "",
     "ingredients": [
       {
@@ -1015,11 +964,10 @@
     "id": "msqi07no-3724ff0f",
     "name": "Fischfilet mit Kartoffeln, Rotkraut und Senfsoße",
     "groups": [
-      "kartoffeln",
       "fleisch_fisch",
       "familienkochbuch"
     ],
-    "haltbarkeit": "",
+    "haltbarkeit": "frisch",
     "notes": "",
     "ingredients": [
       {
@@ -1078,7 +1026,7 @@
     "groups": [
       "sonstiges"
     ],
-    "haltbarkeit": "",
+    "haltbarkeit": "vorrat",
     "notes": "",
     "ingredients": [
       {
@@ -1120,10 +1068,9 @@
     "name": "Quiche Lorraine + Spargelquiche",
     "groups": [
       "ofen",
-      "fleisch_fisch",
       "familienkochbuch"
     ],
-    "haltbarkeit": "",
+    "haltbarkeit": "frisch",
     "notes": "",
     "ingredients": [
       {
@@ -1206,9 +1153,10 @@
     "groups": [
       "kartoffeln",
       "ofen",
-      "familienkochbuch"
+      "familienkochbuch",
+      "guenstig"
     ],
-    "haltbarkeit": "",
+    "haltbarkeit": "vorrat",
     "notes": "",
     "ingredients": [
       {
@@ -1243,7 +1191,8 @@
     "id": "d5a3b362-8d73-4ffe-b60c-0decaa8e31e1",
     "name": "Maultaschensalat",
     "groups": [
-      "salate"
+      "salate",
+      "viel_gemuese"
     ],
     "haltbarkeit": "frisch",
     "notes": "",
@@ -1278,7 +1227,6 @@
     "id": "55336775-33fb-4aee-91e0-92bc143a7c6f",
     "name": "Lasagne",
     "groups": [
-      "pasta",
       "ofen",
       "fleisch_fisch"
     ],
@@ -1359,7 +1307,8 @@
     "id": "2112f5f1-17ce-48b9-b46f-6d7594ad76b6",
     "name": "Caesars Salad mit Halloumiwürfeln (optional Pommes)",
     "groups": [
-      "salate"
+      "salate",
+      "viel_gemuese"
     ],
     "haltbarkeit": "frisch",
     "notes": "",
@@ -1438,7 +1387,8 @@
     "id": "c9f4acc8-8703-416f-8c7c-766a130c8af1",
     "name": "Udonnudeln mit Erdnussoße Max",
     "groups": [
-      "asiatisch"
+      "viel_gemuese",
+      "guenstig"
     ],
     "haltbarkeit": "frisch",
     "notes": "",
@@ -1458,7 +1408,8 @@
     "id": "7373c5f7-2b75-43bc-b694-eb77428b5579",
     "name": "Chantals Zitronen-Sahne-Pesto Nudeln mit gebackenen Zucchini Bites",
     "groups": [
-      "pasta"
+      "pasta",
+      "viel_gemuese"
     ],
     "haltbarkeit": "frisch",
     "notes": "",
@@ -1468,7 +1419,8 @@
     "id": "3f2b3f4b-e2d0-4561-9332-64711a87930a",
     "name": "Nudeln mit Pilzsoße",
     "groups": [
-      "pasta"
+      "pasta",
+      "guenstig"
     ],
     "haltbarkeit": "frisch",
     "notes": "",
@@ -1530,6 +1482,7 @@
     "name": "Mango-Avocado-Salat und Lachsfilet",
     "groups": [
       "salate",
+      "viel_gemuese",
       "fleisch_fisch"
     ],
     "haltbarkeit": "frisch",
@@ -1541,10 +1494,9 @@
     "name": "Moussaka",
     "groups": [
       "ofen",
-      "viel_gemuese",
       "fleisch_fisch"
     ],
-    "haltbarkeit": "",
+    "haltbarkeit": "frisch",
     "notes": "",
     "ingredients": []
   },
@@ -1555,7 +1507,7 @@
       "ofen",
       "viel_gemuese"
     ],
-    "haltbarkeit": "",
+    "haltbarkeit": "frisch",
     "notes": "",
     "ingredients": []
   },
@@ -1563,7 +1515,6 @@
     "id": "cb7c5747-b2fe-48fc-9c3c-9d3d7b144da8",
     "name": "Nudelsalat auf Pestobasis",
     "groups": [
-      "pasta",
       "salate"
     ],
     "haltbarkeit": "frisch",
@@ -1574,7 +1525,8 @@
     "id": "747ac9c8-5c97-4fac-ad83-6f9a4d99c662",
     "name": "Baguette und Käse, Ofenkäse",
     "groups": [
-      "ofen"
+      "ofen",
+      "suesses"
     ],
     "haltbarkeit": "frisch",
     "notes": "",
@@ -1585,7 +1537,7 @@
     "name": "Rote Beete Pasta",
     "groups": [
       "pasta",
-      "viel_gemuese"
+      "guenstig"
     ],
     "haltbarkeit": "vorrat",
     "notes": "",
@@ -1596,7 +1548,7 @@
     "name": "Tomaten-Feta-Pasta aus dem Ofen von Chantal",
     "groups": [
       "pasta",
-      "ofen"
+      "guenstig"
     ],
     "haltbarkeit": "vorrat",
     "notes": "",
@@ -1627,7 +1579,6 @@
     "id": "29c209c7-07d6-440b-a13e-51da464ad90b",
     "name": "Tortelliniauflauf",
     "groups": [
-      "pasta",
       "ofen"
     ],
     "haltbarkeit": "vorrat",
@@ -1667,7 +1618,8 @@
     "id": "f7934f74-9a13-42b0-a3ff-fa0bbc54eb27",
     "name": "Zitronenpasta",
     "groups": [
-      "pasta"
+      "pasta",
+      "guenstig"
     ],
     "haltbarkeit": "vorrat",
     "notes": "",
@@ -1677,7 +1629,7 @@
     "id": "598f91cf-0017-4fe2-aa39-cf991ab6e535",
     "name": "Papa-Nudeln",
     "groups": [
-      "pasta"
+      "familienkochbuch"
     ],
     "haltbarkeit": "vorrat",
     "notes": "",
@@ -1718,7 +1670,8 @@
     "id": "82bfd11a-3b01-4537-9134-e31fa85ba684",
     "name": "Linsencurry und selbstgemachtes Naan",
     "groups": [
-      "reis_curry"
+      "reis_curry",
+      "guenstig"
     ],
     "haltbarkeit": "vorrat",
     "notes": "",
@@ -1765,7 +1718,7 @@
       "viel_gemuese",
       "saisonal"
     ],
-    "haltbarkeit": "",
+    "haltbarkeit": "frisch",
     "notes": "",
     "ingredients": []
   },
@@ -1774,11 +1727,9 @@
     "name": "Kürbissuppe",
     "groups": [
       "suppen",
-      "viel_gemuese",
-      "fleisch_fisch",
       "saisonal"
     ],
-    "haltbarkeit": "",
+    "haltbarkeit": "vorrat",
     "notes": "",
     "ingredients": [
       {
@@ -1813,10 +1764,9 @@
     "groups": [
       "ofen",
       "viel_gemuese",
-      "fleisch_fisch",
       "saisonal"
     ],
-    "haltbarkeit": "",
+    "haltbarkeit": "frisch",
     "notes": "",
     "ingredients": [
       {
@@ -1935,7 +1885,7 @@
   },
   {
     "id": "ae5b454f-17e7-4157-aac6-18a7fbb7fffc",
-    "name": "Steinpilz Risotto",
+    "name": "Pilz-Risotto",
     "groups": [
       "reis_curry"
     ],
@@ -1980,10 +1930,10 @@
     "id": "f5ccc435-6c6c-4086-b09a-877047b0f9a0",
     "name": "Gamja Jorim (Koreanische Kartoffeln)",
     "groups": [
-      "asiatisch",
-      "kartoffeln"
+      "kartoffeln",
+      "guenstig"
     ],
-    "haltbarkeit": "",
+    "haltbarkeit": "vorrat",
     "notes": "",
     "ingredients": [
       {
@@ -2029,10 +1979,10 @@
     "name": "Aubergine mit Goldenem Reis",
     "groups": [
       "reis_curry",
-      "asiatisch",
-      "viel_gemuese"
+      "viel_gemuese",
+      "guenstig"
     ],
-    "haltbarkeit": "",
+    "haltbarkeit": "frisch",
     "notes": "",
     "ingredients": [
       {
@@ -2073,11 +2023,10 @@
     "id": "3db3ab99-7419-4d54-a81f-42390c48c588",
     "name": "One Pot Kürbis Pasta",
     "groups": [
-      "pasta",
-      "viel_gemuese",
-      "saisonal"
+      "saisonal",
+      "familienkochbuch"
     ],
-    "haltbarkeit": "",
+    "haltbarkeit": "vorrat",
     "notes": "",
     "ingredients": [
       {
@@ -2118,7 +2067,6 @@
     "id": "b196afa2-4f0a-4010-a89d-f22d72997c68",
     "name": "Gefüllte Süßkartoffel Rezept Chantal",
     "groups": [
-      "kartoffeln",
       "ofen",
       "viel_gemuese"
     ],
@@ -2156,7 +2104,8 @@
     "name": "Tiktok Kartoffeln",
     "groups": [
       "kartoffeln",
-      "ofen"
+      "ofen",
+      "guenstig"
     ],
     "haltbarkeit": "vorrat",
     "notes": "",
@@ -2193,12 +2142,12 @@
   },
   {
     "id": "3d2d9125-46ad-481e-ae14-486d35a49c30",
-    "name": "Vodka Pasta",
+    "name": "Vodka Pasta (optional: Garnelen)",
     "groups": [
       "pasta",
-      "fleisch_fisch"
+      "guenstig"
     ],
-    "haltbarkeit": "frisch",
+    "haltbarkeit": "vorrat",
     "notes": "",
     "ingredients": [
       {
@@ -2239,7 +2188,7 @@
     "id": "d5d2994a-eef3-4e92-b867-f619663f3d7d",
     "name": "Chinesische Scherennudeln",
     "groups": [
-      "asiatisch"
+      "pasta"
     ],
     "haltbarkeit": "frisch",
     "notes": "",

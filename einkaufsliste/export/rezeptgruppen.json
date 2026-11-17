@@ -5,14 +5,19 @@
     "label": "Pasta"
   },
   {
-    "id": "reis_curry",
-    "emoji": "🍛",
-    "label": "Reis, Risotto & Curry"
+    "id": "viel_gemuese",
+    "emoji": "🥦",
+    "label": "Viel Gemüse"
   },
   {
-    "id": "kartoffeln",
-    "emoji": "🥔",
-    "label": "Kartoffeln, Gnocchi & Spätzle"
+    "id": "guenstig",
+    "emoji": "💲",
+    "label": "Günstig"
+  },
+  {
+    "id": "airfryer",
+    "emoji": "🍟",
+    "label": "Airfryer"
   },
   {
     "id": "ofen",
@@ -20,9 +25,14 @@
     "label": "Aus dem Ofen"
   },
   {
-    "id": "suppen",
-    "emoji": "🍲",
-    "label": "Suppen & Eintöpfe"
+    "id": "kartoffeln",
+    "emoji": "🥔",
+    "label": "Kartoffeln, Gnocchi & Spätzle"
+  },
+  {
+    "id": "reis_curry",
+    "emoji": "🍛",
+    "label": "Reis"
   },
   {
     "id": "salate",
@@ -30,9 +40,24 @@
     "label": "Salate"
   },
   {
-    "id": "asiatisch",
-    "emoji": "🥢",
-    "label": "Asiatisch"
+    "id": "suppen",
+    "emoji": "🍲",
+    "label": "Suppen & Eintöpfe"
+  },
+  {
+    "id": "saisonal",
+    "emoji": "🍂",
+    "label": "Saisonal"
+  },
+  {
+    "id": "fleisch_fisch",
+    "emoji": "🐟",
+    "label": "Fleisch & Fisch"
+  },
+  {
+    "id": "familienkochbuch",
+    "emoji": "📕",
+    "label": "Familienkochbuch"
   },
   {
     "id": "sonstiges",
@@ -43,25 +68,5 @@
     "id": "suesses",
     "emoji": "❓",
     "label": "Sonstiges"
-  },
-  {
-    "id": "viel_gemuese",
-    "emoji": "🥦",
-    "label": "Viel Gemüse"
-  },
-  {
-    "id": "fleisch_fisch",
-    "emoji": "🐟",
-    "label": "Fleisch & Fisch"
-  },
-  {
-    "id": "saisonal",
-    "emoji": "🍂",
-    "label": "Saisonal"
-  },
-  {
-    "id": "familienkochbuch",
-    "emoji": "📕",
-    "label": "Familienkochbuch"
   }
 ]
